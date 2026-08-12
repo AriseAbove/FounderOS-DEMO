@@ -1,11 +1,14 @@
 /**
- * Alex's three income sources — the venture lens over the OS.
+ * Alex's two active income sources — the venture lens over the OS.
  *
  * One database, one G-Brain, one agent roster: ventures never partition the
  * data. They are saved filters — each one names the agents that serve it per
  * life area, the brain tag that marks its pages, and the current executive
  * focus. Switching venture in the hierarchy or life map swaps which crew
  * lights up; the agents themselves keep full visibility of everything.
+ *
+ * Personal Brand (brand-deals) was retired from this lens — the OS focuses on
+ * Vantage (the agency) and Launchpad Cohort (the mentorship).
  */
 import type { LifeArea } from '@/lib/life-map';
 import { LIFE_AREAS } from '@/lib/life-map';
@@ -68,28 +71,6 @@ export const VENTURES: Venture[] = [
       sales: ['launchpad-cohort-sales', 'fanbasis-sales', 'sales-agent', 'sales-calls-data'],
       communication: ['whatsapp-worker', 'gmail-worker', 'comms-agent', 'crm-pulse'],
       finances: ['payments-pulse', 'stripe-sales', 'pava-financing', 'processor-confirmation'],
-      knowledge: SHARED_KNOWLEDGE,
-      operations: SHARED_OPS,
-    },
-  },
-  {
-    // Internal id/brainTag stay 'brand-deals'; presented as Personal Brand.
-    id: 'brand-deals',
-    label: 'Personal Brand',
-    kind: 'Paid collaborations',
-    color: '#a3e635',
-    detail: 'Sponsored collabs with AI companies — personally managed.',
-    brainTag: 'brand-deals',
-    focus: [
-      'Inbound collab offers triaged and answered',
-      'Deliverables calendar — no missed posting windows',
-      'Invoices out and chased; rates documented per brand',
-    ],
-    areaAgents: {
-      marketing: ['arcads-creative', 'social-agent', 'zernio-publisher', 'higgsfield-creative', 'remotion-editor'],
-      sales: ['sales-agent', 'crm-pulse'],
-      communication: ['gmail-worker', 'crm-pulse', 'comms-agent'],
-      finances: ['payments-pulse', 'stripe-sales'],
       knowledge: SHARED_KNOWLEDGE,
       operations: SHARED_OPS,
     },

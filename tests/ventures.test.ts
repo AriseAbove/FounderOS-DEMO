@@ -12,10 +12,10 @@ import { realAgents } from '@/lib/agents/real';
 const KNOWN_AGENTS = new Set(realAgents.map((a) => a.id));
 
 describe('VENTURES', () => {
-  test("Alex's three income sources, each with a distinct color and brain tag", () => {
-    expect(VENTURES.map((v) => v.id)).toEqual(['vantage', 'launchpad-cohort', 'brand-deals']);
-    expect(new Set(VENTURES.map((v) => v.color)).size).toBe(3);
-    expect(new Set(VENTURES.map((v) => v.brainTag)).size).toBe(3);
+  test("Alex's two active income sources, each with a distinct color and brain tag", () => {
+    expect(VENTURES.map((v) => v.id)).toEqual(['vantage', 'launchpad-cohort']);
+    expect(new Set(VENTURES.map((v) => v.color)).size).toBe(2);
+    expect(new Set(VENTURES.map((v) => v.brainTag)).size).toBe(2);
     for (const v of VENTURES) {
       expect(v.focus.length).toBeGreaterThan(0); // executive task list
       expect(v.detail.length).toBeGreaterThan(0);
@@ -30,10 +30,9 @@ describe('VENTURES', () => {
     expect(byId.get('launchpad-cohort')?.color).toBe('#d9263f');
   });
 
-  test('the brand-deals venture is presented as Personal Brand, keeping its color', () => {
-    const pb = getVenture('brand-deals');
-    expect(pb?.label).toBe('Personal Brand');
-    expect(pb?.color).toBe('#a3e635');
+  test('Personal Brand (brand-deals) is retired from the venture lens', () => {
+    expect(getVenture('brand-deals')).toBeNull();
+    expect(VENTURES.some((v) => v.label === 'Personal Brand')).toBe(false);
   });
 
   test('venture colors do not collide with life-area colors', () => {
@@ -79,9 +78,9 @@ describe('lookups', () => {
     }
   });
 
-  test('venturesForAgent reverse lookup: shared infra agents serve all three', () => {
+  test('venturesForAgent reverse lookup: shared infra agents serve both ventures', () => {
     expect(venturesForAgent('conductor').map((v) => v.id)).toEqual([
-      'vantage', 'launchpad-cohort', 'brand-deals',
+      'vantage', 'launchpad-cohort',
     ]);
   });
 

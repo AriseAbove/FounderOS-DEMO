@@ -106,8 +106,8 @@ export default function OrgChartPage({ searchParams }: { searchParams?: { ventur
         title="Agent Hierarchy"
       />
 
-      {/* Venture switcher: Vantage / Launchpad Cohort / Personal Brand — one
-          click swaps which crew lights up below. All data stays shared. */}
+      {/* Venture switcher: Vantage / Launchpad Cohort — one click swaps which
+          crew lights up below. All data stays shared. */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <Link
           href="/org"

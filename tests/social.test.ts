@@ -175,7 +175,7 @@ describe('buildSocialDashboard', () => {
     db = openDb(':memory:');
     seedDatabase(db);
     const ig = buildSocialDashboard(db).platforms.find((p) => p.platform === 'instagram');
-    // seeded ~90d history → latest is the real 40,061 and every window computes
+    // seeded ~90d history → latest is the seeded 42,000 and every window computes
     expect(ig?.followers).toBe(42000);
     expect(typeof ig?.growth.d7).toBe('number');
     expect(typeof ig?.growth.d30).toBe('number');
@@ -214,7 +214,7 @@ describe('seeded social data', () => {
     expect(byPlatform.get('linkedin')?.handle).toBe('Alex Rivera');
   });
 
-  test('seeds multi-month history ending at the real current count', () => {
+  test('seeds multi-month history ending at the seeded current value', () => {
     db = openDb(':memory:');
     seedDatabase(db);
     expect(db.social.snapshots('youtube').at(-1)?.followers).toBe(900);

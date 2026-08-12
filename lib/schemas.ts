@@ -26,7 +26,7 @@ export const AgentSchema = z.object({
   tools: z.array(z.string()),
   // parentId nests sub-agents under the agent doing the delegating;
   // instance names the runtime that will host this agent ('builtin' today,
-  // an OpenClaw/Claude Code instance name once the Mac mini is live).
+  // an OpenClaw/Claude Code instance name once the dedicated host is live).
   parentId: z.string().nullable().default(null),
   instance: z.string().min(1).default('builtin'),
 });

@@ -107,7 +107,7 @@ describe('classifyVenture', () => {
   test('person-name deals read as Launchpad Cohort mentorship leads', () => {
     expect(classifyVenture('Reese Calder')).toBe('launchpad-cohort');
     expect(classifyVenture('Tayla Nguyen')).toBe('launchpad-cohort');
-    expect(classifyVenture('NAYL AHMADULIN')).toBe('launchpad-cohort');
+    expect(classifyVenture('CASEY EXAMPLE')).toBe('launchpad-cohort');
   });
 
   test('company-flavored deals read as Vantage client builds', () => {

@@ -5,11 +5,11 @@ import { parseLiveAccounts, parseHistory, parsePostDays } from '@/lib/connectors
 // live at metadata.profileData.followersCount (NOT top-level profileData).
 const ACCOUNTS_FIXTURE = {
   accounts: [
-    { platform: 'instagram', username: 'founderos.ai', metadata: { profileData: { followersCount: 52936 } } },
-    { platform: 'tiktok', username: 'founderos.ai', metadata: { profileData: { followersCount: 10269 } } },
-    { platform: 'youtube', username: 'founderosai', metadata: { profileData: { followersCount: 1140 } } },
-    { platform: 'twitter', username: 'Founderosai', metadata: { profileData: { followersCount: 4178 } } },
-    { platform: 'linkedin', username: 'Alex Rivera', metadata: { profileData: { followersCount: 1880 } } },
+    { platform: 'instagram', username: 'founderos.ai', metadata: { profileData: { followersCount: 41200 } } },
+    { platform: 'tiktok', username: 'founderos.ai', metadata: { profileData: { followersCount: 8600 } } },
+    { platform: 'youtube', username: 'founderosai', metadata: { profileData: { followersCount: 920 } } },
+    { platform: 'twitter', username: 'Founderosai', metadata: { profileData: { followersCount: 3350 } } },
+    { platform: 'linkedin', username: 'Alex Rivera', metadata: { profileData: { followersCount: 1510 } } },
     // facebook count via page fan_count fallback
     { platform: 'facebook', username: 'Alex Rivera', metadata: { availablePages: [{ fan_count: 42 }] } },
     // no usable count anywhere -> omitted
@@ -20,11 +20,11 @@ const ACCOUNTS_FIXTURE = {
 describe('parseLiveAccounts', () => {
   it('extracts live followers from metadata.profileData.followersCount', () => {
     const map = parseLiveAccounts(ACCOUNTS_FIXTURE);
-    expect(map.instagram?.followers).toBe(52936);
-    expect(map.tiktok?.followers).toBe(10269);
-    expect(map.youtube?.followers).toBe(1140);
-    expect(map.twitter?.followers).toBe(4178);
-    expect(map.linkedin?.followers).toBe(1880);
+    expect(map.instagram?.followers).toBe(41200);
+    expect(map.tiktok?.followers).toBe(8600);
+    expect(map.youtube?.followers).toBe(920);
+    expect(map.twitter?.followers).toBe(3350);
+    expect(map.linkedin?.followers).toBe(1510);
   });
 
   it('falls back to page fan_count when profileData has no count', () => {

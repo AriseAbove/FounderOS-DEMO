@@ -46,7 +46,7 @@ export async function localStackStatus(): Promise<ConnectorStatus> {
     ping('http://localhost:4000'),
     ping('http://localhost:3789'),
     ping('http://localhost:11434/api/tags'),
-    ping('http://localhost:18789'),
+    ping('http://localhost:8090'),
     tmuxSessions(),
   ]);
 
@@ -60,7 +60,7 @@ export async function localStackStatus(): Promise<ConnectorStatus> {
       detail: remotionStudio ? 'studio live :3789' : remotionDir ? 'pipeline installed' : 'missing',
     },
     { name: 'ollama', up: ollama, detail: 'local LLM :11434' },
-    { name: 'openclaw', up: openclawGateway, detail: 'gateway :18789' },
+    { name: 'openclaw', up: openclawGateway, detail: 'gateway' },
     { name: 'tmux', up: tmuxCount > 0, detail: `${tmuxCount} sessions` },
     {
       name: 'whisper',

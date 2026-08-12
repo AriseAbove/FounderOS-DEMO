@@ -216,10 +216,10 @@ describe('seed history is deep enough for growth math', () => {
     expect(audienceGrowthPct(db, 60)).not.toBeNull();
     expect(dmGrowthPct(db, 60)).not.toBeNull();
     expect(db.social.dmSnapshots().length).toBeGreaterThan(50);
-    // the email list is the real Beehiiv account (imported 2026-05-28): its
+    // the email list is the seeded Beehiiv account: its
     // short window is computable, but 60d honestly predates the list → null
     const email = buildEmailList(db);
-    expect(email.subscribers).toBe(2141);
+    expect(email.subscribers).toBe(1850);
     expect(email.growth.d7).not.toBeNull();
     expect(email.growth.d60).toBeNull();
   });

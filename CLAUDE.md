@@ -36,7 +36,7 @@ schema + seed entry + test.
 
 ## G-Brain — ANSWERED (2026-06-11)
 
-G-Brain = **GBrain v0.41** (`gbrain` CLI at `~/.bun/bin/gbrain`): markdown
+G-Brain = **GBrain v0.41** (`gbrain` CLI on PATH): markdown
 knowledge in `~/knowledge/brain-store/` + Supabase backend ("Second Brain",
 free tier — pauses on idle) + ZeroEntropy embeddings (key in
 `~/.config/knowledge/config.json`). The real provider in `lib/connectors/gbrain.ts`
@@ -53,11 +53,11 @@ Alex's directive: real integrations, not larp. Strict black & white theme
   `ConnectorStatus` (never fake "connected"): `email.ts` (4 IMAP slots),
   `slack.ts`, `payments.ts` (Stripe + registry), `notion.ts`, `gbrain.ts`,
   `zernio.ts` (key from ~/.config/social/.env — LIVE), `attio.ts` (key reused
-  from ~/.config/mcp.json mcpServers — LIVE), `arcads.ts` (~/Projects/
-  arcads-agent-skills/.env — LIVE), `miro.ts` (knowledge/.env.agents — LIVE),
+  from ~/.config/mcp.json mcpServers — LIVE), `arcads.ts` (local `.env` —
+  LIVE), `miro.ts` (knowledge/.env.agents — LIVE),
   `wispr.ts` (local flow.sqlite readonly — LIVE), `obsidian.ts` (vault fs;
-  needs macOS Documents permission), `local-stack.ts` (ports 4000/3789/11434/
-  18789 + tmux + brew binaries).
+  needs macOS Documents permission), `local-stack.ts` (local service ports
+  + tmux + brew binaries).
 - `lib/creds.ts` — credential resolution: process.env first, then Alex's
   canonical files at runtime. NEVER copy secret values into this repo.
 - `lib/agents/runtime.ts` + `real.ts` — agent registry; every seeded agent row
@@ -121,7 +121,7 @@ provider status.
   `BrainGraphView`/`AudienceConsistencyLazy`; contract in
   `tests/code-splitting.test.ts`). Use `next/image` for any future raster
   images — every current visual is SVG/canvas, so nothing needed a retrofit.
-- Future: migrate hosting to Alex's Mac mini (M4 Pro 24GB); Supabase stays managed.
+- Future: migrate hosting to a dedicated host; Supabase stays managed.
 
 ## Multi-agent etiquette
 

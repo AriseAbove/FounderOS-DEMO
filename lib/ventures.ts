@@ -35,7 +35,7 @@ export const VENTURES: Venture[] = [
     id: 'vantage',
     label: 'Vantage',
     kind: 'AI agency',
-    // Brand green sampled from VANTAGE LOGO (~/vantage/VANTAGE LOGO).
+    // Brand green sampled from the Vantage logo.
     color: '#00ffaa',
     detail: 'Client AI builds and delivery — the agency arm.',
     brainTag: 'vantage',

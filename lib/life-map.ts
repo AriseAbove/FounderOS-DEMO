@@ -92,7 +92,7 @@ export const LIFE_AREAS: LifeArea[] = [
         detail: 'Tagged people with response tiers — who needs an answer ASAP.',
       },
       { id: 'inbox', label: 'Inbox', detail: '4 IMAP inboxes, unified.' },
-      { id: 'whatsapp', label: 'WhatsApp', detail: '611 chats from local ChatStorage.' },
+      { id: 'whatsapp', label: 'WhatsApp', detail: 'Conversations from local ChatStorage.' },
       { id: 'slack', label: 'Slack', detail: 'Workspace messages and mentions.' },
       { id: 'meetings', label: 'Meetings', detail: 'Notes and follow-ups.' },
     ],
@@ -138,7 +138,7 @@ export const LIFE_AREAS: LifeArea[] = [
     modules: [
       { id: 'agents', label: 'Agents', detail: 'The roster and its hierarchy.' },
       { id: 'automations', label: 'Automations', detail: 'Scheduled and self-healing jobs.' },
-      { id: 'infra', label: 'Infra', detail: 'Local stack, ports, Mac mini target.' },
+      { id: 'infra', label: 'Infra', detail: 'Local stack, ports, dedicated host target.' },
       { id: 'hiring', label: 'Hiring', detail: 'Candidates and roles.' },
     ],
     // dept-tech rolls up to knowledge first (lifeAreaForDepartment takes the

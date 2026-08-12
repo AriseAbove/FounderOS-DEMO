@@ -1,6 +1,6 @@
 /**
  * Cron schedule helpers for agent jobs. Definitions are stored in SQLite and
- * displayed here; the actual runner lands with the Mac mini deployment — the
+ * displayed here; the actual runner lands with the dedicated host deployment — the
  * OS is honest about that in the UI.
  */
 const FIELD_RE = /^(\*|[0-9*/,-]+)$/;

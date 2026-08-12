@@ -57,7 +57,7 @@ export function ConductorCard({
       </div>
       <div className="mt-2 text-center text-sm font-bold tracking-[0.2em]">CONDUCTOR</div>
       <div className="text-center text-[10px] text-os-dim">
-        super agent · {conductor.instance} runtime until the Mac mini lands
+        super agent · {conductor.instance} runtime until the dedicated host lands
       </div>
 
       {/* Chat pill → broadcast to every agent */}

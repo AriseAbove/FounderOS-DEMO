@@ -112,7 +112,7 @@ async function clientRoster(db: ReturnType<typeof getDb>): Promise<RosterClient[
 }
 
 // The memory constellation distills the whole brain-store (parse + local PCA
-// over ~900 notes) — too heavy to redo per request on a force-dynamic page, so
+// over the full note set) — too heavy to redo per request on a force-dynamic page, so
 // cache per server process with a short TTL. Never throws: an unreadable
 // store yields undefined and the graph falls back to the plain Alex dot.
 let memoryCache: { at: number; value: MemoryGraph | undefined } | null = null;
@@ -128,7 +128,7 @@ function memoryConstellation(): MemoryGraph | undefined {
     const store = readStoreNotes();
     const seen = new Set(store.map((n) => n.path));
     const vault = readVaultNotes().filter((n) => !seen.has(n.path));
-    // the Chat Archive (500 conversations) is spotlighted: a guaranteed
+    // the Chat Archive is spotlighted: a guaranteed
     // slice of the page cap and its cluster centered in the disc
     const distilled = distillMemoryGraph(buildBrainGraph([...store, ...vault]), {
       centerFolder: 'Chat Archive',
@@ -166,7 +166,7 @@ export default async function BrainPage() {
   const layers: { name: string; sub: string; val: string; state: string }[] = [
     {
       name: 'gbrain CLI',
-      sub: 'v0.41 · ~/.bun/bin/gbrain · doctor --fast',
+      sub: 'v0.41 · gbrain CLI · doctor --fast',
       val: doctor.connected ? 'LIVE' : 'UNREACHABLE',
       state: doctor.connected ? 'connected' : 'error',
     },
@@ -184,7 +184,7 @@ export default async function BrainPage() {
     },
     {
       name: 'Supabase Second Brain',
-      sub: '918 pages / 11k chunks · free tier idle-pause',
+      sub: '1240 pages / 15k chunks · free tier idle-pause',
       val: fallbackActive ? 'PAUSED' : 'LIVE',
       state: fallbackActive ? 'available' : 'connected',
     },
@@ -358,11 +358,11 @@ export default async function BrainPage() {
           <Stage step="3" title="Supabase Postgres + pgvector" caption='"Second Brain" · ZeroEntropy embeddings'>
             <div className="grid grid-cols-2 gap-2">
               <div className="rounded-md-t border border-os-border bg-os-surface2 px-3 py-2.5">
-                <div className="font-mono text-xl font-bold">918</div>
+                <div className="font-mono text-xl font-bold">1240</div>
                 <div className="font-mono text-[10px] uppercase tracking-wider text-os-dim">pages · last known</div>
               </div>
               <div className="rounded-md-t border border-os-border bg-os-surface2 px-3 py-2.5">
-                <div className="font-mono text-xl font-bold">11k</div>
+                <div className="font-mono text-xl font-bold">15k</div>
                 <div className="font-mono text-[10px] uppercase tracking-wider text-os-dim">chunks · last known</div>
               </div>
             </div>

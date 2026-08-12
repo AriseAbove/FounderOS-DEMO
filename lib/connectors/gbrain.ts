@@ -7,7 +7,7 @@ import type { BrainProvider, BrainSearchResult, BrainStatus } from '@/lib/brain'
 export type ExecResult = { stdout: string; stderr: string; code: number };
 export type ExecFn = (cmd: string, args: string[], stdin?: string) => Promise<ExecResult>;
 
-const GBRAIN_BIN = process.env.GBRAIN_BIN ?? path.join(os.homedir(), '.bun', 'bin', 'gbrain');
+const GBRAIN_BIN = process.env.GBRAIN_BIN ?? 'gbrain';
 const DEFAULT_STORE = process.env.GBRAIN_STORE ?? path.join(os.homedir(), 'knowledge', 'brain-store');
 const READ_TIMEOUT_MS = 15_000;
 const WRITE_TIMEOUT_MS = 60_000;

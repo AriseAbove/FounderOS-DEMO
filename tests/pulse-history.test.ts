@@ -44,7 +44,7 @@ describe('stateOfWorld — honest attention-first status line', () => {
     connected: 6,
     totalConnectors: 6,
     inbound: 0,
-    health: 92,
+    health: 95,
     brainConnected: true,
     failedRuns: 0,
   };

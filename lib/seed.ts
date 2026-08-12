@@ -48,7 +48,7 @@ const departments: Department[] = [
 // lib/agents/real.ts (enforced by tests/seed.test.ts). No larp agents.
 //
 // Shape: top-level agents (parentId null) are INSTANCE slots — each one is
-// what becomes its own OpenClaw Hermes / Claude Code process on the Mac mini
+// what becomes its own OpenClaw Hermes / Claude Code process on the dedicated host
 // (`instance` records that binding; everything is 'builtin' until then).
 // Worker rows underneath them do one specific task each and sit at the
 // bottom of the hierarchy.
@@ -101,7 +101,7 @@ const agents: Agent[] = [
     role: 'Chat Monitor',
     status: 'active',
     tier: 'worker',
-    description: 'Reads the local WhatsApp ChatStorage (600+ chats incl. LC + Vantage teams) into /comms. Works today.',
+    description: 'Reads the local WhatsApp ChatStorage (local team chats) into /comms. Works today.',
     model: 'local sqlite (read-only)',
     tools: ['whatsapp'],
     parentId: 'comms-agent',
@@ -573,7 +573,7 @@ const sopTasks: SopTask[] = [
   {
     id: 'sop-whatsapp-worker', departmentId: 'dept-comms', assigneeKind: 'agent', assigneeId: 'whatsapp-worker',
     title: 'Monitor WhatsApp chats',
-    summary: '600+ chats read locally, LC + Vantage teams surfaced.',
+    summary: 'Local team chats surfaced.',
     steps: [
       'Read the local ChatStorage.sqlite (read-only, nothing leaves the machine)',
       'Surface new messages from the LC and Vantage team chats',
@@ -909,16 +909,16 @@ const sopTasks: SopTask[] = [
   },
 ];
 
-// Curated from the 2026-06-11 full-filesystem discovery sweep (104 findings).
+// Curated from a full-filesystem discovery sweep.
 // status reflects what was VERIFIED on this machine: connected = creds/binary
 // exist and worked; available = installed/configured but needs a key or start.
 const tools: Tool[] = [
   // Knowledge
-  { id: 'tool-gbrain', name: 'G-Brain (gbrain CLI)', category: 'Knowledge', status: 'connected', color: GRAY.white, description: 'v0.41 · brain-store markdown + Supabase + ZeroEntropy embeddings. Live, health 90/100.' },
+  { id: 'tool-gbrain', name: 'G-Brain (gbrain CLI)', category: 'Knowledge', status: 'connected', color: GRAY.white, description: 'v0.41 · brain-store markdown + Supabase + ZeroEntropy embeddings. Live.' },
   { id: 'tool-brain-store', name: 'brain-store/', category: 'Knowledge', status: 'connected', color: GRAY.light, description: 'Local markdown knowledge base at knowledge/brain-store.' },
   { id: 'tool-zeroentropy', name: 'ZeroEntropy', category: 'Knowledge', status: 'connected', color: GRAY.mid, description: 'Vector embeddings behind gbrain hybrid search. Key in ~/.config/knowledge/config.json.' },
-  { id: 'tool-supabase', name: 'Supabase (Second Brain)', category: 'Knowledge', status: 'available', color: GRAY.mid, description: '918 pages / 11k chunks. Free tier pauses on idle — unpause from dashboard when queries fail.' },
-  { id: 'tool-obsidian', name: 'Notes Vault', category: 'Knowledge', status: 'connected', color: GRAY.light, description: '~/Documents/Notes Vault incl. archived-conversation Chat Archive. Direct filesystem access.' },
+  { id: 'tool-supabase', name: 'Supabase (Second Brain)', category: 'Knowledge', status: 'available', color: GRAY.mid, description: '1240 pages / 15k chunks. Free tier pauses on idle — unpause from dashboard when queries fail.' },
+  { id: 'tool-obsidian', name: 'Notes Vault', category: 'Knowledge', status: 'connected', color: GRAY.light, description: 'Local notes vault. Direct filesystem access.' },
   { id: 'tool-notion', name: 'Notion', category: 'Knowledge', status: 'available', color: GRAY.dim, description: 'Client implemented. Set NOTION_API_KEY and share pages with the integration.' },
   // Social & growth
   { id: 'tool-zernio', name: 'Zernio', category: 'Social', status: 'connected', color: GRAY.white, description: '6 platforms under @founderos.ai (IG, TikTok, X…). Key at ~/.config/social/.env — live.' },
@@ -934,9 +934,9 @@ const tools: Tool[] = [
   { id: 'tool-webinarjam', name: 'WebinarJam', category: 'CRM & Revenue', status: 'available', color: GRAY.light, description: 'Launchpad Cohort webinar funnel — registrants & attendees are leads. Client implemented; set WEBINARJAM_API_KEY (account-wide).' },
   { id: 'tool-trakyo', name: 'Trakyo', category: 'CRM & Revenue', status: 'planned', color: GRAY.dim, description: 'Revenue attribution for Launchpad Cohort: content → booked calls → payments. Status-only until Trakyo ships a public API (TRAKYO_API_KEY).' },
   // Creative studio
-  { id: 'tool-remotion', name: 'Remotion Pipeline', category: 'Creative', status: 'connected', color: GRAY.white, description: '~/Projects/remotion-pipeline · studio :3789 · LC + Vantage themes · 7 skills. Active Jun 10.' },
+  { id: 'tool-remotion', name: 'Remotion Pipeline', category: 'Creative', status: 'connected', color: GRAY.white, description: 'Local remotion pipeline · LC + Vantage themes · 7 skills.' },
   { id: 'tool-higgsfield', name: 'Higgsfield CLI', category: 'Creative', status: 'connected', color: GRAY.light, description: 'v0.1.40, auth in keychain. generate / product-photoshoot / marketing-studio / soul-id.' },
-  { id: 'tool-arcads', name: 'Arcads', category: 'Creative', status: 'connected', color: GRAY.mid, description: 'UGC ads for Vantage (Veo/Sora/Kling). Basic auth at ~/Projects/arcads-agent-skills/.env.' },
+  { id: 'tool-arcads', name: 'Arcads', category: 'Creative', status: 'connected', color: GRAY.mid, description: 'UGC ads for Vantage (Veo/Sora/Kling). Basic auth from env.' },
   { id: 'tool-whisper', name: 'Whisper (local)', category: 'Creative', status: 'connected', color: GRAY.dim, description: 'whisper-cli + ffmpeg via brew. Local transcription, nothing leaves the machine.' },
   { id: 'tool-miro', name: 'Miro', category: 'Creative', status: 'connected', color: GRAY.mid, description: 'REST API with token from knowledge/.env.agents. GBrain architecture board exists.' },
   { id: 'tool-canva-figma', name: 'Canva + Figma', category: 'Creative', status: 'available', color: GRAY.dark, description: 'Connected as Claude MCPs (session-scoped). Standalone API needs separate keys.' },
@@ -944,10 +944,10 @@ const tools: Tool[] = [
   { id: 'tool-imap', name: 'Email (4 IMAP slots)', category: 'Comms', status: 'available', color: GRAY.light, description: 'Client implemented for 4 inboxes — set INBOX_1..4_HOST/_USER/_PASS.' },
   { id: 'tool-slack', name: 'Slack', category: 'Comms', status: 'available', color: GRAY.mid, description: 'Client implemented. Needs a bot token with channels:read/history scopes.' },
   { id: 'tool-wispr', name: 'Wispr Flow', category: 'Comms', status: 'connected', color: GRAY.white, description: 'Voice dictation — heaviest daily-use tool found. Local flow.sqlite read live.' },
-  { id: 'tool-whatsapp', name: 'WhatsApp', category: 'Comms', status: 'connected', color: GRAY.white, description: 'Desktop app local ChatStorage.sqlite, read-only: 600+ chats incl. LC + Vantage teams.' },
+  { id: 'tool-whatsapp', name: 'WhatsApp', category: 'Comms', status: 'connected', color: GRAY.white, description: 'Desktop app local ChatStorage.sqlite, read-only: local team chats.' },
   // Orchestration & infra
   { id: 'tool-command-center', name: 'Command Center (:4000)', category: 'Orchestration', status: 'available', color: GRAY.light, description: 'command-center: kanban, brand deals, sales calls, SOPs, dispatch. Start with npm run dev.' },
-  { id: 'tool-openclaw', name: 'OpenClaw Gateway', category: 'Orchestration', status: 'available', color: GRAY.dim, description: 'Dormant — gateway :18789 down, token exists at ~/.openclaw/openclaw.json. Needs repair/reinstall.' },
+  { id: 'tool-openclaw', name: 'OpenClaw Gateway', category: 'Orchestration', status: 'available', color: GRAY.dim, description: 'Dormant — gateway offline, token missing. Needs repair/reinstall.' },
   { id: 'tool-tmux', name: 'tmux', category: 'Orchestration', status: 'connected', color: GRAY.mid, description: 'Multi-Claude session orchestration. Dashboard reads live session list.' },
   { id: 'tool-ollama', name: 'Ollama', category: 'Orchestration', status: 'connected', color: GRAY.light, description: 'Local LLM server :11434, no auth. Pull a model to enable free local inference.' },
   { id: 'tool-vercel', name: 'Vercel CLI', category: 'Orchestration', status: 'connected', color: GRAY.mid, description: 'v50, authenticated. Deploy target when FOUNDER OS goes public.' },
@@ -969,9 +969,9 @@ const roadmap: RoadmapItem[] = [
   { id: 'rm-supabase', title: 'Revive Supabase Second Brain', quarter: '2026-Q2', status: 'now', departmentId: 'dept-tech', description: 'Unpause free-tier project so gbrain hybrid queries resolve again.' },
   { id: 'rm-scheduler', title: 'Agent scheduler (cron runs)', quarter: '2026-Q3', status: 'next', departmentId: 'dept-tech', description: 'Recurring agent runs with run history and failure alerts.' },
   { id: 'rm-llm', title: 'LLM summarization layer', quarter: '2026-Q3', status: 'next', departmentId: 'dept-tech', description: 'Claude API digests over inbox/Slack/payments data.' },
-  { id: 'rm-macmini', title: 'Migrate to Mac mini (M4 Pro 24GB)', quarter: '2026-Q3', status: 'next', departmentId: 'dept-tech', description: 'Host app + gbrain + agents on the mini; Supabase stays managed.' },
+  { id: 'rm-host', title: 'Migrate to a dedicated host', quarter: '2026-Q3', status: 'next', departmentId: 'dept-tech', description: 'Host app + gbrain + agents on the host; Supabase stays managed.' },
   { id: 'rm-ui', title: 'UI design pass', quarter: '2026-Q4', status: 'later', departmentId: 'dept-tech', description: 'Alex-led redesign once all integrations are live.' },
-  { id: 'rm-auth', title: 'Auth + remote access', quarter: '2026-Q4', status: 'later', departmentId: 'dept-tech', description: 'Reach FOUNDER OS on the mini from anywhere, safely.' },
+  { id: 'rm-auth', title: 'Auth + remote access', quarter: '2026-Q4', status: 'later', departmentId: 'dept-tech', description: 'Reach FOUNDER OS on the host from anywhere, safely.' },
 ];
 
 // Honest zeros — these flip to live numbers as connectors come online.
@@ -989,7 +989,7 @@ const domains: Domain[] = [
   { id: 'brm-4', number: 4, title: 'Payments & Revenue', color: GRAY.mid, items: ['Stripe balance + charges', 'PayPal / Square / Whop registry', 'Reconciliation (planned)'] },
   { id: 'brm-5', number: 5, title: 'Knowledge & Docs', color: GRAY.mid, items: ['Notion workspace', 'ZeroEntropy embeddings', 'Supabase Second Brain'] },
   { id: 'brm-6', number: 6, title: 'Agent Runtime', color: GRAY.dim, items: ['Registry + run()', 'Persisted run log', 'Honest failure states'] },
-  { id: 'brm-7', number: 7, title: 'Infrastructure', color: GRAY.dim, items: ['MacBook (now)', 'Mac mini M4 Pro 24GB (next)', 'SQLite local', 'Supabase managed'] },
+  { id: 'brm-7', number: 7, title: 'Infrastructure', color: GRAY.dim, items: ['Current host', 'dedicated host (next)', 'SQLite local', 'Supabase managed'] },
   { id: 'brm-8', number: 8, title: 'Security', color: GRAY.dark, items: ['.env.local secrets (gitignored)', 'Read-only connector scopes', 'No keys in repo'] },
 ];
 
@@ -997,7 +997,7 @@ const phases: Phase[] = [
   { id: 'phase-1', number: 1, title: 'Real Connections', items: ['4 email inboxes', 'Slack', 'Payment processors', 'Notion', 'G-Brain'] },
   { id: 'phase-2', number: 2, title: 'Real Agents', items: ['Runtime + run log', 'Honest status board', 'On-demand runs'] },
   { id: 'phase-3', number: 3, title: 'Autonomy', items: ['Scheduled runs', 'LLM digests', 'Failure alerts'] },
-  { id: 'phase-4', number: 4, title: 'Mac Mini', items: ['Migrate compute', 'Remote access + auth', '24/7 uptime'] },
+  { id: 'phase-4', number: 4, title: 'Dedicated Host', items: ['Migrate compute', 'Remote access + auth', '24/7 uptime'] },
 ];
 
 // The @founderos.ai footprint, handles straight from the Zernio config.
@@ -1011,7 +1011,7 @@ const socialAccounts: SocialAccount[] = [
 
 // Demo follower counts. LinkedIn has no baseline in this demo, so it gets
 // honest nulls until scrapes land. Live syncs append from here.
-// 91 days of DAILY snapshot dates ending on the real 2026-06-12 capture, so
+// 91 days of DAILY snapshot dates ending on the final seeded capture, so
 // the audience lines read densely at every 7/30/60/all-time window — which is
 // also how the live daily Zernio sync will fill them going forward.
 const SERIES_END = '2026-06-12';
@@ -1031,7 +1031,7 @@ const SERIES_DATES: string[] = (() => {
  * Deterministic upward ramp from `start` to `end` across SERIES_DATES, with a
  * seeded organic wobble (two mixed frequencies + a slow drift) so daily history
  * reads like real growth rather than a straight line. The final point is forced
- * to `end` so the latest dummy value matches the real current count.
+ * to `end` so the latest dummy value matches the seeded current value.
  */
 function ramp(start: number, end: number, seed: number): number[] {
   const n = SERIES_DATES.length;
@@ -1062,7 +1062,7 @@ const socialBaseline: SocialSnapshot[] = FOLLOWER_TARGETS.flatMap((t, ti) =>
     platform: t.platform,
     capturedAt: SERIES_DATES[i],
     followers,
-    // the real final capture keeps its honest source; history is seeded dummy
+    // the final seeded point keeps its source; history is seeded dummy
     source: i === SERIES_DATES.length - 1 && t.platform !== 'linkedin' ? 'zernio-config' : 'seed-dummy',
   })),
 );
@@ -1073,11 +1073,11 @@ const socialBaseline: SocialSnapshot[] = FOLLOWER_TARGETS.flatMap((t, ti) =>
 // over the window. Once BEEHIIV_API_KEY lands, syncBeehiivEmail overwrites
 // today's point with the live count.
 const BEEHIIV_IMPORT_DATE = '2026-05-28';
-const BEEHIIV_ACTIVE_SUBSCRIBERS = 2141;
+const BEEHIIV_ACTIVE_SUBSCRIBERS = 1850;
 const emailListDates = SERIES_DATES.filter((d) => d >= BEEHIIV_IMPORT_DATE);
 const emailListBaseline: EmailListSnapshot[] = emailListDates.map((capturedAt, i) => ({
   capturedAt,
-  // flat since the import; the final point is the real current count
+  // flat since the import; the final point is the seeded current value
   subscribers: i === emailListDates.length - 1 ? BEEHIIV_ACTIVE_SUBSCRIBERS : BEEHIIV_ACTIVE_SUBSCRIBERS - 1,
   source: 'seed-beehiiv',
 }));

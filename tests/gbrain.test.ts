@@ -101,8 +101,8 @@ describe('GBrain provider', () => {
 });
 
 const STATS_OUTPUT = `Pages:     916
-Chunks:    11185
-Embedded:  11185
+Chunks:    14600
+Embedded:  14600
 Links:     0
 Tags:      13
 Timeline:  0
@@ -131,8 +131,8 @@ describe('parseGbrainStats', () => {
   test('extracts page/chunk/embedded counts and the by-type breakdown', () => {
     const stats = parseGbrainStats(STATS_OUTPUT);
     expect(stats.pages).toBe(916);
-    expect(stats.chunks).toBe(11185);
-    expect(stats.embedded).toBe(11185);
+    expect(stats.chunks).toBe(14600);
+    expect(stats.embedded).toBe(14600);
     expect(stats.byType).toEqual([
       { type: 'conversation', count: 500 },
       { type: 'note', count: 99 },
@@ -151,8 +151,8 @@ describe('GBrain stats()', () => {
     const stats = await brain.stats();
     expect(stats).toEqual({
       pages: 916,
-      chunks: 11185,
-      embedded: 11185,
+      chunks: 14600,
+      embedded: 14600,
       byType: [
         { type: 'conversation', count: 500 },
         { type: 'note', count: 99 },

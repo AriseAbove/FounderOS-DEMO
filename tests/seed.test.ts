@@ -181,10 +181,10 @@ describe('seedDatabase', () => {
     seedDatabase(db);
     const snaps = db.emailList.snapshots();
     expect(snaps.length).toBeGreaterThan(0);
-    // Latest count is the real "Alex's Newsletter" active subscriber count
-    // (pulled from Beehiiv 2026-07-07). Bumped deliberately as the list grows.
-    expect(db.emailList.latest()?.subscribers).toBe(2141);
-    // Honest shape: the list only exists from its 2026-05-28 bulk import — no
+    // Latest count is the seeded "Alex Rivera" subscriber count
+    // Bumped deliberately as the list grows.
+    expect(db.emailList.latest()?.subscribers).toBe(1850);
+    // Honest shape: the list only exists from its seeded bulk import — no
     // pre-import history, and nowhere near the old dummy ~30k ramp.
     expect(snaps[0].capturedAt >= '2026-05-28').toBe(true);
     for (const s of snaps) expect(s.subscribers).toBeLessThan(6000);

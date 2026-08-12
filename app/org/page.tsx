@@ -242,7 +242,7 @@ export default function OrgChartPage({ searchParams }: { searchParams?: { ventur
                   <div className="text-center text-[9px] uppercase tracking-[0.2em] text-os-dim">
                     {department.name} crew
                   </div>
-                  {/* Instance slots: each becomes an OpenClaw / Claude Code process on the mini */}
+                  {/* Instance slots: each becomes an OpenClaw / Claude Code process on the host */}
                   {instanceAgents.map((agent) => (
                     <div
                       key={agent.id}

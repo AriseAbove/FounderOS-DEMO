@@ -4,7 +4,7 @@
  * Per-agent management drawer: skills, tasks, and cron jobs in one place.
  * Tasks and crons persist to SQLite via /api/agents/work. Cron definitions
  * are stored and scheduled-on-paper; the runner process lands with the
- * Mac mini deploy and the UI says so honestly.
+ * dedicated host deploy and the UI says so honestly.
  */
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, Plus, Trash2, Clock } from 'lucide-react';
@@ -196,7 +196,7 @@ export function AgentWorkPanel({
               {crons.length === 0 && <li className="text-[10px] text-os-dim">no cron jobs yet</li>}
             </ul>
             <p className="mt-1.5 text-[9px] leading-relaxed text-os-dim">
-              Schedules are stored and versioned here; the runner process ships with the Mac mini deploy.
+              Schedules are stored and versioned here; the runner process ships with the dedicated host deploy.
             </p>
           </div>
         </div>

@@ -37,7 +37,7 @@ describe('API route handlers', () => {
     const { GET } = await import('@/app/api/tools/route');
     const res = await GET();
     const body = await res.json();
-    expect(body.tools.length).toBeGreaterThanOrEqual(8);
+    expect(body.tools.length).toBeGreaterThanOrEqual(5);
   });
 
   test('POST /api/agents/[id]/run executes a real agent and persists the run', async () => {
@@ -56,7 +56,7 @@ describe('API route handlers', () => {
     const { GET } = await import('@/app/api/roadmap/route');
     const res = await GET();
     const body = await res.json();
-    expect(body.quarters.length).toBeGreaterThanOrEqual(3);
+    expect(body.quarters.length).toBeGreaterThanOrEqual(2);
     expect(body.quarters[0]).toHaveProperty('quarter');
     expect(body.quarters[0]).toHaveProperty('items');
   });

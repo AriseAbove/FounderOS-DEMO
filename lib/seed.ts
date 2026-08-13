@@ -1,5 +1,4 @@
 import type { FounderDb } from '@/lib/db';
-import { PERSONAS } from '@/lib/personas-seed';
 import type {
   Agent,
   AgentTask,
@@ -219,95 +218,54 @@ const sopTasks: SopTask[] = [
   },
 ];
 
-// Curated from a full-filesystem discovery sweep.
-// status reflects what was VERIFIED on this machine: connected = creds/binary
-// exist and worked; available = installed/configured but needs a key or start.
+// The honest tool list: only what this OS actually integrates with today.
+// status 'available' = implemented, goes live when credentials land.
 const tools: Tool[] = [
-  // Knowledge
-  { id: 'tool-gbrain', name: 'G-Brain (gbrain CLI)', category: 'Knowledge', status: 'connected', color: GRAY.white, description: 'v0.41 · brain-store markdown + Supabase + ZeroEntropy embeddings. Live.' },
-  { id: 'tool-brain-store', name: 'brain-store/', category: 'Knowledge', status: 'connected', color: GRAY.light, description: 'Local markdown knowledge base at knowledge/brain-store.' },
-  { id: 'tool-zeroentropy', name: 'ZeroEntropy', category: 'Knowledge', status: 'connected', color: GRAY.mid, description: 'Vector embeddings behind gbrain hybrid search. Key in ~/.config/knowledge/config.json.' },
-  { id: 'tool-supabase', name: 'Supabase (Second Brain)', category: 'Knowledge', status: 'available', color: GRAY.mid, description: '1240 pages / 15k chunks. Free tier pauses on idle — unpause from dashboard when queries fail.' },
-  { id: 'tool-obsidian', name: 'Notes Vault', category: 'Knowledge', status: 'connected', color: GRAY.light, description: 'Local notes vault. Direct filesystem access.' },
-  { id: 'tool-notion', name: 'Notion', category: 'Knowledge', status: 'available', color: GRAY.dim, description: 'Client implemented. Set NOTION_API_KEY and share pages with the integration.' },
-  // Social & growth
-  { id: 'tool-zernio', name: 'Zernio', category: 'Social', status: 'connected', color: GRAY.white, description: '6 platforms under @founderos.ai (IG, TikTok, X…). Key at ~/.config/social/.env — live.' },
-  { id: 'tool-manychat', name: 'ManyChat', category: 'Social', status: 'available', color: GRAY.dim, description: 'DM automation. Endpoint map fully documented in shared-config; needs MANYCHAT_API_KEY.' },
-  { id: 'tool-skool', name: 'Skool (via Playwright)', category: 'Social', status: 'connected', color: GRAY.mid, description: 'launchpad-cohort community, driven by the documented Playwright workflow.' },
-  // CRM & revenue
-  { id: 'tool-attio', name: 'Attio', category: 'CRM & Revenue', status: 'connected', color: GRAY.white, description: 'Vantage + LC deals. Key reused from MCP config (read-scoped: query records, not lists).' },
-  { id: 'tool-fanbasis', name: 'FanBasis', category: 'CRM & Revenue', status: 'planned', color: GRAY.light, description: 'Offer/payment/customer context for Sales, including the Vantage FanBasis lane.' },
-  { id: 'tool-pava', name: 'PAVA', category: 'CRM & Revenue', status: 'planned', color: GRAY.mid, description: 'Financing options for sales offers and payment-plan context.' },
-  { id: 'tool-stripe', name: 'Stripe', category: 'CRM & Revenue', status: 'available', color: GRAY.light, description: 'Full client implemented — balance + charges live once STRIPE_SECRET_KEY is set.' },
-  { id: 'tool-ghl', name: 'GoHighLevel', category: 'CRM & Revenue', status: 'planned', color: GRAY.dark, description: 'CLI wrapper scaffolded in knowledge/scripts; keys never added.' },
-  { id: 'tool-fathom', name: 'Fathom', category: 'CRM & Revenue', status: 'available', color: GRAY.mid, description: 'AI meeting notetaker, used daily. Needs FATHOM_API_KEY from settings for API access.' },
-  { id: 'tool-webinarjam', name: 'WebinarJam', category: 'CRM & Revenue', status: 'available', color: GRAY.light, description: 'Launchpad Cohort webinar funnel — registrants & attendees are leads. Client implemented; set WEBINARJAM_API_KEY (account-wide).' },
-  { id: 'tool-trakyo', name: 'Trakyo', category: 'CRM & Revenue', status: 'planned', color: GRAY.dim, description: 'Revenue attribution for Launchpad Cohort: content → booked calls → payments. Status-only until Trakyo ships a public API (TRAKYO_API_KEY).' },
-  // Creative studio
-  { id: 'tool-remotion', name: 'Remotion Pipeline', category: 'Creative', status: 'connected', color: GRAY.white, description: 'Local remotion pipeline · LC + Vantage themes · 7 skills.' },
-  { id: 'tool-higgsfield', name: 'Higgsfield CLI', category: 'Creative', status: 'connected', color: GRAY.light, description: 'v0.1.40, auth in keychain. generate / product-photoshoot / marketing-studio / soul-id.' },
-  { id: 'tool-arcads', name: 'Arcads', category: 'Creative', status: 'connected', color: GRAY.mid, description: 'UGC ads for Vantage (Veo/Sora/Kling). Basic auth from env.' },
-  { id: 'tool-whisper', name: 'Whisper (local)', category: 'Creative', status: 'connected', color: GRAY.dim, description: 'whisper-cli + ffmpeg via brew. Local transcription, nothing leaves the machine.' },
-  { id: 'tool-miro', name: 'Miro', category: 'Creative', status: 'connected', color: GRAY.mid, description: 'REST API with token from knowledge/.env.agents. GBrain architecture board exists.' },
-  { id: 'tool-canva-figma', name: 'Canva + Figma', category: 'Creative', status: 'available', color: GRAY.dark, description: 'Connected as Claude MCPs (session-scoped). Standalone API needs separate keys.' },
-  // Comms
   { id: 'tool-imap', name: 'Email (4 IMAP slots)', category: 'Comms', status: 'available', color: GRAY.light, description: 'Client implemented for 4 inboxes — set INBOX_1..4_HOST/_USER/_PASS.' },
-  { id: 'tool-slack', name: 'Slack', category: 'Comms', status: 'available', color: GRAY.mid, description: 'Client implemented. Needs a bot token with channels:read/history scopes.' },
-  { id: 'tool-wispr', name: 'Wispr Flow', category: 'Comms', status: 'connected', color: GRAY.white, description: 'Voice dictation — heaviest daily-use tool found. Local flow.sqlite read live.' },
-  { id: 'tool-whatsapp', name: 'WhatsApp', category: 'Comms', status: 'connected', color: GRAY.white, description: 'Desktop app local ChatStorage.sqlite, read-only: local team chats.' },
-  // Orchestration & infra
-  { id: 'tool-command-center', name: 'Command Center (:4000)', category: 'Orchestration', status: 'available', color: GRAY.light, description: 'command-center: kanban, brand deals, sales calls, SOPs, dispatch. Start with npm run dev.' },
-  { id: 'tool-openclaw', name: 'OpenClaw Gateway', category: 'Orchestration', status: 'available', color: GRAY.dim, description: 'Dormant — gateway offline, token missing. Needs repair/reinstall.' },
-  { id: 'tool-tmux', name: 'tmux', category: 'Orchestration', status: 'connected', color: GRAY.mid, description: 'Multi-Claude session orchestration. Dashboard reads live session list.' },
-  { id: 'tool-ollama', name: 'Ollama', category: 'Orchestration', status: 'connected', color: GRAY.light, description: 'Local LLM server :11434, no auth. Pull a model to enable free local inference.' },
-  { id: 'tool-vercel', name: 'Vercel CLI', category: 'Orchestration', status: 'connected', color: GRAY.mid, description: 'v50, authenticated. Deploy target when FOUNDER OS goes public.' },
-  { id: 'tool-gh', name: 'GitHub CLI', category: 'Orchestration', status: 'connected', color: GRAY.dim, description: 'gh 2.89, authenticated.' },
-  // Payments (registry awaiting keys)
-  { id: 'tool-paypal', name: 'PayPal', category: 'Payments', status: 'planned', color: GRAY.mid, description: 'Registered in the processor registry; client lands when keys do.' },
-  { id: 'tool-square', name: 'Square', category: 'Payments', status: 'planned', color: GRAY.dim, description: 'Registered in the processor registry; client lands when keys do.' },
-  { id: 'tool-whop', name: 'Whop', category: 'Payments', status: 'planned', color: GRAY.dark, description: 'Registered in the processor registry; client lands when keys do.' },
+  { id: 'tool-calendar', name: 'Calendar (ICS/CalDAV)', category: 'Comms', status: 'available', color: GRAY.mid, description: 'Upcoming events across calendar feeds — set CAL_1_USER/_PASS.' },
+  { id: 'tool-quickbooks', name: 'QuickBooks', category: 'Finance', status: 'available', color: GRAY.white, description: 'The real books: MTD income/expenses + open invoices once the OAuth grant lands.' },
+  { id: 'tool-llm', name: 'Claude API', category: 'AI', status: 'available', color: GRAY.light, description: 'LLM lane for agent chat — set ANTHROPIC_API_KEY (stub provider in tests).' },
+  { id: 'tool-brain-store', name: 'Markdown knowledge store', category: 'Knowledge', status: 'available', color: GRAY.mid, description: 'Point BRAIN_STORE at a folder of markdown — grep search + capture, no external service.' },
+  { id: 'tool-railway', name: 'Railway (hosting)', category: 'Infrastructure', status: 'connected', color: GRAY.dim, description: 'Production host; SQLite lives on a mounted volume so redeploys keep data.' },
 ];
 
+// The real rebuild roadmap — what has actually shipped and what is next.
 const roadmap: RoadmapItem[] = [
-  { id: 'rm-v1', title: 'FOUNDER OS v1 baseline', quarter: '2026-Q2', status: 'done', departmentId: 'dept-tech', description: 'Six views, SQLite repos, 32 tests.' },
-  { id: 'rm-mono', title: 'Monochrome rebuild + real connectors', quarter: '2026-Q2', status: 'done', departmentId: 'dept-tech', description: 'Black & white theme; IMAP, Slack, Stripe, Notion, gbrain wired.' },
-  { id: 'rm-gbrain', title: 'G-Brain provider live', quarter: '2026-Q2', status: 'done', departmentId: 'dept-tech', description: 'gbrain CLI doctor/query + brain-store local fallback.' },
-  { id: 'rm-creds-email', title: 'Connect 4 email inboxes', quarter: '2026-Q2', status: 'now', departmentId: 'dept-comms', description: 'App passwords / IMAP creds into .env.local slots 1-4.' },
-  { id: 'rm-creds-slack', title: 'Connect Slack workspace', quarter: '2026-Q2', status: 'now', departmentId: 'dept-comms', description: 'Bot token with channels:read, channels:history.' },
-  { id: 'rm-creds-payments', title: 'Connect payment processors', quarter: '2026-Q2', status: 'now', departmentId: 'dept-finance', description: 'Stripe first; PayPal/Square/Whop as keys land.' },
-  { id: 'rm-creds-notion', title: 'Connect Notion workspace', quarter: '2026-Q2', status: 'now', departmentId: 'dept-tech', description: 'Internal integration secret + page shares.' },
-  { id: 'rm-supabase', title: 'Revive Supabase Second Brain', quarter: '2026-Q2', status: 'now', departmentId: 'dept-tech', description: 'Unpause free-tier project so gbrain hybrid queries resolve again.' },
-  { id: 'rm-scheduler', title: 'Agent scheduler (cron runs)', quarter: '2026-Q3', status: 'next', departmentId: 'dept-tech', description: 'Recurring agent runs with run history and failure alerts.' },
-  { id: 'rm-llm', title: 'LLM summarization layer', quarter: '2026-Q3', status: 'next', departmentId: 'dept-tech', description: 'Claude API digests over inbox/Slack/payments data.' },
-  { id: 'rm-host', title: 'Migrate to a dedicated host', quarter: '2026-Q3', status: 'next', departmentId: 'dept-tech', description: 'Host app + gbrain + agents on the host; Supabase stays managed.' },
-  { id: 'rm-ui', title: 'UI design pass', quarter: '2026-Q4', status: 'later', departmentId: 'dept-tech', description: 'Alex-led redesign once all integrations are live.' },
-  { id: 'rm-auth', title: 'Auth + remote access', quarter: '2026-Q4', status: 'later', departmentId: 'dept-tech', description: 'Reach FOUNDER OS on the host from anywhere, safely.' },
+  { id: 'rm-p0', title: 'Phase 0: foundation', quarter: '2026-Q3', status: 'done', departmentId: 'dept-tech', description: 'Railway volume mounted (DB survives deploys), creds hygiene, ownership docs.' },
+  { id: 'rm-p1', title: 'Phase 1: business lens', quarter: '2026-Q3', status: 'done', departmentId: 'dept-tech', description: 'AAC / Apps / Combined switcher; businesses replace the demo ventures.' },
+  { id: 'rm-p2', title: 'Phase 2: the purge', quarter: '2026-Q3', status: 'done', departmentId: 'dept-tech', description: 'Demo connectors, invented data, and fictional roster removed; AAC pipeline in the funnel.' },
+  { id: 'rm-qbo', title: 'Connect QuickBooks', quarter: '2026-Q3', status: 'now', departmentId: 'dept-finance', description: 'OAuth grant → real MTD income, expenses, open invoices on /finances.' },
+  { id: 'rm-email', title: 'Connect the inboxes', quarter: '2026-Q3', status: 'now', departmentId: 'dept-comms', description: 'IMAP creds into INBOX_1..4 slots → live unified /comms.' },
+  { id: 'rm-cal', title: 'Connect the calendar', quarter: '2026-Q3', status: 'now', departmentId: 'dept-comms', description: 'CalDAV creds → real schedule in /comms and agent context.' },
+  { id: 'rm-allo', title: 'Allo call log → funnel', quarter: '2026-Q4', status: 'next', departmentId: 'dept-sales', description: 'Real AAC leads flow from the AI receptionist into the pipeline stages.' },
+  { id: 'rm-apps-funnel', title: 'Define the Apps funnel', quarter: '2026-Q4', status: 'next', departmentId: 'dept-sales', description: 'Arise Above Apps gets its own stage model — the aac placeholder retires.' },
+  { id: 'rm-crm', title: 'Evaluate CRM sync', quarter: '2026-Q4', status: 'later', departmentId: 'dept-sales', description: 'HubSpot (or Allo built-in CRM) as the lead source of record feeding the funnel.' },
 ];
 
 // Honest zeros — these flip to live numbers as connectors come online.
 const metrics: Metric[] = [
   { id: 'metric-unread', key: 'unread_total', label: 'Unread (all inboxes)', value: 0, unit: 'emails', delta: 0, period: 'pending creds' },
   { id: 'metric-brain', key: 'brain_pages', label: 'Brain-store Pages', value: 0, unit: 'pages', delta: 0, period: 'run Data Agent' },
-  { id: 'metric-balance', key: 'stripe_available', label: 'Stripe Available', value: 0, unit: 'usd', delta: 0, period: 'pending creds' },
+  { id: 'metric-qbo-net', key: 'qbo_net_mtd', label: 'QuickBooks Net (MTD)', value: 0, unit: 'usd', delta: 0, period: 'pending OAuth' },
   { id: 'metric-runs', key: 'agent_runs', label: 'Agent Runs Logged', value: 0, unit: 'runs', delta: 0, period: 'all time' },
 ];
 
 const domains: Domain[] = [
-  { id: 'brm-1', number: 1, title: 'Command & Memory', color: GRAY.white, items: ['G-Brain (gbrain CLI)', 'brain-store markdown', 'Agent run history', 'Operator dashboard'] },
-  { id: 'brm-2', number: 2, title: 'Email Operations', color: GRAY.light, items: ['Four IMAP inboxes', 'Unread triage', 'Per-inbox health', 'Digest (planned)'] },
-  { id: 'brm-3', number: 3, title: 'Team Comms', color: GRAY.light, items: ['Slack channels', 'Message digests', 'Mention tracking (planned)'] },
-  { id: 'brm-4', number: 4, title: 'Payments & Revenue', color: GRAY.mid, items: ['Stripe balance + charges', 'PayPal / Square / Whop registry', 'Reconciliation (planned)'] },
-  { id: 'brm-5', number: 5, title: 'Knowledge & Docs', color: GRAY.mid, items: ['Notion workspace', 'ZeroEntropy embeddings', 'Supabase Second Brain'] },
+  { id: 'brm-1', number: 1, title: 'Command & Memory', color: GRAY.white, items: ['Operator dashboard', 'Agent run history', 'Markdown knowledge store'] },
+  { id: 'brm-2', number: 2, title: 'Email Operations', color: GRAY.light, items: ['Four IMAP inboxes', 'Unread triage', 'Per-inbox health'] },
+  { id: 'brm-3', number: 3, title: 'Schedule', color: GRAY.light, items: ['CalDAV calendar feeds', 'Meeting join links', 'Week-ahead view'] },
+  { id: 'brm-4', number: 4, title: 'Books & Revenue', color: GRAY.mid, items: ['QuickBooks income/expenses', 'Open invoices', 'Statement uploads'] },
+  { id: 'brm-5', number: 5, title: 'Lead Pipeline', color: GRAY.mid, items: ['AAC stages inquiry → paid', 'Decay + attention queues', 'Allo call log (planned)'] },
   { id: 'brm-6', number: 6, title: 'Agent Runtime', color: GRAY.dim, items: ['Registry + run()', 'Persisted run log', 'Honest failure states'] },
-  { id: 'brm-7', number: 7, title: 'Infrastructure', color: GRAY.dim, items: ['Current host', 'dedicated host (next)', 'SQLite local', 'Supabase managed'] },
+  { id: 'brm-7', number: 7, title: 'Infrastructure', color: GRAY.dim, items: ['Railway hosting', 'Mounted volume for SQLite', 'Deploy pipeline'] },
   { id: 'brm-8', number: 8, title: 'Security', color: GRAY.dark, items: ['.env.local secrets (gitignored)', 'Read-only connector scopes', 'No keys in repo'] },
 ];
 
 const phases: Phase[] = [
-  { id: 'phase-1', number: 1, title: 'Real Connections', items: ['4 email inboxes', 'Slack', 'Payment processors', 'Notion', 'G-Brain'] },
-  { id: 'phase-2', number: 2, title: 'Real Agents', items: ['Runtime + run log', 'Honest status board', 'On-demand runs'] },
-  { id: 'phase-3', number: 3, title: 'Autonomy', items: ['Scheduled runs', 'LLM digests', 'Failure alerts'] },
-  { id: 'phase-4', number: 4, title: 'Dedicated Host', items: ['Migrate compute', 'Remote access + auth', '24/7 uptime'] },
+  { id: 'phase-0', number: 1, title: 'Foundation', items: ['Railway volume', 'Creds hygiene', 'Ownership docs'] },
+  { id: 'phase-1', number: 2, title: 'Business Lens', items: ['AAC / Apps switcher', 'businesses.ts', 'Explicit business args'] },
+  { id: 'phase-2', number: 3, title: 'The Purge', items: ['Demo connectors out', 'Invented data out', 'AAC pipeline in'] },
+  { id: 'phase-3', number: 4, title: 'Real Connections', items: ['QuickBooks OAuth', 'Email + calendar creds', 'Allo call log → funnel'] },
 ];
 
 // Real Arise Above Construction accounts — handles only, no invented
@@ -334,150 +292,11 @@ const socialPosts: SocialPost[] = [];
 const funnelContacts: FunnelContact[] = [];
 const funnelTouches: FunnelTouch[] = [];
 
-const workflows: Workflow[] = [
-  {
-    id: 'wf-vantage-sales',
-    name: 'Vantage sales machine',
-    subtitle: 'Cold outbound to closed retainer.',
-    revenueUsd: 120_000,
-    order: 0,
-    steps: [
-      {
-        id: 'wf-mer-1',
-        title: 'Run outbound campaigns',
-        ownerKind: 'agent',
-        owner: 'Zernio Publisher',
-        hoursPerWeek: 6,
-        tools: ['zernio', 'arcads'],
-        edgeLabel: 'replies',
-        leakUsd: null,
-        automation: { title: 'Always-on content + DM outreach', state: 'live', recoveredUsd: 4200 },
-      },
-      {
-        id: 'wf-mer-2',
-        title: 'Qualify replies',
-        ownerKind: 'agent',
-        owner: 'Comms Agent',
-        hoursPerWeek: 9,
-        tools: ['manychat', 'gmail'],
-        edgeLabel: 'qualified',
-        leakUsd: 14_000,
-        automation: { title: 'Auto-qualify + book', state: 'suggested', recoveredUsd: 9000 },
-      },
-      {
-        id: 'wf-mer-3',
-        title: 'Book demos',
-        ownerKind: 'human',
-        owner: 'Alex · Founder',
-        hoursPerWeek: 4,
-        tools: ['calendar', 'attio'],
-        edgeLabel: 'demo',
-        leakUsd: null,
-        automation: null,
-      },
-      {
-        id: 'wf-mer-4',
-        title: 'Sales call',
-        ownerKind: 'human',
-        owner: 'Alex · Founder',
-        hoursPerWeek: 10,
-        tools: ['webinarjam', 'attio'],
-        edgeLabel: 'proposal',
-        leakUsd: null,
-        automation: null,
-      },
-      {
-        id: 'wf-mer-5',
-        title: 'Proposal & follow-up',
-        ownerKind: 'human',
-        owner: 'Alex · Founder',
-        hoursPerWeek: 5,
-        tools: ['proposal-gen', 'gmail'],
-        edgeLabel: 'won',
-        leakUsd: 6000,
-        automation: { title: 'Proposal follow-up sequence', state: 'suggested', recoveredUsd: 6000 },
-      },
-      {
-        id: 'wf-mer-6',
-        title: 'Onboard & deliver',
-        ownerKind: 'agent',
-        owner: 'Onboarding Agent',
-        hoursPerWeek: 3,
-        tools: ['attio', 'slack', 'notion'],
-        edgeLabel: null,
-        leakUsd: null,
-        automation: { title: 'Onboarding rails', state: 'live', recoveredUsd: 3000 },
-      },
-    ],
-  },
-  {
-    id: 'wf-lc-delivery',
-    name: 'Launchpad Cohort delivery',
-    subtitle: 'Webinar lead to retained program member.',
-    revenueUsd: 80_000,
-    order: 1,
-    steps: [
-      {
-        id: 'wf-lc-1',
-        title: 'Capture webinar leads',
-        ownerKind: 'agent',
-        owner: 'WebinarJam',
-        hoursPerWeek: 2,
-        tools: ['webinarjam', 'ghl'],
-        edgeLabel: 'registered',
-        leakUsd: null,
-        automation: { title: 'Webinar to GHL sync', state: 'live', recoveredUsd: 2500 },
-      },
-      {
-        id: 'wf-lc-2',
-        title: 'Nurture in GHL',
-        ownerKind: 'agent',
-        owner: 'GoHighLevel',
-        hoursPerWeek: 3,
-        tools: ['ghl'],
-        edgeLabel: 'booked',
-        leakUsd: 8000,
-        automation: { title: 'Nurture sequences', state: 'live', recoveredUsd: 5000 },
-      },
-      {
-        id: 'wf-lc-3',
-        title: 'Strategy call',
-        ownerKind: 'human',
-        owner: 'Alex · Founder',
-        hoursPerWeek: 8,
-        tools: ['ghl', 'calendar'],
-        edgeLabel: 'closed',
-        leakUsd: null,
-        automation: null,
-      },
-      {
-        id: 'wf-lc-4',
-        title: 'Deliver program',
-        ownerKind: 'human',
-        owner: 'LC Team',
-        hoursPerWeek: 12,
-        tools: ['skool', 'notion'],
-        edgeLabel: 'retained',
-        leakUsd: 5000,
-        automation: { title: 'Skool community ops', state: 'suggested', recoveredUsd: 4000 },
-      },
-      {
-        id: 'wf-lc-5',
-        title: 'Track attribution',
-        ownerKind: 'agent',
-        owner: 'Trakyo',
-        hoursPerWeek: 1,
-        tools: ['trakyo'],
-        edgeLabel: null,
-        leakUsd: null,
-        automation: { title: 'Revenue attribution', state: 'suggested', recoveredUsd: 0 },
-      },
-    ],
-  },
-];
+// Workflows are empty on purpose: the previous seed shipped the original
+// creator's invented revenue machines (fake $ figures throughout). Real AAC
+// workflows get mapped here deliberately, one at a time.
+const workflows: Workflow[] = [];
 
-// Agent task board — seeded across open/doing/done so the Kanban is alive on
-// first load. Demo cards; user-added tasks coexist (we insert by id, never wipe).
 // Seeded agent tasks are gone — the previous list was invented work items.
 // Real tasks are created from the UI (insert-by-id keeps user tasks intact).
 const agentTasks: AgentTask[] = [];
@@ -547,7 +366,7 @@ export function seedDatabase(db: FounderDb): void {
   for (const r of roadmap) db.roadmap.insert(r);
   for (const m of metrics) db.metrics.insert(m);
   for (const d of domains) db.domains.insert(d);
-  for (const p of PERSONAS) db.personas.insert(p);
+  db.personas.clearAll(); // persona templates were demo content — retired
   for (const p of phases) db.phases.insert(p);
   for (const a of socialAccounts) db.social.upsertAccount(a);
   // Retired invented follower/DM history leaves the DB on re-seed; anything a

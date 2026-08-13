@@ -569,6 +569,12 @@ export function openDb(path: string) {
     },
   };
 
+  const personasClear = {
+    clearAll(): void {
+      db.prepare('DELETE FROM personas').run();
+    },
+  };
+
   const phases = {
     all(): Phase[] {
       return db
@@ -1203,7 +1209,7 @@ export function openDb(path: string) {
     roadmap,
     metrics,
     domains,
-    personas,
+    personas: { ...personas, ...personasClear },
     phases,
     agentRuns,
     agentMessages,

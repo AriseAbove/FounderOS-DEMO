@@ -52,7 +52,7 @@ export const NAV_AGENTS: NavItem[] = [
 ];
 
 // The knowledge layer the agents draw on.
-export const NAV_INTELLIGENCE: NavItem[] = [{ href: '/brain', label: 'G-Brain', icon: Brain }];
+export const NAV_INTELLIGENCE: NavItem[] = [{ href: '/brain', label: 'Knowledge', icon: Brain }];
 
 export const NAV_SYSTEM: NavItem[] = [
   { href: '/integrations', label: 'Connections', icon: Plug },

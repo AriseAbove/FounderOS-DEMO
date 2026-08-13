@@ -229,7 +229,7 @@ export default async function HomePage() {
         />
         <StatTile
           href="/brain"
-          label="G-Brain health"
+          label="Knowledge health"
           value={health ?? '—'}
           unit={`/ 100${overview.doctor.connected ? ` · ${overview.doctor.status}` : ' · offline'}`}
           valueClass="text-os-accent"
@@ -369,7 +369,7 @@ export default async function HomePage() {
           >
             <Zap className="h-[18px] w-[18px] shrink-0 text-os-accent" strokeWidth={1.7} />
             <div className="min-w-0 flex-1">
-              <Label>G-Brain · knowledge core</Label>
+              <Label>Knowledge · core</Label>
               <div className="mt-2 text-[13px] font-semibold">One memory across every agent</div>
               <div className="mt-1 font-mono text-[10.5px] leading-relaxed text-os-dim">
                 {overview.store.totalFiles} pages · health {health ?? '—'}/100 · hybrid search{' '}

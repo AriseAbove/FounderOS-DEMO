@@ -75,8 +75,8 @@ export function stateOfWorld(f: PulseFacts): StateSegment[] {
   const down = Math.max(0, f.totalConnectors - f.connected);
 
   if (f.failedRuns > 0) segs.push({ text: `${plural(f.failedRuns, 'run')} failed`, tone: 'err' });
-  if (!f.brainConnected) segs.push({ text: 'G-Brain offline', tone: 'err' });
-  else if (f.health != null && f.health < 70) segs.push({ text: `G-Brain degraded ${f.health}/100`, tone: 'warn' });
+  if (!f.brainConnected) segs.push({ text: 'Knowledge store offline', tone: 'err' });
+  else if (f.health != null && f.health < 70) segs.push({ text: `Knowledge store degraded ${f.health}/100`, tone: 'warn' });
   if (down > 0) segs.push({ text: `${plural(down, 'connector')} down`, tone: 'warn' });
   if (f.inbound > 0) segs.push({ text: `${f.inbound} inbound need reply`, tone: 'accent' });
 

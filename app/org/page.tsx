@@ -168,7 +168,7 @@ export default function OrgChartPage({ searchParams }: { searchParams?: { busine
 
       {/* AI Head row: G-Brain ── Conductor ── Comms Feed */}
       <div className="flex items-center justify-center gap-0">
-        <SystemCard href="/brain" title="G-Brain" caption="markdown + pgvector knowledge store" />
+        <SystemCard href="/brain" title="Knowledge" caption="markdown knowledge store · grep search" />
         <div className="hidden h-px w-10 bg-os-border-bright md:block" />
         {conductor ? (
           <ConductorCard conductor={conductor} agentNames={agentNames} initialBroadcast={lastBroadcast} />
@@ -178,7 +178,7 @@ export default function OrgChartPage({ searchParams }: { searchParams?: { busine
           </div>
         )}
         <div className="hidden h-px w-10 bg-os-border-bright md:block" />
-        <SystemCard href="/comms" title="Comms Feed" caption="Gmail · WhatsApp · Slack, unified" />
+        <SystemCard href="/comms" title="Comms Feed" caption="email + calendar, one feed" />
       </div>
 
       {/* Trunk down to the department rail */}

@@ -246,7 +246,7 @@ export function BrainDump({ compact = false }: { compact?: boolean }) {
         <BrainCircuit className="h-4 w-4 text-os-muted" />
         <h3 className="text-sm font-bold">Brain dump</h3>
         <span className="text-[11px] text-os-dim">
-          speak, type, or drop documents → saved to the brain-store & embedded into G-Brain
+          speak, type, or drop documents → saved into the markdown knowledge store
         </span>
       </div>
 
@@ -323,7 +323,7 @@ export function BrainDump({ compact = false }: { compact?: boolean }) {
           <p className="font-mono text-[11px] text-os-muted">
             {status.embedded
               ? `✓ saved & embedded → ${status.slug ?? status.detail} — retrievable by agents now`
-              : `✓ saved → brain-store/${status.detail} — embed pending (G-Brain unreachable, will sync later)`}
+              : `✓ saved → brain-store/${status.detail} — indexed on next search (knowledge store)`}
           </p>
         )}
         {status.kind === 'error' && <p className="font-mono text-[11px] text-os-muted">✗ {status.detail}</p>}

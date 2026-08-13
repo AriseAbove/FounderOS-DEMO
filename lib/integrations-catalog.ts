@@ -14,9 +14,9 @@ import {
  */
 export const INTEGRATIONS: Integration[] = [
   // Communication
-  { slug: 'slack', name: 'Slack', tagline: 'Channels & DMs', category: 'Communication', connectorId: 'slack', popular: true, envKeys: ['SLACK_BOT_TOKEN'] },
+  { slug: 'slack', name: 'Slack', tagline: 'Channels & DMs', category: 'Communication', popular: true },
   { slug: 'gmail', name: 'Gmail', tagline: 'Send & read email', category: 'Communication', connectorId: 'email', popular: true, envKeys: [] },
-  { slug: 'whatsapp', name: 'WhatsApp', tagline: 'Messages & broadcasts', category: 'Communication', connectorId: 'whatsapp', envKeys: [] },
+  { slug: 'whatsapp', name: 'WhatsApp', tagline: 'Messages & broadcasts', category: 'Communication' },
   { slug: 'discord', name: 'Discord', tagline: 'Servers & channels', category: 'Communication' },
   { slug: 'telegram', name: 'Telegram', tagline: 'Chats & bots', category: 'Communication' },
   { slug: 'zoom', name: 'Zoom', tagline: 'Meetings & recordings', category: 'Communication', popular: true },

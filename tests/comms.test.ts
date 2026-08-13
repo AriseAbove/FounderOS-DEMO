@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'vitest';
 import { annotatePriorities, inboundLast24h, mergeFeed, type CommsItem } from '@/lib/comms';
-import { calibratedDate } from '@/lib/connectors/whatsapp';
 import type { ContactTag } from '@/lib/schemas';
 
 describe('inboundLast24h', () => {
@@ -80,42 +79,5 @@ describe('annotatePriorities', () => {
       { source: 'email', title: 'Jane Doe', sender: 'Jane Doe', preview: '', ts: '2026-06-12T01:00:00Z' },
     ];
     expect(annotatePriorities(items, both)[0].priority).toBe(1);
-  });
-});
-
-describe('sendSlackMessage', () => {
-  test('fails honestly without a token instead of pretending', async () => {
-    const { sendSlackMessage } = await import('@/lib/connectors/slack');
-    const res = await sendSlackMessage('general', 'hi', {});
-    expect(res.ok).toBe(false);
-    expect(res.detail).toContain('SLACK_BOT_TOKEN');
-  });
-});
-
-describe('calibratedDate', () => {
-  // WhatsApp's ZLASTMESSAGEDATE unit varies by app version. We calibrate
-  // against the largest raw value in the DB, which is "approximately now"
-  // whenever WhatsApp is in active use.
-  test('maps the max raw value to approximately now', () => {
-    const now = Date.parse('2026-06-11T12:00:00.000Z');
-    const maxRaw = 222_000_000_000;
-    const d = calibratedDate(maxRaw, maxRaw, now);
-    expect(Math.abs(d.getTime() - now)).toBeLessThan(60_000);
-  });
-
-  test('maps older raw values proportionally into the past', () => {
-    const now = Date.parse('2026-06-11T12:00:00.000Z');
-    const maxRaw = 222_000_000_000;
-    // one "unit-day" earlier: raw lower by (maxRaw / elapsed-since-2001) * 86400s
-    const CORE_DATA_EPOCH_MS = Date.parse('2001-01-01T00:00:00.000Z');
-    const scale = maxRaw / ((now - CORE_DATA_EPOCH_MS) / 1000);
-    const dayEarlier = maxRaw - scale * 86_400;
-    const d = calibratedDate(dayEarlier, maxRaw, now);
-    expect(Math.abs(d.getTime() - (now - 86_400_000))).toBeLessThan(120_000);
-  });
-
-  test('handles zero and negative raw values without throwing', () => {
-    const d = calibratedDate(0, 222_000_000_000, Date.now());
-    expect(d.getTime()).toBeGreaterThan(0);
   });
 });

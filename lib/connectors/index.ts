@@ -1,13 +1,11 @@
 import { emailStatus } from '@/lib/connectors/email';
 import { calendarStatus } from '@/lib/connectors/gcal';
-import { slackStatus } from '@/lib/connectors/slack';
 import { paymentsStatus } from '@/lib/connectors/payments';
 import { quickbooksStatus } from '@/lib/connectors/quickbooks';
 import { zernioStatus } from '@/lib/connectors/zernio';
 import { beehiivStatus } from '@/lib/connectors/beehiiv';
 import { manychatStatus } from '@/lib/connectors/manychat';
 import { attioStatus } from '@/lib/connectors/attio';
-import { whatsappStatus } from '@/lib/connectors/whatsapp';
 import { obsidianStatus } from '@/lib/connectors/obsidian';
 import { llmStatus } from '@/lib/connectors/llm';
 import { trakyoStatus } from '@/lib/connectors/trakyo';
@@ -32,7 +30,6 @@ async function brainConnectorStatus(): Promise<ConnectorStatus> {
 const CHECKS: [string, ConnectorStatus['kind'], () => Promise<ConnectorStatus>][] = [
   ['gbrain', 'brain', brainConnectorStatus],
   ['llm', 'orchestration', llmStatus],
-  ['whatsapp', 'social', whatsappStatus],
   ['zernio', 'social', zernioStatus],
   ['beehiiv', 'social', () => beehiivStatus(runtimeEnv())],
   [
@@ -53,7 +50,6 @@ const CHECKS: [string, ConnectorStatus['kind'], () => Promise<ConnectorStatus>][
   ['obsidian', 'knowledge', obsidianStatus],
   ['email', 'email', () => emailStatus(runtimeEnv())],
   ['calendar', 'calendar', calendarStatus],
-  ['slack', 'slack', () => slackStatus(runtimeEnv())],
   ['payments', 'payments', () => paymentsStatus(runtimeEnv())],
   ['quickbooks', 'payments', () => quickbooksStatus(runtimeEnv())],
 ];

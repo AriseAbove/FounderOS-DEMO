@@ -47,8 +47,8 @@ describe('POST /api/connections/connect', () => {
     expect(readEnvLocal().ATTIO_API_KEY).toBeUndefined();
     expect((await post({ slug: 'notion', values: { NOTION_API_KEY: 'a\nb' } })).status).toBe(400);
     expect((await post({ slug: 'notion', values: {} })).status).toBe(400);
-    // guidance-only tiles (whatsapp needs Full Disk Access, not a key) take no keys
-    expect((await post({ slug: 'whatsapp', values: { WHATSAPP_API_KEY: 'x' } })).status).toBe(400);
+    // guidance-only tiles (gmail connects via INBOX_* creds, not one key) take no keys
+    expect((await post({ slug: 'gmail', values: { GMAIL_API_KEY: 'x' } })).status).toBe(400);
   });
 
   test('DELETE removes exactly the integration keys (disconnect)', async () => {

@@ -57,9 +57,11 @@ describe('connectionCatalog — merges live connector state onto the catalog', (
   ];
 
   test('a connected connector marks its catalog entry connected', () => {
-    const rows = connectionCatalog(statuses);
-    const slack = rows.find((r) => r.slug === 'slack');
-    expect(slack?.connected).toBe(true);
+    const rows = connectionCatalog([
+      { id: 'email', name: 'Email', kind: 'email', state: 'connected', detail: 'ok' },
+    ]);
+    const gmail = rows.find((r) => r.slug === 'gmail');
+    expect(gmail?.connected).toBe(true);
   });
 
   test('a not_configured or error connector is not connected', () => {
@@ -85,8 +87,8 @@ describe('connect flow (paste a key on the board)', () => {
     expect(connectKeysFor(notion)).toEqual(['NOTION_API_KEY']);
     const discord = INTEGRATIONS.find((i) => i.slug === 'discord')!;
     expect(connectKeysFor(discord)).toEqual(['DISCORD_API_KEY']);
-    const whatsapp = INTEGRATIONS.find((i) => i.slug === 'whatsapp')!;
-    expect(connectKeysFor(whatsapp)).toEqual([]);
+    const gmailEntry = INTEGRATIONS.find((i) => i.slug === 'gmail')!;
+    expect(connectKeysFor(gmailEntry)).toEqual([]);
   });
 
   test('the real kept stack is listed and tied to its connectors', () => {

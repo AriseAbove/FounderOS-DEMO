@@ -78,7 +78,7 @@ describe('seeded SOP graph data', () => {
     const d = seeded();
     const people = d.people.all().length;
     const tasks = d.sopTasks.all().length;
-    expect(people).toBeGreaterThan(0);
+    expect(people).toBe(0); // invented staff purged — real hires only
     expect(tasks).toBeGreaterThan(0);
     seedDatabase(d);
     expect(d.people.all().length).toBe(people);

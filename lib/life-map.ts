@@ -1,6 +1,6 @@
 /**
- * Alex's life map: the radial taxonomy at the heart of the OS.
- * Center = Alex's life; ring 1 = color-coded life areas; ring 2 = the
+ * The operator's life map: the radial taxonomy at the heart of the OS.
+ * Center = the operator's life; ring 1 = color-coded life areas; ring 2 = the
  * modules inside each area. Communication additionally carries the contact
  * tier system — the numbered/colored response-priority ladder for people.
  *
@@ -35,7 +35,7 @@ export const LIFE_AREAS: LifeArea[] = [
       { id: 'sms', label: 'SMS', detail: 'Text blasts and reminders.' },
       { id: 'editing', label: 'Editing', detail: 'Cuts, captions, and post-production.' },
     ],
-    agents: ['social-agent', 'zernio-publisher', 'arcads-creative', 'remotion-editor', 'higgsfield-creative', 'manychat-mcp', 'social-pulse'],
+    agents: [],
     brainFolders: ['media', 'writing', 'ideas'],
     departmentIds: ['dept-marketing-growth'],
   },
@@ -50,18 +50,7 @@ export const LIFE_AREAS: LifeArea[] = [
       { id: 'follow-up', label: 'Follow-up', detail: 'Next actions and reminders.' },
       { id: 'offers', label: 'Offers', detail: 'Proposals, pricing, and close paths.' },
     ],
-    agents: [
-      'sales-agent',
-      'crm-pulse',
-      'launchpad-cohort-sales',
-      'vantage-sales',
-      'fanbasis-sales',
-      'vantage-fanbasis',
-      'stripe-sales',
-      'processor-confirmation',
-      'pava-financing',
-      'sales-calls-data',
-    ],
+    agents: [],
     brainFolders: ['people', 'companies', 'hiring'],
     departmentIds: ['dept-sales'],
   },
@@ -71,12 +60,12 @@ export const LIFE_AREAS: LifeArea[] = [
     color: '#22c55e',
     detail: 'Money in, money out, every processor.',
     modules: [
-      { id: 'payments', label: 'Payments', detail: 'Stripe + the processor registry.' },
+      { id: 'books', label: 'Books', detail: 'QuickBooks income and expenses.' },
       { id: 'invoicing', label: 'Invoicing', detail: 'What is owed and by whom.' },
       { id: 'subscriptions', label: 'Subscriptions', detail: 'Recurring revenue and churn.' },
       { id: 'bookkeeping', label: 'Bookkeeping', detail: 'Categorized, reconciled, tax-ready.' },
     ],
-    agents: ['payments-pulse'],
+    agents: ['quickbooks-pulse'],
     brainFolders: ['companies'],
     departmentIds: ['dept-finance'],
   },
@@ -92,11 +81,10 @@ export const LIFE_AREAS: LifeArea[] = [
         detail: 'Tagged people with response tiers — who needs an answer ASAP.',
       },
       { id: 'inbox', label: 'Inbox', detail: '4 IMAP inboxes, unified.' },
-      { id: 'whatsapp', label: 'WhatsApp', detail: 'Conversations from local ChatStorage.' },
-      { id: 'slack', label: 'Slack', detail: 'Workspace messages and mentions.' },
+      { id: 'calendar', label: 'Calendar', detail: 'Upcoming events across connected calendars.' },
       { id: 'meetings', label: 'Meetings', detail: 'Notes and follow-ups.' },
     ],
-    agents: ['comms-agent', 'gmail-worker', 'whatsapp-worker', 'slack-worker'],
+    agents: ['comms-agent', 'gmail-worker', 'calendar-worker'],
     brainFolders: ['inbox', 'meetings', 'people'],
     departmentIds: ['dept-comms'],
   },
@@ -106,12 +94,12 @@ export const LIFE_AREAS: LifeArea[] = [
     color: '#14b8a6',
     detail: 'Every client, onboarded and served.',
     modules: [
-      { id: 'roster', label: 'Roster', detail: 'Who is a client right now, by venture.' },
+      { id: 'roster', label: 'Roster', detail: 'Who is a client right now, by business.' },
       { id: 'onboarding', label: 'Onboarding', detail: 'Closed-won to kickoff without a dropped step.' },
       { id: 'service', label: 'Service', detail: 'Check-in cadence and deliverable tracking.' },
       { id: 'renewals', label: 'Renewals', detail: 'Expansion and renewal timing.' },
     ],
-    agents: ['client-roster', 'client-onboarding', 'client-success'],
+    agents: [],
     brainFolders: ['people', 'companies'],
     departmentIds: ['dept-clients'],
   },
@@ -119,14 +107,14 @@ export const LIFE_AREAS: LifeArea[] = [
     id: 'knowledge',
     label: 'Knowledge',
     color: '#a855f7',
-    detail: 'G-Brain: markdown, vectors, and recall.',
+    detail: 'The knowledge layer: notes, search, and recall.',
     modules: [
       { id: 'brain-store', label: 'Brain store', detail: 'Markdown source of truth on disk.' },
       { id: 'vector-db', label: 'Vector DB', detail: 'Chunks → embeddings → pgvector.' },
       { id: 'prompts', label: 'Prompts', detail: 'Reusable prompt library.' },
       { id: 'sources', label: 'Sources', detail: 'Reference material and citations.' },
     ],
-    agents: ['data-agent', 'markdown-auditor', 'vector-auditor', 'notion-sync', 'brain-librarian'],
+    agents: ['data-agent'],
     brainFolders: ['concepts', 'prompts', 'sources', 'archive'],
     departmentIds: ['dept-tech'],
   },
@@ -138,12 +126,12 @@ export const LIFE_AREAS: LifeArea[] = [
     modules: [
       { id: 'agents', label: 'Agents', detail: 'The roster and its hierarchy.' },
       { id: 'automations', label: 'Automations', detail: 'Scheduled and self-healing jobs.' },
-      { id: 'infra', label: 'Infra', detail: 'Local stack, ports, dedicated host target.' },
+      { id: 'infra', label: 'Infra', detail: 'Hosting, database, and the deploy pipeline.' },
       { id: 'hiring', label: 'Hiring', detail: 'Candidates and roles.' },
     ],
     // dept-tech rolls up to knowledge first (lifeAreaForDepartment takes the
-    // first match); operations still owns the conductor + stack agents.
-    agents: ['conductor', 'stack-monitor'],
+    // first match); operations still owns the conductor.
+    agents: ['conductor'],
     brainFolders: ['org', 'projects', 'hiring'],
     departmentIds: ['dept-tech'],
   },
@@ -158,7 +146,7 @@ export type ContactTier = {
 };
 
 /**
- * The response-priority ladder for people Alex talks to.
+ * The response-priority ladder for people the operator talks to.
  * 1 = red (clients & students), 2 = yellow (brand), 3 = green (personal).
  * Specific people get overrides via the contact_tags table.
  */
@@ -177,7 +165,7 @@ export function buildLifeMap(): LifeMap {
     {
       id: 'center',
       type: 'center',
-      label: "Alex's Life",
+      label: 'Operator',
       color: '#fafafa',
       parent: null,
       detail: 'The core. Everything orbits this.',

@@ -197,9 +197,9 @@ describe('buildBrainGraph', () => {
   });
 
   test('default agent scopes cover every real agent that touches the brain', () => {
-    expect(AGENT_BRAIN_SCOPES['brain-librarian']).toEqual(['*']);
-    expect(AGENT_BRAIN_SCOPES['sales-agent']).toEqual(expect.arrayContaining(['people', 'companies']));
-    expect(AGENT_BRAIN_SCOPES['crm-pulse']).toEqual(expect.arrayContaining(['people', 'companies']));
+    expect(AGENT_BRAIN_SCOPES['conductor']).toEqual(['*']);
+    expect(AGENT_BRAIN_SCOPES['data-agent']).toEqual(['*']);
+    expect(AGENT_BRAIN_SCOPES['gmail-worker']).toEqual(expect.arrayContaining(['inbox']));
   });
 });
 

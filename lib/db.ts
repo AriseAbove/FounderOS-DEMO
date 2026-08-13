@@ -400,6 +400,10 @@ export function openDb(path: string) {
       ).run(d.id, d.name, d.slug, d.tagline, d.color, d.order);
     },
     deleteWhereIdNotIn(ids: string[]): void {
+      if (ids.length === 0) {
+        db.prepare('DELETE FROM departments').run();
+        return;
+      }
       const placeholders = ids.map(() => '?').join(', ');
       db.prepare(`DELETE FROM departments WHERE id NOT IN (${placeholders})`).run(...ids);
     },
@@ -425,6 +429,10 @@ export function openDb(path: string) {
       );
     },
     deleteWhereIdNotIn(ids: string[]): void {
+      if (ids.length === 0) {
+        db.prepare('DELETE FROM agents').run();
+        return;
+      }
       const placeholders = ids.map(() => '?').join(', ');
       db.prepare(`DELETE FROM agents WHERE id NOT IN (${placeholders})`).run(...ids);
     },
@@ -931,6 +939,10 @@ export function openDb(path: string) {
       ).run(p.id, p.departmentId, p.name, p.role, JSON.stringify(p.tools));
     },
     deleteWhereIdNotIn(ids: string[]): void {
+      if (ids.length === 0) {
+        db.prepare('DELETE FROM people').run();
+        return;
+      }
       const placeholders = ids.map(() => '?').join(', ');
       db.prepare(`DELETE FROM people WHERE id NOT IN (${placeholders})`).run(...ids);
     },
@@ -960,6 +972,10 @@ export function openDb(path: string) {
       ).run(t.id, t.departmentId, t.title, t.summary, JSON.stringify(t.steps), t.assigneeKind, t.assigneeId);
     },
     deleteWhereIdNotIn(ids: string[]): void {
+      if (ids.length === 0) {
+        db.prepare('DELETE FROM sop_tasks').run();
+        return;
+      }
       const placeholders = ids.map(() => '?').join(', ');
       db.prepare(`DELETE FROM sop_tasks WHERE id NOT IN (${placeholders})`).run(...ids);
     },
@@ -988,6 +1004,10 @@ export function openDb(path: string) {
       ).run(w.id, w.name, w.subtitle, w.revenueUsd, w.order, JSON.stringify(w.steps));
     },
     deleteWhereIdNotIn(ids: string[]): void {
+      if (ids.length === 0) {
+        db.prepare('DELETE FROM workflows').run();
+        return;
+      }
       const placeholders = ids.map(() => '?').join(', ');
       db.prepare(`DELETE FROM workflows WHERE id NOT IN (${placeholders})`).run(...ids);
     },
@@ -1019,6 +1039,10 @@ export function openDb(path: string) {
       ).run(s.id, s.name, s.category, s.description, s.ownerAgentId, s.status, JSON.stringify(s.tools), s.markdown, s.order);
     },
     deleteWhereIdNotIn(ids: string[]): void {
+      if (ids.length === 0) {
+        db.prepare('DELETE FROM skills').run();
+        return;
+      }
       const placeholders = ids.map(() => '?').join(', ');
       db.prepare(`DELETE FROM skills WHERE id NOT IN (${placeholders})`).run(...ids);
     },

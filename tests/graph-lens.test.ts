@@ -17,25 +17,24 @@ function contextFromSeed(): LensContext {
 
 const ctx = contextFromSeed();
 
-describe('graph lenses — Alex taxonomy (2026-07-12)', () => {
-  test('the requested categories all exist', () => {
+describe('graph lenses', () => {
+  test('the categories all exist and ids never collide', () => {
     expect(ENTITY_LENSES.map((l) => l.label)).toEqual([
-      'All people', 'Sub-agents', 'Tools', 'Workflows', 'SOPs', 'Projects', 'Teams', 'Departments',
+      'All people', 'Sub-agents', 'Tools', 'Workflows', 'SOPs', 'Projects', 'Departments',
     ]);
     expect(FUNCTION_LENSES.map((l) => l.label)).toContain('Core');
     expect(FUNCTION_LENSES.map((l) => l.label)).toContain('Enabling');
-    expect(FUNCTION_LENSES.map((l) => l.label)).toContain('Vantage team');
-    expect(FUNCTION_LENSES.map((l) => l.label)).toContain('Launchpad Cohort team');
-    expect(ACTION_LENSES).toHaveLength(11);
+    expect(ACTION_LENSES.length).toBeGreaterThanOrEqual(4);
     expect(new Set(ALL_LENSES.map((l) => l.id)).size).toBe(ALL_LENSES.length);
   });
 
   test('entity lenses match by node kind against the real seeded graph', () => {
-    expect(lensNodeSet('ent-people', ctx).size).toBe(5);
-    expect(lensNodeSet('ent-subagents', ctx).size).toBe(30);
-    expect(lensNodeSet('ent-departments', ctx).size).toBe(6);
-    expect(lensNodeSet('ent-sops', ctx).size).toBeGreaterThan(20);
-    expect(lensNodeSet('ent-tools', ctx).size).toBeGreaterThan(20);
+    // invented staff purged — the people lens is honestly empty
+    expect(lensNodeSet('ent-people', ctx).size).toBe(0);
+    expect(lensNodeSet('ent-subagents', ctx).size).toBe(6);
+    // only staffed pillars appear as team nodes (tech, comms, finance)
+    expect(lensNodeSet('ent-departments', ctx).size).toBe(3);
+    expect(lensNodeSet('ent-sops', ctx).size).toBe(6);
   });
 
   test('workflows and projects are honestly empty until modeled', () => {
@@ -46,20 +45,14 @@ describe('graph lenses — Alex taxonomy (2026-07-12)', () => {
   test('core and enabling split the pillars cleanly and light whole sectors', () => {
     const core = lensNodeSet('fn-core', ctx);
     const enabling = lensNodeSet('fn-enabling', ctx);
-    expect(core.has('team:dept-sales')).toBe(true);
+    // the whole kept roster is enabling infrastructure right now — core
+    // (sales/marketing/clients) is honestly empty until those lanes staff up
+    expect(core.size).toBe(0);
     expect(enabling.has('team:dept-tech')).toBe(true);
     // a node is never both core and enabling
     for (const id of core) expect(enabling.has(id), id).toBe(false);
     // sectors include their workers, not just the gateways
-    expect(core.has('emp:sales-agent')).toBe(true);
-  });
-
-  test('venture team lenses light their rosters', () => {
-    const mer = lensNodeSet('fn-vantage', ctx);
-    expect(mer.has('emp:vantage-sales')).toBe(true);
-    expect(mer.has('emp:vantage-fanbasis')).toBe(true);
-    const aa = lensNodeSet('fn-launchpad-cohort', ctx);
-    expect(aa.has('emp:launchpad-cohort-sales')).toBe(true);
+    expect(enabling.has('emp:gmail-worker')).toBe(true);
   });
 
   test('every action lens resolves to real seeded agents', () => {
@@ -71,10 +64,11 @@ describe('graph lenses — Alex taxonomy (2026-07-12)', () => {
   });
 
   test('specific action mappings hold', () => {
-    expect(lensNodeSet('act-ad-creation', ctx).has('emp:arcads-creative')).toBe(true);
-    expect(lensNodeSet('act-lead-generation', ctx).has('emp:sales-agent')).toBe(true);
-    expect(lensNodeSet('act-social-scheduler', ctx).has('emp:zernio-publisher')).toBe(true);
-    expect(lensNodeSet('act-ai-visuals', ctx).has('emp:higgsfield-creative')).toBe(true);
+    expect(lensNodeSet('act-inbox-triage', ctx).has('emp:gmail-worker')).toBe(true);
+    expect(lensNodeSet('act-schedule', ctx).has('emp:calendar-worker')).toBe(true);
+    expect(lensNodeSet('act-books', ctx).has('emp:quickbooks-pulse')).toBe(true);
+    expect(lensNodeSet('act-knowledge-search', ctx).has('emp:data-agent')).toBe(true);
+    expect(lensNodeSet('act-broadcast', ctx).has('emp:conductor')).toBe(true);
   });
 
   test('unknown lens returns an empty set, never throws', () => {

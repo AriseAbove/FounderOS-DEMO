@@ -43,9 +43,9 @@ describe('INTEGRATIONS catalog', () => {
   test('connectorIds point at ids that exist in the given status set', () => {
     const ids = new Set(INTEGRATIONS.map((i) => i.connectorId).filter(Boolean));
     // spot-check a few expected wirings
-    expect(ids.has('slack')).toBe(true);
-    expect(ids.has('notion')).toBe(true);
-    expect(ids.has('payments')).toBe(true);
+    expect(ids.has('email')).toBe(true);
+    expect(ids.has('calendar')).toBe(true);
+    expect(ids.has('quickbooks')).toBe(true);
   });
 });
 
@@ -89,14 +89,11 @@ describe('connect flow (paste a key on the board)', () => {
     expect(connectKeysFor(whatsapp)).toEqual([]);
   });
 
-  test("Alex's real stack is listed and tied to its connectors", () => {
+  test('the real kept stack is listed and tied to its connectors', () => {
     const bySlug = new Map(INTEGRATIONS.map((i) => [i.slug, i]));
-    expect(bySlug.get('manychat')?.connectorId).toBe('manychat');
-    expect(bySlug.get('gohighlevel')?.connectorId).toBe('ghl');
-    expect(bySlug.get('webinarjam')?.connectorId).toBe('webinarjam');
-    expect(bySlug.get('trakyo')?.connectorId).toBe('trakyo');
-    expect(bySlug.get('zernio')?.connectorId).toBe('zernio');
-    expect(bySlug.get('arcads')?.connectorId).toBe('arcads');
+    expect(bySlug.get('gmail')?.connectorId).toBe('email');
+    expect(bySlug.get('googlecalendar')?.connectorId).toBe('calendar');
+    expect(bySlug.get('quickbooks')?.connectorId).toBe('quickbooks');
   });
 
   test('keySaved reflects env.local coverage of the entry keys, never fakes connected', () => {

@@ -24,44 +24,12 @@ export type ParsedNote = {
 
 /** Which agents are assigned to which brain-store folders ('*' = everything). */
 export const AGENT_BRAIN_SCOPES: Record<string, string[]> = {
-  // Current roster (instance agents + workers, 2026-06-12)
   conductor: ['*'],
   'data-agent': ['*'],
-  'markdown-auditor': ['*'],
-  'vector-auditor': ['*'],
   'comms-agent': ['inbox', 'meetings', 'org'],
   'gmail-worker': ['inbox', 'meetings'],
-  'whatsapp-worker': ['inbox', 'people'],
-  'slack-worker': ['inbox', 'org'],
-  'social-agent': ['media', 'writing', 'ideas'],
-  'zernio-publisher': ['media', 'writing', 'ideas'],
-  'arcads-creative': ['media', 'ideas'],
-  'remotion-editor': ['media', 'writing'],
-  'higgsfield-creative': ['media', 'ideas'],
-  'manychat-mcp': ['media', 'people'],
-  'sales-agent': ['people', 'companies', 'hiring'],
-  'launchpad-cohort-sales': ['people', 'companies'],
-  'vantage-sales': ['people', 'companies'],
-  'fanbasis-sales': ['people', 'companies'],
-  'vantage-fanbasis': ['people', 'companies'],
-  'stripe-sales': ['companies'],
-  'processor-confirmation': ['companies'],
-  'pava-financing': ['people', 'companies'],
-  'sales-calls-data': ['meetings', 'people', 'companies'],
-  'client-roster': ['people', 'companies'],
-  'client-onboarding': ['people', 'companies'],
-  'client-success': ['people', 'companies', 'meetings'],
-  'stack-monitor': ['media', 'projects'],
-  'payments-pulse': ['companies'],
-  'notion-sync': ['projects', 'writing'],
-  'crm-pulse': ['people', 'companies', 'hiring'],
-  // Pre-roster ids kept for back-compat with in-flight work; remove once
-  // nothing references them.
-  'brain-librarian': ['*'],
-  'inbox-triage': ['inbox', 'meetings'],
-  'slack-scout': ['inbox', 'org'],
-  'social-pulse': ['media', 'writing', 'ideas'],
-  'studio-monitor': ['media', 'projects'],
+  'calendar-worker': ['meetings', 'org'],
+  'quickbooks-pulse': ['companies'],
 };
 
 /**

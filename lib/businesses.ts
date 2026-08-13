@@ -35,8 +35,8 @@ export type Business = {
   areaAgents: Record<string, string[]>;
 };
 
-const SHARED_OPS = ['conductor', 'stack-monitor'];
-const SHARED_KNOWLEDGE = ['data-agent', 'markdown-auditor', 'vector-auditor'];
+const SHARED_OPS = ['conductor'];
+const SHARED_KNOWLEDGE = ['data-agent'];
 
 export const BUSINESSES: Business[] = [
   {

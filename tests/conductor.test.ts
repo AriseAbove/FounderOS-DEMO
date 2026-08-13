@@ -24,10 +24,10 @@ const routableIds = () => realAgents.filter((a) => a.id !== 'conductor').map((a)
 describe('routeConductorMessage (stub)', () => {
   test('@agent-id prefix routes straight to that agent and strips the prefix', async () => {
     const db = openDb(':memory:');
-    const res = await routeConductorMessage(db, realAgents, '@sales-agent what is pipeline?');
-    expect(res.routedTo).toBe('sales-agent');
+    const res = await routeConductorMessage(db, realAgents, '@gmail-worker what is unread?');
+    expect(res.routedTo).toBe('gmail-worker');
     expect(res.reply.length).toBeGreaterThan(0);
-    expect(db.agentMessages.byAgent('sales-agent')[0].content).toBe('what is pipeline?');
+    expect(db.agentMessages.byAgent('gmail-worker')[0].content).toBe('what is unread?');
   });
 
   test('@Name matches by humanized name slug too', async () => {
@@ -62,13 +62,13 @@ describe('POST /api/agents/conductor/chat', () => {
     const res = await POST(
       new Request('http://localhost/api/agents/conductor/chat', {
         method: 'POST',
-        body: JSON.stringify({ message: '@sales-agent how are deals?' }),
+        body: JSON.stringify({ message: '@gmail-worker how is the inbox?' }),
       }),
       { params: { id: 'conductor' } },
     );
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.routedTo).toBe('sales-agent');
+    expect(body.routedTo).toBe('gmail-worker');
     expect(typeof body.reply).toBe('string');
   });
 });

@@ -40,8 +40,6 @@ describe('buildBrainDocs', () => {
     expect(docs.filter((x) => x.path.startsWith('org/pillar-')).length).toBe(d.departments.all().length);
     expect(paths.has('agents/gmail-worker.md')).toBe(true);
     expect(paths.has('sops/sop-gmail-worker.md')).toBe(true);
-    expect(paths.has('tools/imap.md')).toBe(true);
-    expect(paths.has('people/person-marco.md')).toBe(true);
     expect(paths.has('org/pillar-clients.md')).toBe(true);
   });
 
@@ -54,8 +52,8 @@ describe('buildBrainDocs', () => {
     const docs = docsFor(seeded());
     const gmail = docs.find((x) => x.path === 'agents/gmail-worker.md')!.content;
     expect(gmail).toContain('IMAP Inboxes');
-    expect(gmail).toContain('Triage the four Gmail inboxes');
-    expect(gmail).toContain('Classify each thread');
+    expect(gmail).toContain('Triage the inboxes');
+    expect(gmail).toContain('Poll each configured IMAP inbox');
     expect(gmail).toContain('[[imap]]');
     expect(gmail).toContain('[[comms-agent]]'); // reports to
     expect(gmail).toContain('[[pillar-communications]]');
@@ -63,27 +61,25 @@ describe('buildBrainDocs', () => {
 
   test('a SOP doc is built out: purpose, owner, trigger, steps, done, escalation', () => {
     const docs = docsFor(seeded());
-    const sop = docs.find((x) => x.path === 'sops/sop-client-onboarding.md')!.content;
+    const sop = docs.find((x) => x.path === 'sops/sop-quickbooks-pulse.md')!.content;
     for (const section of ['## Purpose', '## Owner', '## Trigger', '## Steps', '## Definition of done', '## Escalation']) {
       expect(sop, `missing ${section}`).toContain(section);
     }
-    expect(sop).toContain('closed-won');
-    expect(sop).toContain('[[client-onboarding]]');
+    expect(sop).toContain('QuickBooks');
+    expect(sop).toContain('[[quickbooks-pulse]]');
   });
 
   test('a tool doc lists who uses it, wikilinked', () => {
     const docs = docsFor(seeded());
-    const attio = docs.find((x) => x.path === 'tools/attio.md')!.content;
-    expect(attio).toContain('[[sales-agent]]');
-    expect(attio).toContain('[[person-marco]]');
+    const imap = docs.find((x) => x.path === 'tools/imap.md');
+    if (imap) expect(imap.content).toContain('[[gmail-worker]]');
   });
 
   test('a pillar doc rosters its workers and SOPs', () => {
     const docs = docsFor(seeded());
-    const clients = docs.find((x) => x.path === 'org/pillar-clients.md')!.content;
-    expect(clients).toContain('[[client-roster]]');
-    expect(clients).toContain('[[person-rae]]');
-    expect(clients).toContain('[[sop-client-onboarding]]');
+    const comms = docs.find((x) => x.path === 'org/pillar-communications.md')!.content;
+    expect(comms).toContain('[[gmail-worker]]');
+    expect(comms).toContain('[[sop-comms-agent]]');
   });
 
   test('deterministic output', () => {

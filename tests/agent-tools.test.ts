@@ -17,20 +17,20 @@ afterAll(() => {
 });
 
 describe('agent chat tools', () => {
-  test('data-agent exposes a read-only searchGBrain tool', () => {
+  test('data-agent exposes a read-only searchKnowledge tool', () => {
     const dataAgent = realAgents.find((a) => a.id === 'data-agent')!;
     expect(dataAgent.chatTools).toBeTypeOf('function');
     const tools = dataAgent.chatTools!();
-    expect(tools.map((t) => t.name)).toContain('searchGBrain');
+    expect(tools.map((t) => t.name)).toContain('searchKnowledge');
   });
 
   test('a triggered tool call executes the connector and persists a tool turn', async () => {
     const db = openDb(':memory:');
-    const res = await chatWithAgent(db, realAgents, 'data-agent', 'use-tool:searchGBrain revenue split');
+    const res = await chatWithAgent(db, realAgents, 'data-agent', 'use-tool:searchKnowledge revenue split');
     const rows = db.agentMessages.byAgent('data-agent');
     expect(rows.map((m) => m.role)).toEqual(['user', 'tool', 'assistant']);
     const toolRow = rows.find((m) => m.role === 'tool')!;
-    expect(toolRow.toolCalls.map((c) => c.name)).toContain('searchGBrain');
+    expect(toolRow.toolCalls.map((c) => c.name)).toContain('searchKnowledge');
     expect(Array.isArray(toolRow.toolCalls[0].result)).toBe(true); // connector actually ran
     expect(res.reply.length).toBeGreaterThan(0);
   });

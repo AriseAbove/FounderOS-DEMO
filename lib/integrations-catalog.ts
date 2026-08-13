@@ -68,6 +68,12 @@ export const INTEGRATIONS: Integration[] = [
   { slug: 'beehiiv', name: 'beehiiv', tagline: 'Newsletter & subscribers', category: 'Marketing' },
   { slug: 'buffer', name: 'Buffer', tagline: 'Schedule social posts', category: 'Marketing' },
   { slug: 'hootsuite', name: 'Hootsuite', tagline: 'Social management', category: 'Marketing' },
+  // Phase 6 (corrected): catalog entry only, added ahead of the rest of the
+  // integration so Sean has a safe place to paste the real key via the
+  // existing connect flow (never in chat, never committed). No connectorId
+  // yet — lib/connectors/oneup.ts doesn't exist yet, so this tile honestly
+  // shows keySaved-but-not-connected until the real connector lands.
+  { slug: 'oneup', name: 'OneUp', tagline: 'Social posts & reviews', category: 'Marketing', envKeys: ['ONEUP_API_KEY'] },
 
   // Storage
   { slug: 'googledrive', name: 'Google Drive', tagline: 'Files & folders', category: 'Storage' },

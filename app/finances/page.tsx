@@ -1,5 +1,13 @@
-import { ArrowDownLeft, ArrowUpRight, Scale, Landmark, Send } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Scale, Landmark, Send, FileText } from 'lucide-react';
 import { configuredProcessors, monthToDateIncome, stripeSnapshot, wiseOutgoing, fanbasisMonthToDateIncome } from '@/lib/connectors/payments';
+import {
+  qboConfigured,
+  monthToDateIncome as qboMonthToDateIncome,
+  monthToDateExpenses as qboMonthToDateExpenses,
+  openInvoices as qboOpenInvoices,
+  companyName as qboCompanyName,
+} from '@/lib/connectors/quickbooks';
+import { getDb } from '@/lib/data';
 import {
   incomeAccounts,
   totalIncome,
@@ -31,6 +39,26 @@ function ago(unix: number): string {
 }
 
 export default async function FinancesPage() {
+  // QuickBooks — AAC's real books. Client keys configured is not the same as
+  // authorized: only an authorized grant (stored via the OAuth callback)
+  // pulls real numbers, so an unauthorized-but-keyed app still reads pending.
+  const qboKeyed = qboConfigured(process.env);
+  const qboAuthorized = qboKeyed && getDb().quickbooksAuth.get() !== null;
+  let qboName: string | null = null;
+  let qboIncome: number | null = null;
+  let qboExpenses: number | null = null;
+  let qboAr: Awaited<ReturnType<typeof qboOpenInvoices>> = null;
+  if (qboAuthorized) {
+    [qboName, qboIncome, qboExpenses, qboAr] = await Promise.all([
+      qboCompanyName().catch(() => null),
+      qboMonthToDateIncome().catch(() => null),
+      qboMonthToDateExpenses().catch(() => null),
+      qboOpenInvoices().catch(() => null),
+    ]);
+  }
+  const qboConnected = qboAuthorized && qboName !== null;
+  const qboNet = qboIncome != null && qboExpenses != null ? qboIncome - qboExpenses : null;
+
   const stripeKeyed = configuredProcessors(process.env).some((p) => p.id === 'stripe' && p.configured);
 
   // Stripe is only "live" when the API actually answers — a present-but-invalid
@@ -114,6 +142,100 @@ export default async function FinancesPage() {
           </Badge>
         }
       />
+
+      {/* QuickBooks — AAC's real books. Honest pending/error state when not
+          authorized or unreachable; never a faked number. */}
+      <section className="mb-5">
+        <SectionHead
+          label="QuickBooks · Arise Above Construction"
+          count={qboConnected ? qboName ?? 'connected' : qboAuthorized ? 'reconnect needed' : qboKeyed ? 'not authorized' : 'not configured'}
+        />
+        {qboConnected ? (
+          <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="flex flex-col gap-1 rounded-lg-t border border-os-border bg-os-surface px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label>Income · MTD</Label>
+                <ArrowDownLeft className="h-3 w-3 text-os-ok" strokeWidth={1.8} />
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="font-mono text-[16px] font-semibold leading-none tracking-[-0.02em] text-os-ok">
+                  {qboIncome != null ? usd(qboIncome) : '—'}
+                </span>
+                <span className="font-mono text-[9.5px] text-os-dim">payments received</span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1 rounded-lg-t border border-os-border bg-os-surface px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label>Expenses · MTD</Label>
+                <ArrowUpRight className="h-3 w-3 text-os-err" strokeWidth={1.8} />
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="font-mono text-[16px] font-semibold leading-none tracking-[-0.02em]">
+                  {qboExpenses != null ? usd(qboExpenses) : '—'}
+                </span>
+                <span className="font-mono text-[9.5px] text-os-dim">purchases</span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1 rounded-lg-t border border-os-border bg-os-surface px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label>Net · MTD</Label>
+                <Scale className="h-3 w-3 text-os-accent" strokeWidth={1.8} />
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <span
+                  className={`font-mono text-[16px] font-semibold leading-none tracking-[-0.02em] ${qboNet != null && qboNet >= 0 ? 'text-os-ok' : 'text-os-err'}`}
+                >
+                  {qboNet != null ? usd(qboNet) : '—'}
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1 rounded-lg-t border border-os-border bg-os-surface px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label>Open invoices</Label>
+                <FileText className="h-3 w-3 text-os-accent" strokeWidth={1.8} />
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="font-mono text-[16px] font-semibold leading-none tracking-[-0.02em]">
+                  {qboAr ? usd(qboAr.reduce((s, i) => s + i.balance, 0)) : '—'}
+                </span>
+                <span className="font-mono text-[9.5px] text-os-dim">{qboAr ? `${qboAr.length} unpaid` : 'unavailable'}</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-3 rounded-lg-t border border-os-border bg-os-surface px-4 py-3">
+            <span className="font-mono text-[11px] text-os-dim">
+              {qboKeyed
+                ? qboAuthorized
+                  ? 'Authorized previously but the last API call failed — the token may need reconnecting.'
+                  : 'Client keys are set — authorize the app to pull real income, expenses, and open invoices.'
+                : 'QUICKBOOKS_CLIENT_ID / QUICKBOOKS_CLIENT_SECRET not set in the environment yet.'}
+            </span>
+            {qboKeyed && (
+              <a
+                href="/api/connections/quickbooks/connect"
+                className="shrink-0 rounded-full border border-os-border-strong px-3 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-os-text transition-colors hover:bg-os-text hover:text-os-bg"
+              >
+                {qboAuthorized ? 'Reconnect →' : 'Connect →'}
+              </a>
+            )}
+          </div>
+        )}
+        {qboConnected && qboAr && qboAr.length > 0 && (
+          <ul className="mt-2.5 space-y-1.5">
+            {qboAr.slice(0, 6).map((inv) => (
+              <li
+                key={inv.id}
+                className="hoverable flex items-center gap-3.5 rounded-lg-t border border-os-border bg-os-surface px-4 py-3"
+              >
+                <span className="font-mono text-[13px] font-semibold text-os-warn">{usd(inv.balance)}</span>
+                <span className="min-w-0 flex-1 truncate text-[12.5px] text-os-muted">{inv.customer} · #{inv.docNumber}</span>
+                <span className="shrink-0 font-mono text-[10.5px] text-os-dim">{inv.dueDate ? `due ${inv.dueDate}` : 'no due date'}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       {/* Summary tiles — slim single-line rows so the page opens condensed */}
       <section className="mb-5 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">

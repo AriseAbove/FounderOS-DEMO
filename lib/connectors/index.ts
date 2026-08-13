@@ -2,6 +2,7 @@ import { emailStatus } from '@/lib/connectors/email';
 import { calendarStatus } from '@/lib/connectors/gcal';
 import { slackStatus } from '@/lib/connectors/slack';
 import { paymentsStatus } from '@/lib/connectors/payments';
+import { quickbooksStatus } from '@/lib/connectors/quickbooks';
 import { notionStatus } from '@/lib/connectors/notion';
 import { zernioStatus } from '@/lib/connectors/zernio';
 import { beehiivStatus } from '@/lib/connectors/beehiiv';
@@ -65,6 +66,7 @@ const CHECKS: [string, ConnectorStatus['kind'], () => Promise<ConnectorStatus>][
   ['calendar', 'calendar', calendarStatus],
   ['slack', 'slack', () => slackStatus(runtimeEnv())],
   ['payments', 'payments', () => paymentsStatus(runtimeEnv())],
+  ['quickbooks', 'payments', () => quickbooksStatus(runtimeEnv())],
   ['notion', 'notion', () => notionStatus(runtimeEnv())],
 ];
 

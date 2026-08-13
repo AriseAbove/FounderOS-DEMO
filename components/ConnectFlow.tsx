@@ -17,6 +17,8 @@ export function ConnectFlow({
   keySaved,
   keys,
   guidance,
+  oauthConnectUrl,
+  oauthDisconnectUrl,
 }: {
   slug: string;
   connected: boolean;
@@ -24,6 +26,12 @@ export function ConnectFlow({
   keys: string[];
   /** Live connector detail for guidance-only tools (keys.length === 0). */
   guidance?: string;
+  /** OAuth tools (QuickBooks) navigate here instead of opening a key form —
+      a real browser redirect to the provider's consent screen. */
+  oauthConnectUrl?: string;
+  /** POSTed to revoke + clear an OAuth grant, mirrored from the generic
+      disconnect button below. */
+  oauthDisconnectUrl?: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -56,11 +64,15 @@ export function ConnectFlow({
     setBusy(true);
     setError(null);
     try {
-      await fetch('/api/connections/connect', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug }),
-      });
+      if (oauthDisconnectUrl) {
+        await fetch(oauthDisconnectUrl, { method: 'POST' });
+      } else {
+        await fetch('/api/connections/connect', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug }),
+        });
+      }
       router.refresh();
     } finally {
       setBusy(false);
@@ -133,6 +145,15 @@ export function ConnectFlow({
           >
             Disconnect
           </button>
+        ) : oauthDisconnectUrl ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void disconnect()}
+            className="rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-os-dim transition-colors hover:text-os-text disabled:opacity-40"
+          >
+            {busy ? 'Disconnecting…' : 'Disconnect'}
+          </button>
         ) : (
           <span
             title="Credentials managed outside Founder OS (canonical machine files)"
@@ -149,6 +170,14 @@ export function ConnectFlow({
         >
           + Connect
         </button>
+      ) : oauthConnectUrl ? (
+        <a
+          href={oauthConnectUrl}
+          title={guidance}
+          className="rounded-full border border-os-border-strong px-3 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-os-text transition-colors hover:bg-os-text hover:text-os-bg"
+        >
+          Connect →
+        </a>
       ) : (
         <span
           title={guidance ?? 'Connects through local setup, not a pasted key'}

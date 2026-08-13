@@ -30,6 +30,7 @@ import {
   WorkflowSchema,
   SkillSchema,
   ToolSchema,
+  QuickBooksAuthSchema,
   type Agent,
   type AgentCron,
   type AgentMessage,
@@ -61,6 +62,7 @@ import {
   type Workflow,
   type Skill,
   type Tool,
+  type QuickBooksAuth,
 } from '@/lib/schemas';
 
 const DDL = `
@@ -301,6 +303,15 @@ CREATE TABLE IF NOT EXISTS skills (
   tools TEXT NOT NULL DEFAULT '[]',
   markdown TEXT NOT NULL DEFAULT '',
   ord INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS quickbooks_auth (
+  id TEXT PRIMARY KEY,
+  realm_id TEXT NOT NULL,
+  access_token TEXT NOT NULL,
+  refresh_token TEXT NOT NULL,
+  access_token_expires_at INTEGER NOT NULL,
+  refresh_token_expires_at INTEGER NOT NULL,
+  updated_at TEXT NOT NULL
 );
 `;
 
@@ -1069,6 +1080,45 @@ export function openDb(path: string) {
     },
   };
 
+  const quickbooksAuth = {
+    /** The single stored grant, or null when QuickBooks has never been
+        connected (or was disconnected). */
+    get(): QuickBooksAuth | null {
+      const row = db.prepare('SELECT * FROM quickbooks_auth WHERE id = ?').get('default') as
+        | {
+            id: string;
+            realm_id: string;
+            access_token: string;
+            refresh_token: string;
+            access_token_expires_at: number;
+            refresh_token_expires_at: number;
+            updated_at: string;
+          }
+        | undefined;
+      if (!row) return null;
+      return QuickBooksAuthSchema.parse({
+        id: row.id,
+        realmId: row.realm_id,
+        accessToken: row.access_token,
+        refreshToken: row.refresh_token,
+        accessTokenExpiresAt: row.access_token_expires_at,
+        refreshTokenExpiresAt: row.refresh_token_expires_at,
+        updatedAt: row.updated_at,
+      });
+    },
+    save(a: QuickBooksAuth): void {
+      QuickBooksAuthSchema.parse(a);
+      db.prepare(
+        `INSERT OR REPLACE INTO quickbooks_auth
+           (id, realm_id, access_token, refresh_token, access_token_expires_at, refresh_token_expires_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      ).run(a.id, a.realmId, a.accessToken, a.refreshToken, a.accessTokenExpiresAt, a.refreshTokenExpiresAt, a.updatedAt);
+    },
+    clear(): void {
+      db.prepare('DELETE FROM quickbooks_auth WHERE id = ?').run('default');
+    },
+  };
+
   return {
     departments,
     agents,
@@ -1092,6 +1142,7 @@ export function openDb(path: string) {
     sopTasks,
     workflows,
     skills,
+    quickbooksAuth,
     close: () => db.close(),
   };
 }

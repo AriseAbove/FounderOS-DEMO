@@ -72,6 +72,20 @@ export const IntegrationSchema = z.object({
 export type Integration = z.infer<typeof IntegrationSchema>;
 export type IntegrationCategory = z.infer<typeof IntegrationCategorySchema>;
 
+// QuickBooks OAuth grant — one row, keyed 'default'. Access tokens are
+// short-lived (~1hr); refresh tokens rotate on every use (Intuit issues a new
+// one each refresh, ~100 day life). Never logged, never sent to the client.
+export const QuickBooksAuthSchema = z.object({
+  id: z.literal('default'),
+  realmId: z.string().min(1),
+  accessToken: z.string().min(1),
+  refreshToken: z.string().min(1),
+  accessTokenExpiresAt: z.number().int(), // unix ms
+  refreshTokenExpiresAt: z.number().int(), // unix ms
+  updatedAt: z.string(),
+});
+export type QuickBooksAuth = z.infer<typeof QuickBooksAuthSchema>;
+
 export const RoadmapItemSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),

@@ -55,7 +55,7 @@ export const INTEGRATIONS: Integration[] = [
 
   // Finance
   { slug: 'stripe', name: 'Stripe', tagline: 'Payments & invoices', category: 'Finance', connectorId: 'payments', popular: true, envKeys: ['STRIPE_SECRET_KEY'] },
-  { slug: 'quickbooks', name: 'QuickBooks', tagline: 'Bookkeeping & P&L', category: 'Finance' },
+  { slug: 'quickbooks', name: 'QuickBooks', tagline: 'Bookkeeping & P&L', category: 'Finance', connectorId: 'quickbooks', envKeys: [] },
   { slug: 'xero', name: 'Xero', tagline: 'Accounting & bills', category: 'Finance' },
   { slug: 'paypal', name: 'PayPal', tagline: 'Payments & payouts', category: 'Finance', envKeys: ['PAYPAL_CLIENT_ID', 'PAYPAL_CLIENT_SECRET'] },
   { slug: 'wise', name: 'Wise', tagline: 'Multi-currency balances', category: 'Finance' },

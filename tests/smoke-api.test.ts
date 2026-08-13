@@ -73,8 +73,14 @@ describe('platform smoke — every GET API route answers 200 with JSON', () => {
 
   test('the API smoke net covers every GET route under app/api (no route escapes)', () => {
     // skills/[slug] reads the local ~/.claude/skills dir at runtime (404 without
-    // a slug on disk), so it is not a 200-required smoke route.
-    const IGNORE = new Set(['skills/[slug]']);
+    // a slug on disk), so it is not a 200-required smoke route. The QuickBooks
+    // OAuth connect/callback routes are redirects by design (302 to Intuit, or
+    // back into the app) — not JSON APIs, so the 200+JSON contract doesn't apply.
+    const IGNORE = new Set([
+      'skills/[slug]',
+      'connections/quickbooks/connect',
+      'connections/quickbooks/callback',
+    ]);
     const discovered = discoverGetRoutes(path.join(process.cwd(), 'app', 'api')).filter((r) => !IGNORE.has(r)).sort();
     const covered = ROUTES.map((r) => r.route).sort();
     expect(covered).toEqual(discovered);

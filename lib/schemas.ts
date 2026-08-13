@@ -463,49 +463,57 @@ export const SkillSchema = z.object({
 });
 
 // ── Client roster — one row per client, whatever the source ─────────────────
-// The Clients pillar serves Attio deals when the connector is live and the
-// seeded funnel otherwise; `source` keeps the card honest about which.
+// The Clients pillar reads the funnel repo; `source` keeps the card honest
+// about where a row came from as richer sources land.
 export const RosterClientSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
-  venture: z.string(),
+  business: z.string(),
   status: z.string().min(1),
   amountUsd: z.number().nullable(),
-  source: z.enum(['attio', 'funnel']),
+  source: z.enum(['funnel']),
 });
 
-// ── Funnel — client journeys from first touch to conversion ─────────────────
-// Canonical stages; `nurtured` is optional so a journey renders as 4–5 touches.
-export const FunnelStageSchema = z.enum(['first_touch', 'engaged', 'nurtured', 'opted_in', 'converted']);
-export const FunnelVentureSchema = z.enum(['vantage', 'launchpad-cohort']);
-export const FunnelChannelSchema = z.enum(['organic', 'ads', 'dm', 'email', 'webinar', 'call', 'checkout', 'crm']);
-// Where each touch comes from: Trakyo (organic attribution), Meta Ads MCP
-// (paid), Attio (live CRM pipeline), manual otherwise. Seeded rows carry the
-// intended source so the live swap is a repo-level change.
-export const FunnelSourceSchema = z.enum(['trakyo', 'meta-ads', 'attio', 'ghl', 'manual']);
+// ── Funnel — client journeys from inquiry to complete-and-paid ──────────────
+// AAC's real pipeline, in order. (Arise Above Apps' funnel stages are still
+// undefined — 'apps' journeys reuse these as a clearly-flagged placeholder
+// until Apps defines its own; do not treat the stage names as Apps truth.)
+export const FunnelStageSchema = z.enum([
+  'inquiry',
+  'follow_up',
+  'walkthrough_scheduled',
+  'estimate_sent',
+  'negotiation',
+  'contract_signed',
+  'active_project',
+  'complete_paid',
+]);
+export const FunnelBusinessSchema = z.enum(['aac', 'apps']);
+export const FunnelChannelSchema = z.enum(['call', 'sms', 'email', 'dm', 'walkthrough', 'document', 'crm', 'organic', 'ads']);
+// Where each touch comes from: Allo (the AI receptionist call log), a CRM,
+// the website, a referral, or manual entry. Rows carry the intended source so
+// a live swap is a repo-level change.
+export const FunnelSourceSchema = z.enum(['allo', 'crm', 'website', 'referral', 'manual']);
 
-// Relationship temperature with Alex — with likelihood-to-buy (0–100) it
-// drives how a client node renders in the funnel space. Seeded dummy; later
-// computed from CRM (Attio) + Trakyo engagement.
+// Relationship temperature — with likelihood-to-buy (0–100) it drives how a
+// client node renders in the funnel space.
 export const FunnelRelationshipSchema = z.enum(['cold', 'warm', 'hot']);
 
 export const FunnelContactSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
-  venture: FunnelVentureSchema,
+  business: FunnelBusinessSchema,
   status: FunnelStageSchema, // furthest stage reached
   product: z.string().nullable(), // what they opted in to buy, once converted
   amountUsd: z.number().nonnegative().nullable(),
   relationship: FunnelRelationshipSchema,
   likelihood: z.number().int().min(0).max(100),
-  /** Deep link to the source record (Attio web_url / GHL contact page). */
+  /** Deep link to the source record (CRM contact page). */
   url: z.string().nullable().default(null),
-  /** Contact channels for outreach — GHL carries both; Attio joins them from
-   * the deal's associated person record (fetchAttioContacts). */
+  /** Contact channels for outreach. */
   email: z.string().nullable().default(null),
   phone: z.string().nullable().default(null),
-  /** The human behind the deal — joined from the CRM person/company records
-   * so the dossier says WHO this is, not just the deal title. */
+  /** The human behind the deal — so the dossier says WHO this is. */
   person: z.string().nullable().default(null),
   company: z.string().nullable().default(null),
   role: z.string().nullable().default(null),
@@ -519,7 +527,7 @@ export const FunnelTouchSchema = z.object({
   seq: z.number().int().positive(), // 1..n position in the journey
   stage: FunnelStageSchema,
   channel: FunnelChannelSchema,
-  label: z.string().min(1), // e.g. "IG reel: 3 offers that close themselves"
+  label: z.string().min(1), // e.g. "Allo call: kitchen remodel inquiry"
   source: FunnelSourceSchema,
   at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'at must look like 2026-06-13'),
 });
@@ -528,13 +536,10 @@ export const FunnelJourneySchema = FunnelContactSchema.extend({
   touches: z.array(FunnelTouchSchema),
 });
 
-// One bar of the funnel: journeys that progressed at least this far, split by
-// how they entered (first-touch organic vs ads).
+// One bar of the funnel: journeys that progressed at least this far.
 export const FunnelStageRowSchema = z.object({
   stage: FunnelStageSchema,
   total: z.number().int().nonnegative(),
-  organic: z.number().int().nonnegative(),
-  ads: z.number().int().nonnegative(),
   conversionFromPrev: z.number().min(0).max(100).nullable(),
 });
 
@@ -593,7 +598,7 @@ export type SopTask = z.infer<typeof SopTaskSchema>;
 export type RosterClient = z.infer<typeof RosterClientSchema>;
 export type FunnelStage = z.infer<typeof FunnelStageSchema>;
 export type FunnelRelationship = z.infer<typeof FunnelRelationshipSchema>;
-export type FunnelVenture = z.infer<typeof FunnelVentureSchema>;
+export type FunnelBusiness = z.infer<typeof FunnelBusinessSchema>;
 export type FunnelChannel = z.infer<typeof FunnelChannelSchema>;
 export type FunnelSource = z.infer<typeof FunnelSourceSchema>;
 export type FunnelContact = z.infer<typeof FunnelContactSchema>;

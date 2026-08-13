@@ -53,6 +53,7 @@
   /* Two more hues so the radial view's 7 acquisition wedges each get one. */
   --funnel-s5: #f096c8;
   --funnel-s6: #f0a05a;
+  --funnel-s7: #9ad06a;
   /* tool nodes on the knowledge graph (radial + directory + legend);
      follows brain-2 everywhere except themes that override it */
   --kg-tool: var(--brain-2);
@@ -96,6 +97,7 @@
   --funnel-s4: #0b8a52;
   --funnel-s5: #c04a8a;
   --funnel-s6: #b5651d;
+  --funnel-s7: #6a9a45;
   /* kg tool nodes follow the theme's brain-2 (mono overrides to red). */
   --kg-tool: var(--brain-2);
 }
@@ -137,6 +139,7 @@
   --funnel-s4: #4ade96;
   --funnel-s5: #f096c8;
   --funnel-s6: #f0a05a;
+  --funnel-s7: #9ad06a;
   /* kg tool nodes follow the theme's brain-2 (mono overrides to red). */
   --kg-tool: var(--brain-2);
 }
@@ -177,6 +180,7 @@
   --funnel-s4: #4ade96;
   --funnel-s5: #f096c8;
   --funnel-s6: #b5651d;
+  --funnel-s7: #6a9a45;
   /* kg tool nodes follow the theme's brain-2 (mono overrides to red). */
   --kg-tool: var(--brain-2);
 }
@@ -228,6 +232,7 @@
   --funnel-s4: var(--ok);
   --funnel-s5: #575757;
   --funnel-s6: #474747;
+  --funnel-s7: #3a3a3a;
   /* Alex's call (2026-07-10): tools burn red on the monolith radial. */
   --kg-tool: #ff2d3f;
 }
@@ -275,6 +280,7 @@
   --funnel-s4: #17924e;
   --funnel-s5: #c04a8a;
   --funnel-s6: #7a828c;
+  --funnel-s7: #5a9a55;
   --kg-tool: #d92d20;
 }
 

@@ -9,17 +9,34 @@ import {
   type FunnelStage,
   type FunnelSummary,
   type FunnelTouch,
-  type FunnelVenture,
+  type FunnelBusiness,
 } from '@/lib/schemas';
 
-/** Canonical stage order with display labels — the 4–5 data points. */
+/** AAC's real pipeline, in order — inquiry to complete-and-paid.
+ *  (Arise Above Apps' funnel stages are still undefined; 'apps' journeys
+ *  ride these as a flagged placeholder until Apps defines its own.) */
 export const FUNNEL_STAGES: { id: FunnelStage; label: string }[] = [
-  { id: 'first_touch', label: 'First touch' },
-  { id: 'engaged', label: 'Engaged' },
-  { id: 'nurtured', label: 'Nurtured' },
-  { id: 'opted_in', label: 'Opted in' },
-  { id: 'converted', label: 'Converted' },
+  { id: 'inquiry', label: 'Inquiry' },
+  { id: 'follow_up', label: 'Follow-up' },
+  { id: 'walkthrough_scheduled', label: 'Walk-through' },
+  { id: 'estimate_sent', label: 'Estimate sent' },
+  { id: 'negotiation', label: 'Negotiation' },
+  { id: 'contract_signed', label: 'Contract signed' },
+  { id: 'active_project', label: 'Active project' },
+  { id: 'complete_paid', label: 'Complete & paid' },
 ];
+
+/** Won = the deal is booked (deposit stage onward). Won journeys never
+ *  stall/decay and count toward revenue. */
+export const WON_STAGES: ReadonlySet<FunnelStage> = new Set([
+  'contract_signed',
+  'active_project',
+  'complete_paid',
+]);
+
+export function isWon(stage: FunnelStage): boolean {
+  return WON_STAGES.has(stage);
+}
 
 const STAGE_INDEX: Record<FunnelStage, number> = Object.fromEntries(
   FUNNEL_STAGES.map((s, i) => [s.id, i]),
@@ -27,14 +44,15 @@ const STAGE_INDEX: Record<FunnelStage, number> = Object.fromEntries(
 
 /** Display glyphs for touch channels (journey chips). */
 export const CHANNEL_GLYPHS: Record<string, string> = {
+  call: '☎',
+  sms: '¶',
+  email: '@',
+  dm: '✉',
+  walkthrough: '⌂',
+  document: '§',
+  crm: '◈',
   organic: '◉',
   ads: '▣',
-  dm: '✉',
-  email: '@',
-  webinar: '▶',
-  call: '☎',
-  checkout: '$',
-  crm: '◈',
 };
 
 /** Quiet for more than this many days before converting → the node runs red. */
@@ -42,8 +60,7 @@ export const STALL_DAYS = 7;
 /** Quiet past this → the lead decays out of the space into the archive tab. */
 export const DECAY_DAYS = 90;
 /** Nodes stay their neutral segment color until here, then fade toward red.
- * Three quiet weeks = a lead visibly starting to die (Alex's live pipeline
- * clusters at 21–30d quiet, so the gradient actually shows). */
+ * Three quiet weeks = a lead visibly starting to die. */
 export const DECAY_FADE_START = 21;
 
 /**
@@ -53,26 +70,25 @@ export const DECAY_FADE_START = 21;
  * the quiet clock, so movement is what keeps a lead vivid.
  */
 export function decayFactor(daysSinceLastTouch: number, status: FunnelStage): number {
-  if (status === 'converted') return 0;
+  if (isWon(status)) return 0;
   return Math.min(1, Math.max(0, (daysSinceLastTouch - DECAY_FADE_START) / (DECAY_DAYS - DECAY_FADE_START)));
 }
 
 export type JourneyState = 'converted' | 'stalled' | 'active' | 'decayed';
 
 /**
- * Liveness of one journey at `now`: how long since Alex last touched them,
- * and the color-state the space renders — green once converted, red when a
- * pre-conversion lead has sat quiet past STALL_DAYS, blue otherwise, and
+ * Liveness of one journey at `now`: how long since the last touch, and the
+ * color-state the space renders — green once won (contract signed onward),
+ * red when a pre-win lead has sat quiet past STALL_DAYS, blue otherwise, and
  * `decayed` (out of the space, into the archive) past DECAY_DAYS.
- * Incoming leads (still at first_touch) never stall: they render blue-ish
- * until they're engaged — but even they decay after 90 quiet days.
+ * Fresh inquiries never stall — but even they decay after 90 quiet days.
  */
 export function journeyMeta(j: FunnelJourney, now: Date): { daysSinceLastTouch: number; state: JourneyState } {
   const lastAt = j.touches[j.touches.length - 1]?.at ?? j.createdAt;
   const days = Math.max(0, Math.floor((now.getTime() - new Date(`${lastAt}T00:00:00Z`).getTime()) / 86_400_000));
-  const canStall = j.status !== 'converted' && j.status !== 'first_touch';
+  const canStall = !isWon(j.status) && j.status !== 'inquiry';
   const state: JourneyState =
-    j.status === 'converted'
+    isWon(j.status)
       ? 'converted'
       : days > DECAY_DAYS
         ? 'decayed'
@@ -83,7 +99,7 @@ export function journeyMeta(j: FunnelJourney, now: Date): { daysSinceLastTouch: 
 }
 
 /**
- * What Alex should act on today — the funnel answering a question instead
+ * What the operator should act on today — the funnel answering a question instead
  * of glowing. Two queues, both capped so the rail reads at a glance:
  *   pushNow — hot leads (likelihood ≥ 70) still in active motion; freshest
  *             movement first, because momentum is when a push closes.
@@ -102,7 +118,7 @@ export function attentionQueue(
     .filter(
       ({ j, meta }) =>
         meta.state === 'active' &&
-        j.status !== 'converted' &&
+        !isWon(j.status) &&
         j.likelihood >= PUSH_LIKELIHOOD &&
         // a fading lead is a save, not a push — even where stalling can't apply
         decayFactor(meta.daysSinceLastTouch, j.status) === 0,
@@ -114,7 +130,7 @@ export function attentionQueue(
     .filter(
       ({ j, meta }) =>
         meta.state !== 'decayed' &&
-        j.status !== 'converted' &&
+        !isWon(j.status) &&
         decayFactor(meta.daysSinceLastTouch, j.status) > 0,
     )
     .sort((a, b) => b.j.likelihood - a.j.likelihood || b.meta.daysSinceLastTouch - a.meta.daysSinceLastTouch)
@@ -138,7 +154,7 @@ export function splitFunnelJourneys(
 export type FunnelSpaceNode = {
   id: string;
   name: string;
-  venture: FunnelVenture;
+  business: FunnelBusiness;
   status: FunnelStage;
   relationship: FunnelJourney['relationship'];
   likelihood: number;
@@ -184,7 +200,7 @@ export function funnelSpaceModel(journeys: FunnelJourney[], now: Date): FunnelSp
     return {
       id: j.id,
       name: j.name,
-      venture: j.venture,
+      business: j.business,
       status: j.status,
       relationship: j.relationship,
       likelihood: j.likelihood,
@@ -212,19 +228,15 @@ export function funnelSpaceModel(journeys: FunnelJourney[], now: Date): FunnelSp
 /**
  * Per-stage reached counts + stage→stage conversion. "Reached" means the
  * journey's furthest stage is at or past the bar's stage — a journey that
- * skipped the optional `nurtured` touch still progressed past that point.
- * The organic/ads split keys off each journey's first touch.
+ * skipped an optional touch still progressed past that point.
  */
 export function funnelSummary(journeys: FunnelJourney[]): FunnelSummary {
-  const converted = journeys.filter((j) => j.status === 'converted');
+  const won = journeys.filter((j) => isWon(j.status));
   const stages = FUNNEL_STAGES.map(({ id }, i) => {
     const reached = journeys.filter((j) => STAGE_INDEX[j.status] >= i);
-    const firstChannel = (j: FunnelJourney) => j.touches[0]?.channel;
     return {
       stage: id,
       total: reached.length,
-      organic: reached.filter((j) => firstChannel(j) === 'organic').length,
-      ads: reached.filter((j) => firstChannel(j) === 'ads').length,
       conversionFromPrev: null as number | null,
     };
   });
@@ -234,8 +246,8 @@ export function funnelSummary(journeys: FunnelJourney[]): FunnelSummary {
   }
   return FunnelSummarySchema.parse({
     clients: journeys.length,
-    converted: converted.length,
-    revenueUsd: converted.reduce((sum, j) => sum + (j.amountUsd ?? 0), 0),
+    converted: won.length,
+    revenueUsd: won.reduce((sum, j) => sum + (j.amountUsd ?? 0), 0),
     stages,
   });
 }

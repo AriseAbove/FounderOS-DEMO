@@ -16,7 +16,7 @@ describe('KEY_SLOTS', () => {
   test('covers the canonical connector slots with groups', () => {
     const vars = KEY_SLOTS.map((s) => s.envVar);
     expect(vars).toEqual(
-      expect.arrayContaining(['SLACK_BOT_TOKEN', 'STRIPE_SECRET_KEY', 'NOTION_API_KEY', 'INBOX_1_PASS']),
+      expect.arrayContaining(['INBOX_1_PASS', 'CAL_1_USER', 'QUICKBOOKS_CLIENT_ID', 'BRAIN_STORE']),
     );
     for (const slot of KEY_SLOTS) {
       expect(slot.group.length).toBeGreaterThan(0);
@@ -27,13 +27,13 @@ describe('KEY_SLOTS', () => {
 
 describe('listKeyStatuses', () => {
   test('reports presence with masked values only — never the raw secret', () => {
-    const env = { SLACK_BOT_TOKEN: 'xoxb-very-secret-9876', STRIPE_SECRET_KEY: '' };
+    const env = { QUICKBOOKS_CLIENT_SECRET: 'qbo-very-secret-9876', INBOX_1_PASS: '' };
     const statuses = listKeyStatuses(env);
-    const slack = statuses.find((s) => s.envVar === 'SLACK_BOT_TOKEN')!;
-    expect(slack.present).toBe(true);
-    expect(slack.masked).toBe('••••9876');
-    expect(JSON.stringify(statuses)).not.toContain('xoxb-very-secret-9876');
-    expect(statuses.find((s) => s.envVar === 'STRIPE_SECRET_KEY')!.present).toBe(false);
+    const qbo = statuses.find((s) => s.envVar === 'QUICKBOOKS_CLIENT_SECRET')!;
+    expect(qbo.present).toBe(true);
+    expect(qbo.masked).toBe('••••9876');
+    expect(JSON.stringify(statuses)).not.toContain('qbo-very-secret-9876');
+    expect(statuses.find((s) => s.envVar === 'INBOX_1_PASS')!.present).toBe(false);
   });
 });
 

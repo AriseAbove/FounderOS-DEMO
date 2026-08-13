@@ -1,13 +1,12 @@
 /**
  * Radial funnel math — the outside → in view. The journey is a circle: leads
- * enter at the rim in one of seven acquisition segments (where they actually
- * came from) and travel inward ring by ring until the center — the purchase.
+ * enter at the rim in one of the acquisition segments (where they actually
+ * came from) and travel inward ring by ring until the center — the win.
  *
  * Attribution is honest: keyword classification over the entry touch, with
- * `word_of_mouth` as the explicit catch-all for what nothing tracked. Trakyo
- * UTM links (ManyChat sends, YouTube titles) and the GHL `source` field feed
- * the same labels, so live attribution sharpens as those land — no schema
- * change needed.
+ * `word_of_mouth` as the explicit catch-all for what nothing tracked. Live
+ * lead sources (the Allo call log, a CRM's source field) feed the same
+ * labels, so attribution sharpens as they land — no schema change needed.
  */
 import { funnelSpaceModel, type FunnelSpaceNode } from '@/lib/funnel';
 import type { FunnelJourney, FunnelTouch } from '@/lib/schemas';
@@ -16,21 +15,22 @@ import type { FunnelJourney, FunnelTouch } from '@/lib/schemas';
 type HasTouches = { touches: FunnelTouch[] };
 
 export type FunnelAcquisition =
-  | 'instagram'
-  | 'youtube'
-  | 'newsletter'
-  | 'x_linkedin'
-  | 'form'
+  | 'phone'
+  | 'google'
+  | 'website'
+  | 'social'
+  | 'referral'
   | 'word_of_mouth';
 
-/** The rim segments, in render order around the circle. X and LinkedIn share
- * one wedge (Alex condensed them — both are his text-platform funnels). */
+/** The rim segments, in render order around the circle — AAC's real lead
+ * sources: the Allo phone line, Google (search + Business Profile), the
+ * website form, social, referrals, and the honest untracked catch-all. */
 export const ACQUISITIONS: { id: FunnelAcquisition; label: string }[] = [
-  { id: 'instagram', label: 'Instagram' },
-  { id: 'youtube', label: 'YouTube' },
-  { id: 'newsletter', label: 'Newsletter' },
-  { id: 'x_linkedin', label: 'X / LinkedIn' },
-  { id: 'form', label: 'Forms' },
+  { id: 'phone', label: 'Phone / Allo' },
+  { id: 'google', label: 'Google' },
+  { id: 'website', label: 'Website' },
+  { id: 'social', label: 'Social' },
+  { id: 'referral', label: 'Referral' },
   { id: 'word_of_mouth', label: 'Word of mouth' },
 ];
 
@@ -39,18 +39,15 @@ const SEGMENT_INDEX: Record<FunnelAcquisition, number> = Object.fromEntries(
 ) as Record<FunnelAcquisition, number>;
 
 /**
- * Keyword families, first match wins. Order matters: youtube before form so
- * "long-form" stays YouTube; explicit word-of-mouth before the form fallback.
- * Instagram owns Meta paid + ManyChat + TikTok short-form (Alex runs ads
- * and DM automations through the IG/FB machine).
+ * Keyword families, first match wins. Explicit referral language beats the
+ * website-form fallback; the Allo phone line owns anything call-shaped.
  */
 const MATCHERS: { id: FunnelAcquisition; re: RegExp }[] = [
-  { id: 'youtube', re: /youtube|\byt\b|long-form/i },
-  { id: 'instagram', re: /instagram|\big\b|insta\b|reel|tiktok|meta ad|manychat|facebook|\bfb\b/i },
-  { id: 'newsletter', re: /newsletter|beehiiv/i },
-  { id: 'x_linkedin', re: /twitter|\bx thread|\bx post|\bx dm|\bon x\b|linkedin/i },
-  { id: 'word_of_mouth', re: /referr|word of mouth|recommend/i },
-  { id: 'form', re: /\bform\b|application|typeform|survey|landing page|opt.?in/i },
+  { id: 'referral', re: /referr|word of mouth|recommend/i },
+  { id: 'phone', re: /\ballo\b|phone|\bcall\b|voicemail|missed call/i },
+  { id: 'google', re: /google|\bgbp\b|business profile|maps|search/i },
+  { id: 'social', re: /instagram|\big\b|facebook|\bfb\b|nextdoor|houzz|yelp|tiktok/i },
+  { id: 'website', re: /website|\bform\b|landing page|book(ing)? link|estimate request/i },
 ];
 
 /**
@@ -62,7 +59,8 @@ export function acquisitionFor(j: HasTouches): FunnelAcquisition {
   const entry = j.touches[0];
   if (!entry) return 'word_of_mouth';
   for (const m of MATCHERS) if (m.re.test(entry.label)) return m.id;
-  if (entry.channel === 'ads') return 'instagram'; // paid traffic = the IG/FB machine
+  if (entry.channel === 'call' || entry.channel === 'sms') return 'phone';
+  if (entry.channel === 'ads') return 'social'; // paid traffic = the social machine
   return 'word_of_mouth';
 }
 
@@ -94,7 +92,7 @@ export type FunnelRadialNode = FunnelSpaceNode & {
   segment: number;
   /** Stage rings visited in order (aliases the space model's hub path). */
   rings: number[];
-  /** Where they are now: 0 = outermost ring, 4 = the converted core. */
+  /** Where they are now: 0 = outermost ring, last = the won core. */
   currentRing: number;
 };
 
@@ -113,8 +111,8 @@ export type FunnelRadialModel = {
 /**
  * Model for the radial view: the same living nodes as the space (decay,
  * likelihood, contact channels all preserved), placed by acquisition wedge
- * and stage ring. All seven segments are always present so the rim reads as
- * a fixed compass even when a wedge is empty.
+ * and stage ring. Every segment is always present so the rim reads as a
+ * fixed compass even when a wedge is empty.
  */
 export function funnelRadialModel(journeys: FunnelJourney[], now: Date): FunnelRadialModel {
   const segments: FunnelRadialSegment[] = ACQUISITIONS.map((a) => ({ ...a, count: 0, converted: 0 }));

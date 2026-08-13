@@ -91,7 +91,7 @@ function clientRoster(db: ReturnType<typeof getDb>): RosterClient[] {
   return db.funnel.journeys().map((j) => ({
     id: j.id,
     name: j.name,
-    venture: j.venture,
+    business: j.business,
     status: j.status,
     amountUsd: j.amountUsd,
     source: 'funnel' as const,

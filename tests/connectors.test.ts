@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { imapClientOptions, parseInboxConfigs } from '@/lib/connectors/email';
 import { configuredProcessors } from '@/lib/connectors/payments';
-import { metaAdsStatus } from '@/lib/connectors/meta-ads';
-import { ghlStatus } from '@/lib/connectors/ghl';
 
 describe('parseInboxConfigs', () => {
   test('returns empty when nothing is configured', () => {
@@ -68,68 +66,5 @@ describe('parseInboxConfigs', () => {
     const inboxes = parseInboxConfigs(env);
     expect(inboxes).toHaveLength(1);
     expect(inboxes[0].id).toBe('inbox-2');
-  });
-});
-
-describe('metaAdsStatus', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs();
-  });
-
-  test('reports not_configured without a token — never a fake connected', async () => {
-    vi.stubEnv('META_ADS_ACCESS_TOKEN', '');
-    const status = await metaAdsStatus();
-    expect(status.id).toBe('meta-ads');
-    expect(status.kind).toBe('ads');
-    expect(status.state).toBe('not_configured');
-    expect(status.detail).toMatch(/META_ADS_ACCESS_TOKEN/);
-  });
-
-  test('reports connected once META_ADS_ACCESS_TOKEN is set', async () => {
-    vi.stubEnv('META_ADS_ACCESS_TOKEN', 'EAAG-test-token');
-    const status = await metaAdsStatus();
-    expect(status.state).toBe('connected');
-  });
-});
-
-describe('ghlStatus', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs();
-  });
-
-  test('needs BOTH the private-integration token and the location id', async () => {
-    vi.stubEnv('GHL_API_KEY', 'pit-token');
-    vi.stubEnv('GHL_LOCATION_ID', '');
-    expect((await ghlStatus()).state).toBe('not_configured');
-    vi.stubEnv('GHL_LOCATION_ID', 'loc_123');
-    const status = await ghlStatus();
-    expect(status.state).toBe('connected');
-    expect(status.id).toBe('ghl');
-    expect(status.kind).toBe('crm');
-  });
-});
-
-describe('configuredProcessors', () => {
-  test('reports all processors unconfigured with an empty env', () => {
-    const procs = configuredProcessors({});
-    expect(procs.length).toBeGreaterThanOrEqual(3);
-    expect(procs.every((p) => !p.configured)).toBe(true);
-  });
-
-  test('detects Stripe when STRIPE_SECRET_KEY is set', () => {
-    const procs = configuredProcessors({ STRIPE_SECRET_KEY: 'sk_test_123' });
-    const stripe = procs.find((p) => p.id === 'stripe');
-    expect(stripe?.configured).toBe(true);
-  });
-
-  test('detects PayPal only when both client id and secret are set', () => {
-    expect(
-      configuredProcessors({ PAYPAL_CLIENT_ID: 'cid' }).find((p) => p.id === 'paypal')?.configured,
-    ).toBe(false);
-    expect(
-      configuredProcessors({ PAYPAL_CLIENT_ID: 'cid', PAYPAL_CLIENT_SECRET: 'sec' }).find(
-        (p) => p.id === 'paypal',
-      )?.configured,
-    ).toBe(true);
   });
 });

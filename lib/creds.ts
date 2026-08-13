@@ -120,7 +120,3 @@ export function resolveCred(name: string, files: string[]): string | undefined {
   }
   return undefined;
 }
-
-export function resolveAttioKey(): string | undefined {
-  return readEnvLocal().ATTIO_API_KEY ?? process.env.ATTIO_API_KEY;
-}

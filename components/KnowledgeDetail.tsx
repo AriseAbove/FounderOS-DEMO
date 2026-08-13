@@ -287,11 +287,11 @@ export function ToolDetailCard({
 
 export type ClientLite = RosterClient;
 
-// stages that count as "this is a client", across funnel and Attio wording
-const ACTIVE_STAGES = new Set(['converted', 'won', 'closed won', 'closed-won', 'active']);
+// stages that count as "this is a client" — the won stages of the pipeline
+const ACTIVE_STAGES = new Set(['contract_signed', 'active_project', 'complete_paid']);
 const isActiveClient = (status: string) => ACTIVE_STAGES.has(status.toLowerCase());
 
-/** The Clients pillar roster: every client by venture, pipeline underneath. */
+/** The Clients pillar roster: every client by business, pipeline underneath. */
 export function ClientRosterCard({
   clients, color, onClose,
 }: {
@@ -304,23 +304,23 @@ export function ClientRosterCard({
   const converted = clients.filter((c) => isActiveClient(c.status));
   const pipeline = clients.filter((c) => !isActiveClient(c.status) && !isLost(c.status));
   const lost = clients.filter((c) => !isActiveClient(c.status) && isLost(c.status)).length;
-  const ventures = [...new Set(converted.map((c) => c.venture).filter(Boolean))].sort();
-  const unventured = converted.filter((c) => !c.venture);
+  const businesses = [...new Set(converted.map((c) => c.business).filter(Boolean))].sort();
+  const unassigned = converted.filter((c) => !c.business);
   return (
     <div className="flex h-full flex-col">
       <PanelHeader
         title="Client roster"
-        sub={`${converted.length} active · ${pipeline.length} in pipeline${lost > 0 ? ` · ${lost} lost` : ''} · ${source === 'attio' ? 'live · Attio' : 'seeded · funnel'}`}
+        sub={`${converted.length} active · ${pipeline.length} in pipeline${lost > 0 ? ` · ${lost} lost` : ''} · ${source}`}
         color={color}
         onClose={onClose}
       />
       <div className="flex-1 overflow-y-auto px-3 py-2.5">
-        {ventures.map((v) => (
+        {businesses.map((v) => (
           <div key={v} className="mb-4">
             <SectionLabel icon={UserCog}>{v.replace(/-/g, ' ')}</SectionLabel>
             <div className="flex flex-col gap-1.5">
               {converted
-                .filter((c) => c.venture === v)
+                .filter((c) => c.business === v)
                 .map((c) => (
                   <Row
                     key={c.id}
@@ -332,11 +332,11 @@ export function ClientRosterCard({
             </div>
           </div>
         ))}
-        {unventured.length > 0 && (
+        {unassigned.length > 0 && (
           <div className="mb-4">
             <SectionLabel icon={UserCog}>clients</SectionLabel>
             <div className="flex flex-col gap-1.5">
-              {unventured.map((c) => (
+              {unassigned.map((c) => (
                 <Row
                   key={c.id}
                   color={color}

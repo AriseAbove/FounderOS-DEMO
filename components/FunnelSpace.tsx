@@ -2,12 +2,12 @@
 
 /**
  * The funnel as an open space, not a chart — the radial's living-orbit
- * language laid out left → right. Five section hubs sit along the spine
- * (conversion hub largest); every client is a node that enters at first
- * touch, travels hub-to-hub along its real journey, then ORBITS the section
- * it's in now — each lead circling its stage hub at its own pace and
- * direction. Crowded hubs breathe wider (orbitSpread) so the live pipeline's
- * ~100-lead first-touch cluster reads as a field, not a packed donut.
+ * language laid out left → right. One section hub per pipeline stage sits
+ * along the spine (the final won hub largest); every client is a node that
+ * enters at inquiry, travels hub-to-hub along its real journey, then ORBITS
+ * the section it's in now — each lead circling its stage hub at its own pace
+ * and direction. Crowded hubs breathe wider (orbitSpread) so a big cluster
+ * reads as a field, not a packed donut.
  *
  * Node language: size = likelihood-to-buy · ring = relationship (hot/warm/
  * cold) · hue = current stage, fade-to-red = quiet decay, green = converted.
@@ -28,8 +28,9 @@ const HUB_GAP = (W - 200) / (FUNNEL_STAGES.length - 1);
 const hubX = (i: number) => HUB_X0 + i * HUB_GAP;
 const hubR = (i: number) => (i === FUNNEL_STAGES.length - 1 ? 34 : 24);
 
-/** One hue per stage cluster — the reference is an Notes-style graph. */
-const SEGMENT_COLOR = ['var(--funnel-s0)', 'var(--funnel-s1)', 'var(--funnel-s2)', 'var(--funnel-s3)', 'var(--funnel-s4)'];
+/** One hue per stage cluster — derived from the stage list so the palette
+ * tracks the pipeline length (tokens --funnel-s0..s7 in globals.css). */
+const SEGMENT_COLOR = FUNNEL_STAGES.map((_, i) => `var(--funnel-s${i})`);
 
 const nodeColor = (n: FunnelSpaceNode) => decayedColor(SEGMENT_COLOR[n.currentHub], n.decay, n.state === 'converted');
 const nodeOpacity = (n: FunnelSpaceNode) => decayedOpacity(n.decay);

@@ -56,7 +56,7 @@ import {
   type FunnelContact,
   type FunnelTouch,
   type FunnelJourney,
-  type FunnelVenture,
+  type FunnelBusiness,
   type Person,
   type SopTask,
   type Workflow,
@@ -261,7 +261,7 @@ CREATE TABLE IF NOT EXISTS sop_tasks (
 CREATE TABLE IF NOT EXISTS funnel_contacts (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  venture TEXT NOT NULL,
+  business TEXT NOT NULL,
   status TEXT NOT NULL,
   product TEXT,
   amount_usd REAL,
@@ -304,6 +304,10 @@ CREATE TABLE IF NOT EXISTS skills (
   markdown TEXT NOT NULL DEFAULT '',
   ord INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS seed_meta (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS quickbooks_auth (
   id TEXT PRIMARY KEY,
   realm_id TEXT NOT NULL,
@@ -324,11 +328,22 @@ function migrateAgentsTable(db: InstanceType<typeof Database>): void {
   if (!columns.has('instance')) db.exec("ALTER TABLE agents ADD COLUMN instance TEXT NOT NULL DEFAULT 'builtin'");
 }
 
-/** Databases created before the funnel-space build lack these columns. */
+/** Databases created before the funnel-space build lack these columns; ones
+ *  created before the Phase 2 purge carry the old `venture` column and the
+ *  retired demo taxonomy (renamed + cleared here — the old rows were seeded
+ *  dummy data in a retired stage model). */
 function migrateFunnelContactsTable(db: InstanceType<typeof Database>): void {
   const columns = new Set(
     (db.pragma('table_info(funnel_contacts)') as { name: string }[]).map((c) => c.name),
   );
+  if (columns.has('venture') && !columns.has('business')) {
+    db.exec('ALTER TABLE funnel_contacts RENAME COLUMN venture TO business');
+    // Rows in the retired vantage/launchpad taxonomy (and their touches)
+    // were invented demo journeys — drop them.
+    db.exec("DELETE FROM funnel_touches WHERE contact_id IN (SELECT id FROM funnel_contacts WHERE business NOT IN ('aac', 'apps'))");
+    db.exec("DELETE FROM funnel_contacts WHERE business NOT IN ('aac', 'apps')");
+    columns.add('business');
+  }
   if (!columns.has('relationship')) db.exec("ALTER TABLE funnel_contacts ADD COLUMN relationship TEXT NOT NULL DEFAULT 'warm'");
   if (!columns.has('likelihood')) db.exec('ALTER TABLE funnel_contacts ADD COLUMN likelihood INTEGER NOT NULL DEFAULT 50');
   if (!columns.has('email')) db.exec('ALTER TABLE funnel_contacts ADD COLUMN email TEXT');
@@ -1084,8 +1099,8 @@ export function openDb(path: string) {
     insertContact(c: FunnelContact): void {
       FunnelContactSchema.parse(c);
       db.prepare(
-        'INSERT OR REPLACE INTO funnel_contacts (id, name, venture, status, product, amount_usd, relationship, likelihood, email, phone, person, company, role, linkedin, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      ).run(c.id, c.name, c.venture, c.status, c.product, c.amountUsd, c.relationship, c.likelihood, c.email, c.phone, c.person, c.company, c.role, c.linkedin, c.createdAt);
+        'INSERT OR REPLACE INTO funnel_contacts (id, name, business, status, product, amount_usd, relationship, likelihood, email, phone, person, company, role, linkedin, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      ).run(c.id, c.name, c.business, c.status, c.product, c.amountUsd, c.relationship, c.likelihood, c.email, c.phone, c.person, c.company, c.role, c.linkedin, c.createdAt);
     },
     insertTouch(t: FunnelTouch): void {
       FunnelTouchSchema.parse(t);
@@ -1094,10 +1109,10 @@ export function openDb(path: string) {
       ).run(t.id, t.contactId, t.seq, t.stage, t.channel, t.label, t.source, t.at);
     },
     /** Contacts with their touches in journey order, newest contact first. */
-    journeys(venture?: FunnelVenture): FunnelJourney[] {
+    journeys(business?: FunnelBusiness): FunnelJourney[] {
       const rows = (
-        venture
-          ? db.prepare('SELECT * FROM funnel_contacts WHERE venture = ? ORDER BY created_at DESC, id').all(venture)
+        business
+          ? db.prepare('SELECT * FROM funnel_contacts WHERE business = ? ORDER BY created_at DESC, id').all(business)
           : db.prepare('SELECT * FROM funnel_contacts ORDER BY created_at DESC, id').all()
       ) as any[];
       const touchStmt = db.prepare('SELECT * FROM funnel_touches WHERE contact_id = ? ORDER BY seq');
@@ -1105,7 +1120,7 @@ export function openDb(path: string) {
         FunnelJourneySchema.parse({
           id: r.id,
           name: r.name,
-          venture: r.venture,
+          business: r.business,
           status: r.status,
           product: r.product,
           amountUsd: r.amount_usd,
@@ -1121,6 +1136,24 @@ export function openDb(path: string) {
           touches: touchStmt.all(r.id).map(rowToFunnelTouch),
         }),
       );
+    },
+  };
+
+  const seedMeta = {
+    get(key: string): string | null {
+      const row = db.prepare('SELECT value FROM seed_meta WHERE key = ?').get(key) as { value: string } | undefined;
+      return row?.value ?? null;
+    },
+    set(key: string, value: string): void {
+      db.prepare('INSERT OR REPLACE INTO seed_meta (key, value) VALUES (?, ?)').run(key, value);
+    },
+  };
+
+  const funnelClear = {
+    /** Drop every funnel row — used by the seed to purge retired demo journeys. */
+    clearAll(): void {
+      db.prepare('DELETE FROM funnel_touches').run();
+      db.prepare('DELETE FROM funnel_contacts').run();
     },
   };
 
@@ -1181,7 +1214,8 @@ export function openDb(path: string) {
     social,
     emailList,
     socialPosts,
-    funnel,
+    funnel: { ...funnel, ...funnelClear },
+    seedMeta,
     people,
     sopTasks,
     workflows,

@@ -10,72 +10,49 @@ import {
   FUNNEL_STAGES,
   CHANNEL_GLYPHS,
 } from '@/lib/funnel';
-import { funnelSpaceModel } from '@/lib/funnel';
+import { funnelSpaceModel, isWon } from '@/lib/funnel';
 import { funnelRadialModel } from '@/lib/funnel-radial';
-import { attioFunnelJourneys } from '@/lib/funnel-live';
-import { ghlFunnelJourneys } from '@/lib/funnel-ghl';
-import { mergeTrakyoTouches, trakyoTouches } from '@/lib/funnel-trakyo';
 import { lastMessageFor } from '@/lib/funnel-contact';
 import { gatherCommsFeed } from '@/lib/comms-feed';
 import type { CommsItem } from '@/lib/comms';
-import { attioStatus } from '@/lib/connectors/attio';
-import { ghlStatus } from '@/lib/connectors/ghl';
-import { trakyoStatus } from '@/lib/connectors/trakyo';
-import { metaAdsStatus } from '@/lib/connectors/meta-ads';
 import { FunnelRadialLazy, FunnelSpaceLazy } from '@/components/FunnelGraphsLazy';
 import { Badge, SectionHead } from '@/components/terminal';
 import {
   FunnelStageSchema,
-  FunnelVentureSchema,
+  FunnelBusinessSchema,
   type FunnelJourney,
   type FunnelStage,
   type FunnelTouch,
-  type FunnelVenture,
+  type FunnelBusiness,
 } from '@/lib/schemas';
-import type { ConnectorStatus } from '@/lib/connectors/types';
 
 export const dynamic = 'force-dynamic';
 
-const VENTURE_TABS: { id: FunnelVenture | 'all'; label: string }[] = [
+const BUSINESS_TABS: { id: FunnelBusiness | 'all'; label: string }[] = [
   { id: 'all', label: 'All clients' },
-  { id: 'vantage', label: 'Vantage' },
-  { id: 'launchpad-cohort', label: 'Launchpad Cohort' },
+  { id: 'aac', label: 'AAC' },
+  // PLACEHOLDER: Arise Above Apps' funnel stages are still undefined — the
+  // tab exists so apps-tagged leads have a home, but the stage model below
+  // is AAC's until Apps defines its own.
+  { id: 'apps', label: 'Apps' },
 ];
 
 function usd(amount: number): string {
   return `$${Math.round(amount).toLocaleString('en-US')}`;
 }
 
-// Funnel-taxonomy branding (Attio/GHL client pipeline) is separate from the
-// AAC/Apps business lens — these two colors are cosmetic for this demo CRM
-// data and untouched by the Phase 1 business-lens rename.
-const VENTURE_COLORS: Record<FunnelVenture, string> = {
-  vantage: '#00ffaa',
-  'launchpad-cohort': '#d9263f',
+// Business dot colors — the AAC brand pair from lib/businesses.ts.
+const BUSINESS_COLORS: Record<FunnelBusiness, string> = {
+  aac: '#191265',
+  apps: '#C9A84C',
 };
 
-function ventureColor(id: FunnelVenture): string {
-  return VENTURE_COLORS[id] ?? 'var(--accent)';
+function businessColor(id: FunnelBusiness): string {
+  return BUSINESS_COLORS[id] ?? 'var(--accent)';
 }
 
-function ventureLabel(id: FunnelVenture): string | undefined {
-  return VENTURE_TABS.find((t) => t.id === id)?.label;
-}
-
-/** Compact source check: ✓ when connected, ○ when pending — detail on hover. */
-function SourceCheck({ status, live, count }: { status: ConnectorStatus; live?: boolean; count?: number }) {
-  const ok = status.state === 'connected';
-  return (
-    <span
-      title={status.detail}
-      className={`inline-flex items-center gap-1 font-mono text-[9.5px] uppercase tracking-[0.12em] ${
-        ok ? (live ? 'text-os-ok' : 'text-os-muted') : 'text-os-dim'
-      }`}
-    >
-      {ok ? '✓' : '○'} {status.name}
-      {live && count != null ? ` ${count}` : ''}
-    </span>
-  );
+function businessLabel(id: FunnelBusiness): string | undefined {
+  return BUSINESS_TABS.find((t) => t.id === id)?.label;
 }
 
 function TouchChip({ touch }: { touch: FunnelTouch }) {
@@ -100,7 +77,6 @@ const RELATIONSHIP_VAR: Record<FunnelJourney['relationship'], string> = {
 /** Compact outreach links — only the channels this lead actually has. */
 function ContactActions({ journey }: { journey: FunnelJourney }) {
   const digits = journey.phone?.replace(/[^\d]/g, '');
-  const isGhl = journey.url?.includes('gohighlevel');
   return (
     <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wide">
       {journey.email && (
@@ -131,7 +107,7 @@ function ContactActions({ journey }: { journey: FunnelJourney }) {
           rel="noopener noreferrer"
           className="text-os-dim hover:text-os-accent"
         >
-          {isGhl ? 'ghl↗' : 'attio↗'}
+          crm↗
         </a>
       )}
       {!journey.email && !journey.phone && !journey.url && <span className="text-os-dim">—</span>}
@@ -199,16 +175,10 @@ function JourneyTableRows({
   lastMsg?: CommsItem | null;
 }) {
   const stageLabel = FUNNEL_STAGES.find((s) => s.id === journey.status)?.label ?? journey.status;
-  const converted = journey.status === 'converted';
+  const won = isWon(journey.status);
   const meta = journeyMeta(journey, now);
   const decay = decayFactor(meta.daysSinceLastTouch, journey.status);
-  const entrySource = journey.touches[0]?.source;
-  const lane =
-    entrySource === 'attio' || entrySource === 'ghl'
-      ? 'crm'
-      : journey.touches[0]?.channel === 'ads'
-        ? 'ads'
-        : 'organic';
+  const lane = journey.touches[0]?.source ?? 'manual';
   return (
     <>
       <tr className="border-t border-os-border">
@@ -216,8 +186,8 @@ function JourneyTableRows({
           <span className="flex items-center gap-2">
             <span
               className="h-2 w-2 shrink-0 rounded-full"
-              style={{ background: ventureColor(journey.venture) }}
-              title={ventureLabel(journey.venture)}
+              style={{ background: businessColor(journey.business) }}
+              title={businessLabel(journey.business)}
             />
             <span className="min-w-0">
               <span className="block truncate text-[12.5px] font-semibold" title={journey.name}>
@@ -230,7 +200,7 @@ function JourneyTableRows({
           </span>
         </td>
         <td className="px-3 py-2.5 font-mono text-[10.5px] uppercase tracking-wide">
-          <span className={converted ? 'text-os-ok' : meta.state === 'stalled' ? 'text-os-err' : 'text-os-muted'}>
+          <span className={won ? 'text-os-ok' : meta.state === 'stalled' ? 'text-os-err' : 'text-os-muted'}>
             {stageLabel}
           </span>
         </td>
@@ -250,7 +220,7 @@ function JourneyTableRows({
         <td className="px-3 py-2.5 font-mono text-[11px] text-os-muted">{journey.likelihood}%</td>
         <td className="px-3 py-2.5 font-mono text-[10.5px] uppercase tracking-wide text-os-dim">{lane}</td>
         <td className="max-w-[220px] px-3 py-2.5">
-          {converted ? (
+          {won ? (
             <span className="block truncate font-mono text-[10.5px] text-os-ok" title={journey.product ?? undefined}>
               {usd(journey.amountUsd ?? 0)}
               {journey.product ? ` · ${journey.product}` : ''}
@@ -272,7 +242,7 @@ function JourneyTableRows({
                 <TouchChip touch={t} />
               </span>
             ))}
-            {!converted && <span className="font-mono text-[10px] text-os-dim">→ …</span>}
+            {!won && <span className="font-mono text-[10px] text-os-dim">→ …</span>}
             {lastMsg !== undefined && (
               <span className="ml-auto flex min-w-0 items-center gap-1.5 font-mono text-[10px]">
                 <span className="shrink-0 uppercase tracking-wide text-os-dim">last msg</span>
@@ -295,25 +265,25 @@ function JourneyTableRows({
 export default async function FunnelPage({
   searchParams,
 }: {
-  searchParams?: { venture?: string; view?: string; stage?: string; layout?: string; lead?: string };
+  searchParams?: { business?: string; view?: string; stage?: string; layout?: string; lead?: string };
 }) {
-  const parsed = FunnelVentureSchema.safeParse(searchParams?.venture);
-  const venture = parsed.success ? parsed.data : undefined;
+  const parsed = FunnelBusinessSchema.safeParse(searchParams?.business);
+  const business = parsed.success ? parsed.data : undefined;
   const view = searchParams?.view === 'archive' ? 'archive' : 'live';
   const stageParsed = FunnelStageSchema.safeParse(searchParams?.stage);
   const stage = stageParsed.success ? stageParsed.data : undefined;
   // Two ways to see the same journeys: hubs left → right, or the circle
-  // running outside → in (acquisition wedges around the rim, purchase center).
+  // running outside → in (acquisition wedges around the rim, the win center).
   const layout = searchParams?.layout === 'radial' ? 'radial' : 'flow';
   const href = (
-    v: FunnelVenture | undefined,
+    v: FunnelBusiness | undefined,
     w: 'live' | 'archive',
     s: FunnelStage | undefined = stage,
     l: 'flow' | 'radial' = layout,
     leadId?: string,
   ) => {
     const params = new URLSearchParams();
-    if (v) params.set('venture', v);
+    if (v) params.set('business', v);
     if (w === 'archive') params.set('view', 'archive');
     if (s) params.set('stage', s);
     if (l === 'radial') params.set('layout', 'radial');
@@ -323,21 +293,9 @@ export default async function FunnelPage({
   };
 
   const now = new Date();
-  // Live-first: Attio ∪ GHL when keys resolve (either alone works); seed
-  // otherwise. Trakyo's attributed touches merge in the moment its API exists.
-  const [attioLive, ghlLive] = await Promise.all([attioFunnelJourneys(now), ghlFunnelJourneys(now)]);
-  const liveJourneys = [...(attioLive?.journeys ?? []), ...(ghlLive?.journeys ?? [])];
-  const isLive = liveJourneys.length > 0;
-  const excludedCount = (attioLive?.closedLost ?? 0) + (ghlLive?.excluded ?? 0);
-  const liveLabel = [
-    attioLive && attioLive.journeys.length > 0 ? `Attio ${attioLive.total}` : null,
-    ghlLive && ghlLive.journeys.length > 0 ? `GHL ${ghlLive.total}` : null,
-  ]
-    .filter(Boolean)
-    .join(' + ');
-  const allJourneys = isLive
-    ? mergeTrakyoTouches(liveJourneys, await trakyoTouches()).filter((j) => !venture || j.venture === venture)
-    : getDb().funnel.journeys(venture);
+  // The funnel repo is the one source today — real leads land there via the
+  // Allo call log, a CRM sync, or manual entry when those get wired.
+  const allJourneys = getDb().funnel.journeys(business);
   // Quiet past DECAY_DAYS → out of the space, into the archive tab.
   const { active: journeys, archived } = splitFunnelJourneys(allJourneys, now);
   const summary = funnelSummary(journeys);
@@ -356,12 +314,6 @@ export default async function FunnelPage({
   if (stage && tableJourneys.length > 0) {
     commsFeed = await gatherCommsFeed(200).catch(() => null);
   }
-  const [attio, ghl, trakyo, metaAds] = await Promise.all([
-    attioStatus(),
-    ghlStatus(),
-    trakyoStatus(),
-    metaAdsStatus(),
-  ]);
 
   return (
     <div>
@@ -369,29 +321,27 @@ export default async function FunnelPage({
       <header className="mb-2 flex items-end justify-between gap-4">
         <h1 className="text-[25px] font-bold uppercase leading-[1.1] tracking-[0.06em]">Funnel</h1>
         <div className="flex shrink-0 items-center gap-2">
-          {isLive ? (
-            <Badge tone="ok">live · {liveLabel}</Badge>
-          ) : (
+          {journeys.length === 0 && (
             <Badge tone="warn" ghost>
-              demo data
+              no leads recorded yet
             </Badge>
           )}
           <Badge tone="accent">
-            {summary.converted}/{summary.clients} converted · {usd(summary.revenueUsd)}
+            {summary.converted}/{summary.clients} won · {usd(summary.revenueUsd)}
           </Badge>
         </div>
       </header>
 
-      {/* one control line: venture filter · synced sources · view toggle */}
+      {/* one control line: business filter · view toggle */}
       <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
         <span className="flex items-center gap-1.5">
-          {VENTURE_TABS.map((tab) => {
-            const active = (venture ?? 'all') === tab.id;
+          {BUSINESS_TABS.map((tab) => {
+            const active = (business ?? 'all') === tab.id;
             return (
               <Link
                 key={tab.id}
-                href={href(tab.id === 'all' ? undefined : (tab.id as FunnelVenture), view)}
-                title={tab.id !== 'all' && isLive ? 'Live split = deal-name heuristic; add a venture attribute in Attio for exact' : undefined}
+                href={href(tab.id === 'all' ? undefined : (tab.id as FunnelBusiness), view)}
+                title={tab.id === 'apps' ? 'Placeholder — Apps funnel stages are not defined yet' : undefined}
                 className={`rounded-sm-t border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide transition-colors ${
                   active
                     ? 'border-[var(--accent-line)] bg-[var(--accent-soft)] text-os-accent'
@@ -401,7 +351,7 @@ export default async function FunnelPage({
                 {tab.id !== 'all' && (
                   <span
                     className="mr-1 inline-block h-1.5 w-1.5 rounded-full align-middle"
-                    style={{ background: ventureColor(tab.id as FunnelVenture) }}
+                    style={{ background: businessColor(tab.id as FunnelBusiness) }}
                   />
                 )}
                 {tab.label}
@@ -409,16 +359,9 @@ export default async function FunnelPage({
             );
           })}
         </span>
-        <span className="h-3 w-px bg-os-border" />
-        <span className="flex items-center gap-2.5" title={isLive ? `${excludedCount} lost/closed-lost excluded` : undefined}>
-          <SourceCheck status={attio} live={Boolean(attioLive?.journeys.length)} count={attioLive?.total} />
-          <SourceCheck status={ghl} live={Boolean(ghlLive?.journeys.length)} count={ghlLive?.total} />
-          <SourceCheck status={trakyo} />
-          <SourceCheck status={metaAds} />
-        </span>
         <span className="ml-auto flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wide">
           <Link
-            href={href(venture, 'live', stage, 'flow')}
+            href={href(business, 'live', stage, 'flow')}
             title="Open space left → right — every lead orbits the stage it's in now"
             className={layout === 'flow' && view === 'live' ? 'text-os-accent' : 'text-os-dim hover:text-os-muted'}
           >
@@ -426,22 +369,22 @@ export default async function FunnelPage({
           </Link>
           <span className="text-os-dim">·</span>
           <Link
-            href={href(venture, 'live', stage, 'radial')}
-            title="Circle, outside → in — center is the purchase"
+            href={href(business, 'live', stage, 'radial')}
+            title="Circle, outside → in — center is the win"
             className={layout === 'radial' && view === 'live' ? 'text-os-accent' : 'text-os-dim hover:text-os-muted'}
           >
             radial
           </Link>
           <span className="mx-1 h-3 w-px bg-os-border" />
           <Link
-            href={href(venture, 'live')}
+            href={href(business, 'live')}
             className={view === 'live' ? 'text-os-accent' : 'text-os-dim hover:text-os-muted'}
           >
             live funnel
           </Link>
           <span className="text-os-dim">·</span>
           <Link
-            href={href(venture, 'archive')}
+            href={href(business, 'archive')}
             className={view === 'archive' ? 'text-os-accent' : 'text-os-dim hover:text-os-muted'}
           >
             archive ({archived.length})
@@ -449,7 +392,7 @@ export default async function FunnelPage({
         </span>
       </div>
 
-      {/* The space — every node is a client travelling toward conversion.
+      {/* The space — every node is a lead travelling toward the win.
           Leads quiet past DECAY_DAYS decay into the archive tab. */}
       <section>
         <div className="rounded-lg-t border border-os-border bg-os-surface p-2">
@@ -480,7 +423,7 @@ export default async function FunnelPage({
                           <span className="flex items-center gap-2">
                             <span
                               className="h-1.5 w-1.5 shrink-0 rounded-full opacity-60"
-                              style={{ background: ventureColor(j.venture) }}
+                              style={{ background: businessColor(j.business) }}
                             />
                             <span className="truncate text-[12px] text-os-muted">{j.name}</span>
                           </span>
@@ -538,7 +481,7 @@ export default async function FunnelPage({
               </p>
             ) : (
               attention.pushNow.map((j) => (
-                <AttentionRow key={j.id} journey={j} now={now} href={href(venture, view, stage, layout, j.id)} />
+                <AttentionRow key={j.id} journey={j} now={now} href={href(business, view, stage, layout, j.id)} />
               ))
             )}
           </div>
@@ -557,7 +500,7 @@ export default async function FunnelPage({
               </p>
             ) : (
               attention.saveNow.map((j) => (
-                <AttentionRow key={j.id} journey={j} now={now} href={href(venture, view, stage, layout, j.id)} />
+                <AttentionRow key={j.id} journey={j} now={now} href={href(business, view, stage, layout, j.id)} />
               ))
             )}
           </div>
@@ -569,7 +512,7 @@ export default async function FunnelPage({
         <SectionHead label="Journey data" count={`${tableJourneys.length}`} />
         <div className="mb-3 flex flex-wrap items-center gap-1.5">
           <Link
-            href={href(venture, view, undefined)}
+            href={href(business, view, undefined)}
             className={`rounded-sm-t border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide transition-colors ${
               !stage
                 ? 'border-[var(--accent-line)] bg-[var(--accent-soft)] text-os-accent'
@@ -583,7 +526,7 @@ export default async function FunnelPage({
             return (
               <Link
                 key={s.id}
-                href={href(venture, view, active ? undefined : s.id)}
+                href={href(business, view, active ? undefined : s.id)}
                 className={`rounded-sm-t border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide transition-colors ${
                   active
                     ? 'border-[var(--accent-line)] bg-[var(--accent-soft)] text-os-accent'

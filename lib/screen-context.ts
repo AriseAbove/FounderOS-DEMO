@@ -8,9 +8,7 @@
  */
 import { NAV_AGENTS, NAV_INTELLIGENCE, NAV_LIBRARY, NAV_OPERATE, NAV_SYSTEM } from '@/lib/nav';
 import { getDb } from '@/lib/data';
-import { funnelSummary, journeyMeta, splitFunnelJourneys, FUNNEL_STAGES } from '@/lib/funnel';
-import { attioFunnelJourneys } from '@/lib/funnel-live';
-import { ghlFunnelJourneys } from '@/lib/funnel-ghl';
+import { funnelSummary, isWon, journeyMeta, splitFunnelJourneys, FUNNEL_STAGES } from '@/lib/funnel';
 
 const ALL_NAV = [...NAV_OPERATE, ...NAV_AGENTS, ...NAV_INTELLIGENCE, ...NAV_SYSTEM, ...NAV_LIBRARY];
 
@@ -34,7 +32,7 @@ export type FunnelContextInput = {
 /** Pure formatter — what the Conductor reads about the funnel screen. */
 export function describeFunnelContext(d: FunnelContextInput): string {
   return [
-    `Funnel: ${d.clients} active leads across ${d.sources}; ${d.converted} converted ($${Math.round(d.revenueUsd).toLocaleString('en-US')}); ${d.archived} archived (>90d quiet).`,
+    `Funnel: ${d.clients} active leads from ${d.sources}; ${d.converted} won ($${Math.round(d.revenueUsd).toLocaleString('en-US')}); ${d.archived} archived (>90d quiet).`,
     `Current stage counts — ${d.stageCounts.map(([label, n]) => `${label}: ${n}`).join(' · ')}.`,
     `${d.decaying} fading toward the 90-day archive (quiet >21d).`,
     d.reddest.length > 0
@@ -47,15 +45,13 @@ export function describeFunnelContext(d: FunnelContextInput): string {
 
 async function funnelContext(): Promise<string> {
   const now = new Date();
-  const [attioLive, ghlLive] = await Promise.all([attioFunnelJourneys(now), ghlFunnelJourneys(now)]);
-  const live = [...(attioLive?.journeys ?? []), ...(ghlLive?.journeys ?? [])];
-  const all = live.length > 0 ? live : getDb().funnel.journeys();
+  const all = getDb().funnel.journeys();
   const { active, archived } = splitFunnelJourneys(all, now);
   const summary = funnelSummary(active);
   const metas = active.map((j) => ({ j, meta: journeyMeta(j, now) }));
-  const decaying = metas.filter(({ j, meta }) => j.status !== 'converted' && meta.daysSinceLastTouch > 21).length;
+  const decaying = metas.filter(({ j, meta }) => !isWon(j.status) && meta.daysSinceLastTouch > 21).length;
   const reddest = metas
-    .filter(({ j }) => j.status !== 'converted')
+    .filter(({ j }) => !isWon(j.status))
     .sort((a, b) => b.meta.daysSinceLastTouch - a.meta.daysSinceLastTouch)
     .slice(0, 5)
     .map(({ j, meta }) => ({ name: j.name, days: meta.daysSinceLastTouch }));
@@ -64,15 +60,7 @@ async function funnelContext(): Promise<string> {
     const label = FUNNEL_STAGES.find((s) => s.id === j.status)?.label ?? j.status;
     stageCounts.set(label, (stageCounts.get(label) ?? 0) + 1);
   }
-  const sources =
-    live.length > 0
-      ? [
-          attioLive?.journeys.length ? `Attio ${attioLive.total}` : null,
-          ghlLive?.journeys.length ? `GHL ${ghlLive.total}` : null,
-        ]
-          .filter(Boolean)
-          .join(' + ') + ' (live)'
-      : 'seeded demo data';
+  const sources = 'the funnel repo';
   return describeFunnelContext({
     clients: summary.clients,
     converted: summary.converted,

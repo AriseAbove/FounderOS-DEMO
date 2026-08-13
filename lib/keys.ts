@@ -21,15 +21,11 @@ export const KEY_SLOTS: KeySlot[] = [
   { envVar: 'INBOX_4_HOST', label: 'Inbox 4 host', group: 'Email' },
   { envVar: 'INBOX_4_USER', label: 'Inbox 4 user', group: 'Email' },
   { envVar: 'INBOX_4_PASS', label: 'Inbox 4 app password', group: 'Email' },
-  { envVar: 'SLACK_BOT_TOKEN', label: 'Slack bot token', group: 'Slack', hint: 'xoxb-… needs chat:write to reply from the OS' },
-  { envVar: 'STRIPE_SECRET_KEY', label: 'Stripe secret key', group: 'Payments' },
-  { envVar: 'PAYPAL_CLIENT_ID', label: 'PayPal client id', group: 'Payments' },
-  { envVar: 'PAYPAL_CLIENT_SECRET', label: 'PayPal client secret', group: 'Payments' },
-  { envVar: 'SQUARE_ACCESS_TOKEN', label: 'Square access token', group: 'Payments' },
-  { envVar: 'WHOP_API_KEY', label: 'Whop API key', group: 'Payments' },
-  { envVar: 'NOTION_API_KEY', label: 'Notion integration secret', group: 'Notion' },
-  { envVar: 'MANYCHAT_API_KEY', label: 'ManyChat API key', group: 'Social', hint: 'ManyChat → Settings → API (Instagram DM automation)' },
-  { envVar: 'GBRAIN_STORE', label: 'Brain-store path override', group: 'G-Brain' },
+  { envVar: 'CAL_1_USER', label: 'Calendar 1 user', group: 'Calendar' },
+  { envVar: 'CAL_1_PASS', label: 'Calendar 1 app password', group: 'Calendar' },
+  { envVar: 'QUICKBOOKS_CLIENT_ID', label: 'QuickBooks client id', group: 'QuickBooks' },
+  { envVar: 'QUICKBOOKS_CLIENT_SECRET', label: 'QuickBooks client secret', group: 'QuickBooks' },
+  { envVar: 'BRAIN_STORE', label: 'Knowledge store path', group: 'Knowledge', hint: 'folder of markdown files' },
 ];
 
 export function maskSecret(value: string): string {

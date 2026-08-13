@@ -152,35 +152,32 @@ describe('API route handlers', () => {
     expect(res.status).toBe(400);
   });
 
-  test('GET /api/funnel returns a validated summary + journeys', async () => {
+  test('GET /api/funnel returns a validated summary + journeys (honestly empty)', async () => {
     const { GET } = await import('@/app/api/funnel/route');
     const res = await GET(new Request('http://localhost/api/funnel'));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.summary.clients).toBeGreaterThanOrEqual(10);
+    // the purge removed the invented journeys — the pipeline starts empty
+    expect(body.summary.clients).toBe(0);
     expect(body.summary.stages.map((s: { stage: string }) => s.stage)).toEqual([
-      'first_touch', 'engaged', 'nurtured', 'opted_in', 'converted',
+      'inquiry', 'follow_up', 'walkthrough_scheduled', 'estimate_sent',
+      'negotiation', 'contract_signed', 'active_project', 'complete_paid',
     ]);
-    expect(body.journeys.length).toBe(body.summary.clients);
-    expect(body.journeys[0].touches.length).toBeGreaterThanOrEqual(4);
-    // leads quiet past 90 days decay out of journeys into the archive
+    expect(body.journeys).toEqual([]);
     expect(Array.isArray(body.archived)).toBe(true);
-    expect(body.archived.length).toBeGreaterThanOrEqual(1);
-    expect(body.journeys.map((j: { id: string }) => j.id)).not.toContain(body.archived[0].id);
   });
 
-  test('GET /api/funnel?venture= filters journeys to one venture', async () => {
+  test('GET /api/funnel?business= accepts a valid business filter', async () => {
     const { GET } = await import('@/app/api/funnel/route');
-    const res = await GET(new Request('http://localhost/api/funnel?venture=vantage'));
+    const res = await GET(new Request('http://localhost/api/funnel?business=aac'));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.journeys.length).toBeGreaterThan(0);
-    expect(body.journeys.every((j: { venture: string }) => j.venture === 'vantage')).toBe(true);
+    expect(Array.isArray(body.journeys)).toBe(true); // empty until real leads land
   });
 
-  test('GET /api/funnel rejects an unknown venture', async () => {
+  test('GET /api/funnel rejects an unknown business', async () => {
     const { GET } = await import('@/app/api/funnel/route');
-    const res = await GET(new Request('http://localhost/api/funnel?venture=bogus'));
+    const res = await GET(new Request('http://localhost/api/funnel?business=bogus'));
     expect(res.status).toBe(400);
   });
 

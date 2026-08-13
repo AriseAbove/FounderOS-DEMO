@@ -1,15 +1,14 @@
 'use client';
 
 /**
- * The funnel as a circle — the journey runs outside → in. Seven acquisition
- * wedges around the rim (Instagram incl. paid ads, YouTube, newsletter, X,
- * LinkedIn, forms, word of mouth); concentric stage rings pull leads inward;
- * the center core is the purchase. Every node is a client: it enters outside
- * the rim in its wedge, spirals in through the rings it really visited, then
- * drifts alive inside its current band. Same node language as the flow view —
- * size = likelihood, hue = entry wedge, fade-to-red = quiet decay, green =
- * converted (and converted nodes leave their wedge for the shared core:
- * inside is inside).
+ * The funnel as a circle — the journey runs outside → in. Acquisition wedges
+ * around the rim (phone/Allo, Google, website, social, referral, word of
+ * mouth); concentric stage rings pull leads inward; the center core is the
+ * win. Every node is a client: it enters outside the rim in its wedge,
+ * spirals in through the rings it really visited, then drifts alive inside
+ * its current band. Same node language as the flow view — size = likelihood,
+ * hue = entry wedge, fade-to-red = quiet decay, green = won (and won nodes
+ * leave their wedge for the shared core: inside is inside).
  */
 import { useEffect, useRef, useState } from 'react';
 import { Maximize2, Minimize2 } from 'lucide-react';
@@ -29,8 +28,14 @@ const SEG_SPAN = TAU / SEG_COUNT;
 const SEG_INSET = 0.13;
 const TOP = -Math.PI / 2; // wedge 0 starts at 12 o'clock
 
-/** Stage ring radii, outermost (first touch) → the converted core. */
-const RING = [288, 228, 170, 114, 48];
+/** Stage ring radii, outermost (inquiry) → the won core — interpolated
+ * across however many stages the pipeline defines. */
+const CORE_R = 48;
+const OUTER_R = 288;
+const RING = FUNNEL_STAGES.map(
+  (_, i) => Math.round(OUTER_R - (i * (OUTER_R - CORE_R)) / (FUNNEL_STAGES.length - 1)),
+);
+const LAST = RING.length - 1;
 
 /** One hue per acquisition wedge — s4 (phosphor green) is skipped so no
  * wedge ever wears the conversion color. */
@@ -68,7 +73,7 @@ const wedgeAngle = (n: FunnelRadialNode, i: number): number =>
  * to the purchase). Ring 4 = the core disc, likelihood ignored — they bought.
  */
 function bandRadius(n: FunnelRadialNode, i: number, ring: number): number {
-  if (ring >= RING.length - 1) return 6 + rnd(i, 12) * (RING[4] - 16);
+  if (ring >= RING.length - 1) return 6 + rnd(i, 12) * (RING[LAST] - 16);
   const outer = RING[ring] - 8;
   const inner = RING[ring + 1] + 12;
   const depth = 0.15 + 0.6 * (n.likelihood / 100) + rnd(i, 1) * 0.2;
@@ -240,8 +245,8 @@ export function FunnelRadial({
           return (
             <g key={seg.id}>
               <line
-                x1={polar(boundary, RING[4] + 12).x}
-                y1={polar(boundary, RING[4] + 12).y}
+                x1={polar(boundary, RING[LAST] + 12).x}
+                y1={polar(boundary, RING[LAST] + 12).y}
                 x2={polar(boundary, RING[0]).x}
                 y2={polar(boundary, RING[0]).y}
                 stroke="var(--border)"
@@ -271,13 +276,13 @@ export function FunnelRadial({
           className="funnel-hub-ring"
           cx={CX}
           cy={CY}
-          r={RING[4] + 10}
+          r={RING[LAST] + 10}
           fill="none"
           stroke="var(--ok)"
           strokeOpacity={0.45}
           strokeDasharray="3 7"
         />
-        <circle cx={CX} cy={CY} r={RING[4]} fill="var(--surface-2)" stroke="var(--ok)" strokeOpacity={0.55} strokeWidth={1.2} />
+        <circle cx={CX} cy={CY} r={RING[LAST]} fill="var(--surface-2)" stroke="var(--ok)" strokeOpacity={0.55} strokeWidth={1.2} />
         <text
           x={CX}
           y={CY - 2}
@@ -287,7 +292,7 @@ export function FunnelRadial({
           fontFamily="var(--font-mono)"
           style={{ textTransform: 'uppercase', letterSpacing: '0.18em' }}
         >
-          converted
+          won
         </text>
         <text x={CX} y={CY + 14} textAnchor="middle" fill="var(--ok)" fontSize={13} fontFamily="var(--font-mono)">
           {convertedTotal}
@@ -363,7 +368,7 @@ export function FunnelRadial({
           />{' '}
           fades red after {DECAY_FADE_START}d quiet → archive at {DECAY_DAYS}d
         </span>
-        <span className="ml-auto">untracked = word of mouth until Trakyo UTMs land · click a node</span>
+        <span className="ml-auto">untracked = word of mouth · click a node</span>
       </div>
     </div>
   );

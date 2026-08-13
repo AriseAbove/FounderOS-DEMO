@@ -1,8 +1,8 @@
-import { CRED_FILES, resolveCred } from '@/lib/creds';
+import { resolveCred } from '@/lib/creds';
 import type { ConnectorStatus } from '@/lib/connectors/types';
 
 export async function miroStatus(): Promise<ConnectorStatus> {
-  const token = resolveCred('MIRO_ACCESS_TOKEN', [CRED_FILES.agentsEnv]);
+  const token = resolveCred('MIRO_ACCESS_TOKEN', []);
   if (!token) {
     return {
       id: 'miro',

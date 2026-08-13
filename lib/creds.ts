@@ -1,13 +1,13 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 
 /**
- * Credential resolution for connectors. Alex's keys already live in
- * canonical locations around the machine (~/.config/social/.env,
- * knowledge/.env.agents, ~/.config/mcp.json, project .env files). Connectors
- * resolve from process.env first, then fall back to those files at runtime —
- * no secrets are ever copied into this repo.
+ * Credential resolution for connectors. process.env is the source of truth,
+ * with a live .env.local overlay so a just-pasted key from the Connections
+ * board's connect flow takes effect without a restart. `resolveCred` also
+ * accepts an optional list of local env-file paths to check as a last
+ * resort, for anyone who keeps credentials in files outside the repo — no
+ * secrets are ever copied into this repo.
  */
 
 export function parseEnvFile(content: string): Record<string, string> {
@@ -37,15 +37,6 @@ export function extractMcpEnvKey(claudeJson: unknown, server: string, key: strin
     ?.mcpServers;
   return servers?.[server]?.env?.[key];
 }
-
-const HOME = os.homedir();
-
-export const CRED_FILES = {
-  socialMedia: path.join(HOME, '.config/social', '.env'),
-  agentsEnv: path.join(HOME, 'knowledge', '.env.agents'),
-  arcads: path.join(HOME, 'Projects', 'arcads-agent-skills', '.env'),
-  claudeJson: path.join(HOME, '.config/mcp.json'),
-};
 
 function readEnvFileSafe(filePath: string): Record<string, string> {
   try {
@@ -131,24 +122,10 @@ export function resolveCred(name: string, files: string[]): string | undefined {
 }
 
 export function resolveAttioKey(): string | undefined {
-  if (process.env.ATTIO_API_KEY) return process.env.ATTIO_API_KEY;
-  try {
-    const claudeJson = JSON.parse(fs.readFileSync(CRED_FILES.claudeJson, 'utf8'));
-    return extractMcpEnvKey(claudeJson, 'attio', 'ATTIO_API_KEY');
-  } catch {
-    return undefined;
-  }
+  return readEnvLocal().ATTIO_API_KEY ?? process.env.ATTIO_API_KEY;
 }
 
-/** ManyChat's key lives in ~/.config/mcp.json (the manychat MCP registration),
- *  same reuse pattern as Attio. .env.local / process.env still win. */
+/** .env.local / process.env only — see resolveCred for the general pattern. */
 export function resolveManychatKey(): string | undefined {
-  const direct = readEnvLocal().MANYCHAT_API_KEY ?? process.env.MANYCHAT_API_KEY;
-  if (direct) return direct;
-  try {
-    const claudeJson = JSON.parse(fs.readFileSync(CRED_FILES.claudeJson, 'utf8'));
-    return extractMcpEnvKey(claudeJson, 'manychat', 'MANYCHAT_API_KEY');
-  } catch {
-    return undefined;
-  }
+  return readEnvLocal().MANYCHAT_API_KEY ?? process.env.MANYCHAT_API_KEY;
 }

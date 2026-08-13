@@ -8,7 +8,7 @@
  * AI_GATEWAY_API_KEY ⇒ not_configured, never a fake "connected".
  */
 import { z } from 'zod';
-import { CRED_FILES, resolveCred } from '@/lib/creds';
+import { resolveCred } from '@/lib/creds';
 import type { ConnectorStatus } from '@/lib/connectors/types';
 
 export type LlmRole = 'system' | 'user' | 'assistant' | 'tool';
@@ -42,7 +42,7 @@ const DEFAULT_MODEL = process.env.LLM_MODEL ?? 'anthropic/claude-sonnet-5';
 
 /** process.env first (Next auto-loads .env.local), then Alex's cred files. */
 function resolveGatewayKey(): string | undefined {
-  return resolveCred(GATEWAY_KEY, [CRED_FILES.agentsEnv, CRED_FILES.socialMedia]);
+  return resolveCred(GATEWAY_KEY, []);
 }
 
 /** Stub trigger: a user message containing `use-tool:<name>` fires that tool. */

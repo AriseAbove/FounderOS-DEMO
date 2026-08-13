@@ -23,9 +23,11 @@ export function qboConfigured(env: Record<string, string | undefined> = process.
   return Boolean(env.QUICKBOOKS_CLIENT_ID && env.QUICKBOOKS_CLIENT_SECRET);
 }
 
-/** sandbox unless explicitly set to 'production' — never guess production. */
+/** Production is the normal case — this is a real business's books, not a
+    demo. Sandbox only when explicitly requested (dev keys / local testing
+    via QUICKBOOKS_ENVIRONMENT=sandbox). */
 export function qboEnvironment(env: Record<string, string | undefined> = process.env): 'sandbox' | 'production' {
-  return env.QUICKBOOKS_ENVIRONMENT === 'production' ? 'production' : 'sandbox';
+  return env.QUICKBOOKS_ENVIRONMENT === 'sandbox' ? 'sandbox' : 'production';
 }
 
 export function qboApiBase(env: Record<string, string | undefined> = process.env): string {

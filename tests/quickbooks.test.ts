@@ -21,15 +21,15 @@ describe('qboConfigured', () => {
 });
 
 describe('qboEnvironment / qboApiBase', () => {
-  test('defaults to sandbox — never guesses production', () => {
-    expect(qboEnvironment({})).toBe('sandbox');
-    expect(qboEnvironment({ QUICKBOOKS_ENVIRONMENT: 'staging' })).toBe('sandbox');
-    expect(qboApiBase({})).toContain('sandbox-quickbooks');
+  test('defaults to production — real books are the normal case, not a demo', () => {
+    expect(qboEnvironment({})).toBe('production');
+    expect(qboEnvironment({ QUICKBOOKS_ENVIRONMENT: 'staging' })).toBe('production');
+    expect(qboApiBase({})).toBe('https://quickbooks.api.intuit.com');
   });
 
-  test('production only when explicitly set', () => {
-    expect(qboEnvironment({ QUICKBOOKS_ENVIRONMENT: 'production' })).toBe('production');
-    expect(qboApiBase({ QUICKBOOKS_ENVIRONMENT: 'production' })).toBe('https://quickbooks.api.intuit.com');
+  test('sandbox only when explicitly requested (dev keys / local testing)', () => {
+    expect(qboEnvironment({ QUICKBOOKS_ENVIRONMENT: 'sandbox' })).toBe('sandbox');
+    expect(qboApiBase({ QUICKBOOKS_ENVIRONMENT: 'sandbox' })).toContain('sandbox-quickbooks');
   });
 });
 

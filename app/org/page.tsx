@@ -3,7 +3,9 @@ import { Users } from 'lucide-react';
 import { getDb } from '@/lib/data';
 import { buildHierarchy, flattenNodes, type AgentNode } from '@/lib/hierarchy';
 import { LIFE_AREAS, lifeAreaForDepartment } from '@/lib/life-map';
-import { VENTURES, getVenture, ventureAgentSet, venturesForAgent } from '@/lib/ventures';
+import { getBusiness, businessAgentSet, businessesForAgent } from '@/lib/businesses';
+import { isBusinessFilter, resolveBusinessFilter } from '@/lib/business-filter';
+import { readBusinessFilterCookie } from '@/lib/business-filter-server';
 import { ConductorCard } from '@/components/ConductorCard';
 import { SparkIcon } from '@/components/SparkIcon';
 import { PageHeader } from '@/components/PageHeader';
@@ -18,14 +20,14 @@ const STATUS_DOT: Record<AgentStatus, string> = {
   planned: 'border border-os-dim bg-transparent',
 };
 
-/** Tiny colored dots showing which ventures an agent serves. */
-function VentureDots({ agentId }: { agentId: string }) {
-  const serving = venturesForAgent(agentId);
+/** Tiny colored dots showing which businesses an agent serves. */
+function BusinessDots({ agentId }: { agentId: string }) {
+  const serving = businessesForAgent(agentId);
   if (serving.length === 0) return null;
   return (
     <span className="flex shrink-0 items-center gap-0.5">
-      {serving.map((v) => (
-        <span key={v.id} title={v.label} className="h-1 w-1 rounded-full" style={{ background: v.color }} />
+      {serving.map((b) => (
+        <span key={b.id} title={b.label} className="h-1 w-1 rounded-full" style={{ background: b.color }} />
       ))}
     </span>
   );
@@ -40,7 +42,7 @@ function AgentPill({ agent, dim = false }: { agent: Agent; dim?: boolean }) {
     >
       <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_DOT[agent.status]}`} />
       <span className="truncate text-[10px] font-medium">{agent.name}</span>
-      <VentureDots agentId={agent.id} />
+      <BusinessDots agentId={agent.id} />
     </div>
   );
 }
@@ -82,15 +84,20 @@ function SystemCard({ href, title, caption }: { href: string; title: string; cap
   );
 }
 
-export default function OrgChartPage({ searchParams }: { searchParams?: { venture?: string } }) {
+export default function OrgChartPage({ searchParams }: { searchParams?: { business?: string } }) {
   const db = getDb();
   const departments = db.departments.all();
   const agents = db.agents.all();
-  // The venture lens: same roster, same DB — the switcher just changes which
-  // crew lights up. No venture param = everything bright.
-  const venture = getVenture(searchParams?.venture ?? '');
-  const ventureSet = venture ? ventureAgentSet(venture.id) : null;
-  const dimFor = (id: string) => (ventureSet ? !ventureSet.has(id) : false);
+  // The business lens: same roster, same DB — the Topbar switcher just
+  // changes which crew lights up. A `?business=` link overrides the global
+  // cookie for direct linking; otherwise the Topbar's current selection
+  // applies. 'all' (combined) = everything bright.
+  const filter = isBusinessFilter(searchParams?.business)
+    ? searchParams!.business!
+    : resolveBusinessFilter(readBusinessFilterCookie());
+  const business = filter === 'all' ? null : getBusiness(filter);
+  const businessSet = business ? businessAgentSet(business.id) : null;
+  const dimFor = (id: string) => (businessSet ? !businessSet.has(id) : false);
   const conductor = agents.find((a) => a.id === 'conductor');
   // Conductor sits in the AI Head slot; the columns are everything else
   const tree = buildHierarchy(
@@ -106,54 +113,34 @@ export default function OrgChartPage({ searchParams }: { searchParams?: { ventur
         title="Agent Hierarchy"
       />
 
-      {/* Venture switcher: Vantage / Launchpad Cohort — one click swaps which
-          crew lights up below. All data stays shared. */}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <Link
-          href="/org"
-          className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
-            !venture ? 'border-os-text bg-os-text text-os-bg' : 'border-os-border bg-os-surface text-os-muted hover:text-os-text'
-          }`}
-        >
-          All ventures
-        </Link>
-        {VENTURES.map((v) => {
-          const active = venture?.id === v.id;
-          return (
-            <Link
-              key={v.id}
-              href={`/org?venture=${v.id}`}
-              className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                active ? 'text-black' : 'border-os-border bg-os-surface text-os-muted hover:text-os-text'
-              }`}
-              style={active ? { background: v.color, borderColor: v.color } : undefined}
-            >
-              <span className="h-1.5 w-1.5 rounded-full" style={{ background: active ? '#000000' : v.color }} />
-              {v.label}
-            </Link>
-          );
-        })}
-        {venture && <span className="text-[11px] text-os-dim">{venture.kind} · {venture.detail}</span>}
-      </div>
+      {/* The AAC / Apps / Combined switcher lives in the Topbar now (global,
+          persists across pages). This strip just shows the current selection
+          and its executive focus — direct-link to a business with
+          ?business=aac|apps if you need to share a specific view. */}
+      {business && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="text-[11px] text-os-dim">{business.kind} · {business.detail}</span>
+        </div>
+      )}
 
-      {venture && (
+      {business && (
         <div
           className="mb-4 rounded-lg border bg-os-surface px-4 py-3"
-          style={{ borderColor: `${venture.color}66`, boxShadow: `inset 3px 0 0 ${venture.color}` }}
+          style={{ borderColor: `${business.color}66`, boxShadow: `inset 3px 0 0 ${business.color}` }}
         >
-          <div className="text-[9px] uppercase tracking-[0.2em]" style={{ color: venture.color }}>
-            {venture.label} — executive focus
+          <div className="text-[9px] uppercase tracking-[0.2em]" style={{ color: business.color }}>
+            {business.label} — executive focus
           </div>
           <ul className="mt-1.5 space-y-1">
-            {venture.focus.map((f) => (
+            {business.focus.map((f) => (
               <li key={f} className="flex items-start gap-2 text-[11px] text-os-muted">
-                <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full" style={{ background: venture.color }} />
+                <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full" style={{ background: business.color }} />
                 {f}
               </li>
             ))}
           </ul>
           <div className="mt-2 font-mono text-[10px] text-os-dim">
-            G-Brain tag: #{venture.brainTag} · {ventureSet?.size} agents on this venture
+            G-Brain tag: #{business.brainTag} · {businessSet?.size} agents on this business
           </div>
         </div>
       )}
@@ -251,8 +238,8 @@ export default function OrgChartPage({ searchParams }: { searchParams?: { ventur
                         dimFor(agent.id) ? 'opacity-20' : ''
                       }`}
                       style={
-                        venture && !dimFor(agent.id)
-                          ? { borderColor: `${venture.color}66`, boxShadow: `0 0 12px ${venture.color}1a` }
+                        business && !dimFor(agent.id)
+                          ? { borderColor: `${business.color}66`, boxShadow: `0 0 12px ${business.color}1a` }
                           : undefined
                       }
                     >
@@ -260,7 +247,7 @@ export default function OrgChartPage({ searchParams }: { searchParams?: { ventur
                         <div className="flex min-w-0 items-center gap-1.5">
                           <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_DOT[agent.status]}`} />
                           <span className="truncate text-xs font-bold">{agent.name}</span>
-                          <VentureDots agentId={agent.id} />
+                          <BusinessDots agentId={agent.id} />
                         </div>
                         <span className="shrink-0 rounded bg-os-raised px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-wider text-os-dim">
                           {agent.instance}

@@ -9,7 +9,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { Mic, MicOff, BrainCircuit, Upload } from 'lucide-react';
-import { VENTURES } from '@/lib/ventures';
+import { BUSINESSES } from '@/lib/businesses';
 
 const FOLDERS = ['inbox', 'ideas', 'people', 'companies', 'meetings', 'projects', 'writing'];
 
@@ -294,19 +294,19 @@ export function BrainDump({ compact = false }: { compact?: boolean }) {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[10px] uppercase tracking-widest text-os-dim">tag venture</span>
-          {VENTURES.map((v) => {
-            const on = tags.includes(v.brainTag);
+          <span className="text-[10px] uppercase tracking-widest text-os-dim">tag business</span>
+          {BUSINESSES.map((b) => {
+            const on = tags.includes(b.brainTag);
             return (
               <button
-                key={v.id}
-                onClick={() => setTags((prev) => (on ? prev.filter((t) => t !== v.brainTag) : [...prev, v.brainTag]))}
+                key={b.id}
+                onClick={() => setTags((prev) => (on ? prev.filter((t) => t !== b.brainTag) : [...prev, b.brainTag]))}
                 className={`flex items-center gap-1 rounded border px-2 py-0.5 text-[10px] transition-colors ${
                   on ? 'text-black' : 'border-os-border text-os-muted hover:text-os-text'
                 }`}
-                style={on ? { background: v.color, borderColor: v.color } : undefined}
+                style={on ? { background: b.color, borderColor: b.color } : undefined}
               >
-                #{v.brainTag}
+                #{b.brainTag}
               </button>
             );
           })}

@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { imapClientOptions, parseInboxConfigs } from '@/lib/connectors/email';
-import { configuredProcessors } from '@/lib/connectors/payments';
 
 describe('parseInboxConfigs', () => {
   test('returns empty when nothing is configured', () => {

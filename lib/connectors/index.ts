@@ -1,6 +1,5 @@
 import { emailStatus } from '@/lib/connectors/email';
 import { calendarStatus } from '@/lib/connectors/gcal';
-import { paymentsStatus } from '@/lib/connectors/payments';
 import { quickbooksStatus } from '@/lib/connectors/quickbooks';
 import { llmStatus } from '@/lib/connectors/llm';
 import { getBrainProvider } from '@/lib/brain';
@@ -24,7 +23,6 @@ const CHECKS: [string, ConnectorStatus['kind'], () => Promise<ConnectorStatus>][
   ['llm', 'orchestration', llmStatus],
   ['email', 'email', () => emailStatus(runtimeEnv())],
   ['calendar', 'calendar', calendarStatus],
-  ['payments', 'payments', () => paymentsStatus(runtimeEnv())],
   ['quickbooks', 'payments', () => quickbooksStatus(runtimeEnv())],
 ];
 

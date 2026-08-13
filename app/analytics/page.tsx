@@ -5,7 +5,6 @@ import { buildSocialDashboard, audienceGrowthPct, PLATFORM_LABELS } from '@/lib/
 import { agentRunVolume, runsWithin } from '@/lib/analytics';
 import { splitMetrics, type MetricInput, type MetricTile } from '@/lib/operating-metrics';
 import { readStoreNotes } from '@/lib/brain';
-import { stripeSnapshot } from '@/lib/connectors/payments';
 import { unreadCounts } from '@/lib/connectors/email';
 import type { SocialPlatform } from '@/lib/schemas';
 import type { PieItem } from '@/lib/social-chart';
@@ -163,13 +162,11 @@ export default async function AnalyticsPage() {
   const audience7d = audienceGrowthPct(db, 7);
 
   // Live reads from the wired connectors (parallel; each degrades to pending).
-  const [stripe, emailUnread] = await Promise.all([
-    stripeSnapshot().catch(() => null),
+  const [emailUnread] = await Promise.all([
     unreadCounts()
       .then((cs) => cs.reduce((sum, c) => sum + c.unread, 0))
       .catch(() => null),
   ]);
-  const stripeAvail = stripe ? Math.round((stripe.available[0]?.amount ?? 0) / 100) : null;
   let brainPages = 0;
   try {
     brainPages = readStoreNotes().length;
@@ -188,7 +185,6 @@ export default async function AnalyticsPage() {
       delta: audience7d != null ? Math.round(audience7d * 10) / 10 : 0,
       deltaPct: audience7d != null,
     },
-    { id: 'stripe', label: 'Stripe Available', unit: 'usd', source: 'Stripe', value: stripeAvail },
     { id: 'agent-runs', label: 'Agent Runs', unit: 'runs', source: 'all time', value: runs.length || null, delta: runs7d },
     { id: 'unread', label: 'Unread · all inboxes', unit: 'emails', source: 'Email', value: emailUnread },
     { id: 'brain', label: 'Brain-store Pages', unit: 'pages', source: 'GBrain', value: brainPages },

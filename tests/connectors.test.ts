@@ -66,4 +66,23 @@ describe('parseInboxConfigs', () => {
     expect(inboxes).toHaveLength(1);
     expect(inboxes[0].id).toBe('inbox-2');
   });
+
+  test('a lone configured INBOX_1 with INBOX_2/3/4 entirely unset never throws and yields exactly one inbox', () => {
+    // Production reality on this Railway deploy today: only INBOX_1_* is set;
+    // INBOX_2/3/4 are reserved for a second business (Arise Above Apps) and
+    // left completely absent, not just partially filled. Locks in the no-op
+    // path the /comms and /integrations pages depend on staying crash-free.
+    const env = {
+      INBOX_1_HOST: 'imap.gmail.com',
+      INBOX_1_USER: 'sean@ariseaboveconstruction.com',
+      INBOX_1_PASS: 'app-password',
+      INBOX_1_NAME: 'AAC',
+      // INBOX_2_*, INBOX_3_*, INBOX_4_* intentionally absent — no keys at all
+    };
+    expect(() => parseInboxConfigs(env)).not.toThrow();
+    const inboxes = parseInboxConfigs(env);
+    expect(inboxes).toHaveLength(1);
+    expect(inboxes[0].id).toBe('inbox-1');
+    expect(inboxes[0].name).toBe('AAC');
+  });
 });

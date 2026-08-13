@@ -402,6 +402,17 @@ export function openDb(path: string) {
   migrateFunnelContactsTable(db);
   migrateSkillsTable(db);
 
+  /** Shared purge guard: drop every row whose id is not in the seed's list
+      (empty list = drop all — avoids invalid `NOT IN ()` SQL). */
+  const deleteNotIn = (table: string) => (ids: string[]): void => {
+    if (ids.length === 0) {
+      db.prepare(`DELETE FROM ${table}`).run();
+      return;
+    }
+    const placeholders = ids.map(() => '?').join(', ');
+    db.prepare(`DELETE FROM ${table} WHERE id NOT IN (${placeholders})`).run(...ids);
+  };
+
   const departments = {
     all(): Department[] {
       return db
@@ -465,6 +476,7 @@ export function openDb(path: string) {
         'INSERT OR REPLACE INTO tools (id, name, category, status, color, description) VALUES (?, ?, ?, ?, ?, ?)',
       ).run(t.id, t.name, t.category, t.status, t.color, t.description);
     },
+    deleteWhereIdNotIn: deleteNotIn('tools'),
   };
 
   const roadmap = {
@@ -488,6 +500,7 @@ export function openDb(path: string) {
         'INSERT OR REPLACE INTO roadmap_items (id, title, quarter, status, department_id, description) VALUES (?, ?, ?, ?, ?, ?)',
       ).run(item.id, item.title, item.quarter, item.status, item.departmentId, item.description);
     },
+    deleteWhereIdNotIn: deleteNotIn('roadmap_items'),
   };
 
   const metrics = {
@@ -502,6 +515,7 @@ export function openDb(path: string) {
         'INSERT OR REPLACE INTO metrics (id, key, label, value, unit, delta, period) VALUES (?, ?, ?, ?, ?, ?, ?)',
       ).run(m.id, m.key, m.label, m.value, m.unit, m.delta, m.period);
     },
+    deleteWhereIdNotIn: deleteNotIn('metrics'),
   };
 
   const domains = {
@@ -520,6 +534,7 @@ export function openDb(path: string) {
         JSON.stringify(d.items),
       );
     },
+    deleteWhereIdNotIn: deleteNotIn('domains'),
   };
 
   const personas = {
@@ -590,6 +605,7 @@ export function openDb(path: string) {
         JSON.stringify(p.items),
       );
     },
+    deleteWhereIdNotIn: deleteNotIn('phases'),
   };
 
   const rowToRun = (r: any): AgentRun =>

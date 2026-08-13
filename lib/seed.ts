@@ -390,11 +390,16 @@ export function seedDatabase(db: FounderDb): void {
   // Drop the retired invented task rows from any DB seeded before the purge.
   for (let i = 1; i <= 11; i++) db.agentTasks.remove(`task-seed-${i}`);
   for (const t of tools) db.tools.insert(t);
+  db.tools.deleteWhereIdNotIn(tools.map((t) => t.id));
   for (const r of roadmap) db.roadmap.insert(r);
+  db.roadmap.deleteWhereIdNotIn(roadmap.map((r) => r.id));
   for (const m of metrics) db.metrics.insert(m);
+  db.metrics.deleteWhereIdNotIn(metrics.map((m) => m.id));
   for (const d of domains) db.domains.insert(d);
+  db.domains.deleteWhereIdNotIn(domains.map((d) => d.id));
   db.personas.clearAll(); // persona templates were demo content — retired
   for (const p of phases) db.phases.insert(p);
+  db.phases.deleteWhereIdNotIn(phases.map((p) => p.id));
   for (const a of socialAccounts) db.social.upsertAccount(a);
   // Retired invented follower/DM history leaves the DB on re-seed; anything a
   // real source recorded survives.

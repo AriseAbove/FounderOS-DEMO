@@ -116,6 +116,24 @@ describe('seedDatabase', () => {
     expect(ids).toContain('task-user-1');
   });
 
+  test('re-seeding purges stale roadmap/tool/metric/domain/phase rows from older seeds', () => {
+    db = openDb(':memory:');
+    seedDatabase(db);
+    // rows a pre-purge seed left behind (the live-DB bug: old "Connect
+    // Notion/Slack" roadmap items surviving every re-seed)
+    db.roadmap.insert({ id: 'rm-ghost', title: 'Connect Notion workspace', quarter: '2025-Q4', status: 'later', departmentId: 'dept-tech', description: 'stale' });
+    db.tools.insert({ id: 'tool-ghost', name: 'Notion', category: 'Ops', status: 'available', color: '#fff', description: 'stale' });
+    db.metrics.insert({ id: 'metric-ghost', key: 'ghost', label: 'Ghost', value: 1, unit: '', delta: 0, period: 'ever' });
+    db.domains.insert({ id: 'domain-ghost', number: 99, title: 'Ghost', color: '#fff', items: [] });
+    db.phases.insert({ id: 'phase-ghost', number: 99, title: 'Ghost', items: [] });
+    seedDatabase(db);
+    expect(db.roadmap.all().some((r) => r.id === 'rm-ghost')).toBe(false);
+    expect(db.tools.all().some((t) => t.id === 'tool-ghost')).toBe(false);
+    expect(db.metrics.all().some((m) => m.id === 'metric-ghost')).toBe(false);
+    expect(db.domains.all().some((d) => d.id === 'domain-ghost')).toBe(false);
+    expect(db.phases.all().some((p) => p.id === 'phase-ghost')).toBe(false);
+  });
+
   test('is idempotent — seeding twice does not duplicate rows', () => {
     db = openDb(':memory:');
     seedDatabase(db);

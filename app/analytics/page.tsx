@@ -1,14 +1,13 @@
 import Link from 'next/link';
 import { Instagram, Linkedin, Music2, Twitter, Youtube, type LucideIcon } from 'lucide-react';
 import { getDb } from '@/lib/data';
-import { buildSocialDashboard, syncFromZernioConfig, audienceGrowthPct, PLATFORM_LABELS } from '@/lib/social';
+import { buildSocialDashboard, audienceGrowthPct, PLATFORM_LABELS } from '@/lib/social';
 import { agentRunVolume, runsWithin } from '@/lib/analytics';
 import { splitMetrics, type MetricInput, type MetricTile } from '@/lib/operating-metrics';
 import { attioStatus } from '@/lib/connectors/attio';
 import { readStoreNotes } from '@/lib/connectors/gbrain';
 import { stripeSnapshot } from '@/lib/connectors/payments';
 import { unreadCounts } from '@/lib/connectors/email';
-import { beehiivSubscribers } from '@/lib/connectors/beehiiv';
 import type { SocialPlatform } from '@/lib/schemas';
 import type { PieItem } from '@/lib/social-chart';
 import { PageHeader } from '@/components/PageHeader';
@@ -150,7 +149,6 @@ function PieCard({
 
 export default async function AnalyticsPage() {
   const db = getDb();
-  syncFromZernioConfig(db);
   const today = new Date().toISOString().slice(0, 10);
 
   // Real agent-run activity — powers the agent-runs tile, the volume chart, and
@@ -166,13 +164,12 @@ export default async function AnalyticsPage() {
   const audience7d = audienceGrowthPct(db, 7);
 
   // Live reads from the wired connectors (parallel; each degrades to pending).
-  const [attio, stripe, emailUnread, subs] = await Promise.all([
+  const [attio, stripe, emailUnread] = await Promise.all([
     attioStatus().catch(() => null),
     stripeSnapshot().catch(() => null),
     unreadCounts()
       .then((cs) => cs.reduce((sum, c) => sum + c.unread, 0))
       .catch(() => null),
-    beehiivSubscribers().catch(() => null),
   ]);
   const pipelineDeals = attio?.state === 'connected' ? Number(attio.meta?.deals ?? 0) : null;
   const stripeAvail = stripe ? Math.round((stripe.available[0]?.amount ?? 0) / 100) : null;
@@ -194,7 +191,6 @@ export default async function AnalyticsPage() {
       delta: audience7d != null ? Math.round(audience7d * 10) / 10 : 0,
       deltaPct: audience7d != null,
     },
-    { id: 'subscribers', label: 'Subscribers', unit: 'subs', source: 'Beehiiv', value: subs },
     { id: 'pipeline', label: 'Open Pipeline', unit: 'deals', source: 'Attio', value: pipelineDeals },
     { id: 'stripe', label: 'Stripe Available', unit: 'usd', source: 'Stripe', value: stripeAvail },
     { id: 'agent-runs', label: 'Agent Runs', unit: 'runs', source: 'all time', value: runs.length || null, delta: runs7d },
@@ -211,8 +207,7 @@ export default async function AnalyticsPage() {
     label: PLATFORM_LABELS[p.platform],
     value: p.followers,
   }));
-  if (subs) audienceItems.push({ key: 'email', label: 'Email list', value: subs });
-  const audienceReach = totalFollowers + (subs ?? 0);
+  const audienceReach = totalFollowers;
 
   // Agent runs by agent — top handful, the long tail folded into "Other".
   const agentName = new Map(db.agents.all().map((a) => [a.id, a.name]));

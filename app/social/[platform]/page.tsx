@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { getDb } from '@/lib/data';
-import { PLATFORM_LABELS, platformDetail, syncFromZernioConfig } from '@/lib/social';
+import { PLATFORM_LABELS, platformDetail } from '@/lib/social';
 import type { SocialPlatform } from '@/lib/schemas';
 import { formatFollowers, formatPct, GrowthBadge } from '@/components/SocialStats';
 import { FollowerBarChart } from '@/components/FollowerBarChart';
@@ -11,7 +11,6 @@ export const dynamic = 'force-dynamic';
 
 export default function SocialPlatformPage({ params }: { params: { platform: string } }) {
   const db = getDb();
-  syncFromZernioConfig(db);
   const detail = platformDetail(db, params.platform as SocialPlatform);
   if (!detail) notFound();
 

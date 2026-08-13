@@ -1,7 +1,6 @@
 import type { FounderDb } from '@/lib/db';
 import { growthOver, growthAllTime, type GrowthPoint } from '@/lib/growth';
-import { EmailListSnapshotSchema, type SocialGrowth } from '@/lib/schemas';
-import { beehiivSubscribers } from '@/lib/connectors/beehiiv';
+import type { SocialGrowth } from '@/lib/schemas';
 
 export type EmailListSummary = {
   subscribers: number | null;
@@ -13,7 +12,8 @@ export type EmailListSummary = {
 /**
  * The email-list audience card: current subscribers, growth windows, and a
  * trailing series — same shape as a social platform so the Social tab renders
- * it alongside the others. Seeded dummy now; Beehiiv-ready later.
+ * it alongside the others. Empty until a real subscriber source records
+ * snapshots — no invented history.
  */
 export function buildEmailList(db: FounderDb): EmailListSummary {
   const snapshots = db.emailList.snapshots();
@@ -30,29 +30,4 @@ export function buildEmailList(db: FounderDb): EmailListSummary {
     },
     series: snapshots.slice(-90).map((s) => ({ date: s.capturedAt, subscribers: s.subscribers })),
   };
-}
-
-/**
- * Snapshot today's live Beehiiv subscriber count so `buildEmailList` (and the
- * audience series) prefer it over seeded dummy. No-op when Beehiiv isn't keyed
- * or the API is unreachable — never writes a fake number. Same-day re-sync
- * overwrites. Mirrors `syncFromZernioLive` for social. Returns true if recorded.
- */
-export async function syncBeehiivEmail(
-  db: FounderDb,
-  opts: { today?: string; source?: () => Promise<number | null> } = {},
-): Promise<boolean> {
-  const today = opts.today ?? new Date().toISOString().slice(0, 10);
-  const source = opts.source ?? beehiivSubscribers;
-  let subscribers: number | null = null;
-  try {
-    subscribers = await source();
-  } catch {
-    subscribers = null;
-  }
-  if (subscribers == null || !Number.isFinite(subscribers)) return false;
-  db.emailList.insertSnapshot(
-    EmailListSnapshotSchema.parse({ capturedAt: today, subscribers, source: 'beehiiv' }),
-  );
-  return true;
 }

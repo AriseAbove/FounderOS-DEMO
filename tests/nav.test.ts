@@ -38,17 +38,17 @@ describe('shared nav config', () => {
     }
   });
 
-  test('regression: Social, Content, Finances stay digit-reachable', () => {
-    for (const href of ['/social', '/content', '/finances']) {
-      expect(DIGIT_VIEWS, `${href} must be reachable by digit`).toContain(href);
+  test('regression: Finances stays digit-reachable; hidden modules are not', () => {
+    expect(DIGIT_VIEWS, '/finances must be reachable by digit').toContain('/finances');
+    // Social/Content/Personas are hidden until they clearly apply
+    for (const href of ['/social', '/content', '/personas']) {
+      expect(DIGIT_VIEWS).not.toContain(href);
     }
   });
 
-  test('Funnel sits right after Comms and ahead of Social (Alex, 2026-07-02)', () => {
+  test('Funnel sits right after Comms', () => {
     const hrefs = NAV_OPERATE.map((n) => n.href);
     expect(hrefs.indexOf('/funnel')).toBe(hrefs.indexOf('/comms') + 1);
-    // Social stays downstream of Funnel; a concurrent Workflows item may sit between them.
-    expect(hrefs.indexOf('/funnel')).toBeLessThan(hrefs.indexOf('/social'));
   });
 
   test('CommandPalette consumes the shared DIGIT_VIEWS (no private stale copy)', () => {

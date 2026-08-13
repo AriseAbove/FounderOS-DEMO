@@ -4,9 +4,7 @@ import { getDb } from '@/lib/data';
 import { allConnectorStatuses } from '@/lib/connectors';
 import { createGBrainProvider } from '@/lib/connectors/gbrain';
 import { audienceSeries, PLATFORM_COLORS, PLATFORM_LABELS } from '@/lib/social';
-import { syncFromZernioLive } from '@/lib/social-live';
-import { zernioPostDays } from '@/lib/connectors/zernio';
-import { postSeriesFromDays } from '@/lib/posting-activity';
+import { postSeriesFromDays, type PostDay } from '@/lib/posting-activity';
 import type { SocialPlatform } from '@/lib/schemas';
 import { gatherCommsFeed } from '@/lib/comms-feed';
 import { inboundLast24h } from '@/lib/comms';
@@ -126,13 +124,12 @@ export default async function HomePage() {
   // before the db reads below, but a cold render costs max(fetches) instead
   // of sync + max(fetches) — the paused-Supabase doctor alone was pushing the
   // console past 20s.
-  const [connections, overview, feed, postDays] = await Promise.all([
+  const [connections, overview, feed] = await Promise.all([
     allConnectorStatuses(),
     createGBrainProvider().overview(),
     gatherCommsFeed(),
-    zernioPostDays(),
-    syncFromZernioLive(db),
-  ]).then(([c, o, f, p]) => [c, o, f, p] as const);
+  ]);
+  const postDays: PostDay[] = []; // no posting source connected
 
   const agents = db.agents.all();
   const departments = new Map(db.departments.all().map((d) => [d.id, d.name]));
@@ -162,7 +159,7 @@ export default async function HomePage() {
     failedRuns,
   });
   const { channels, all } = audienceSeries(db);
-  // Real per-platform posting from Zernio history (cross-posts counted per
+  // Real per-platform posting history (cross-posts counted per
   // platform), decorated with the brand palette HomeSocialGraph expects.
   const TRACKED: SocialPlatform[] = ['instagram', 'tiktok', 'twitter', 'youtube', 'linkedin'];
   const today = new Date().toISOString().slice(0, 10);

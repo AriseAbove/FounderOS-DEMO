@@ -1,5 +1,4 @@
 import type { FounderDb } from '@/lib/db';
-import { zernioAccounts } from '@/lib/connectors/zernio';
 import { growthOver, growthAllTime, windowDelta, mergeSeriesSum, type GrowthPoint } from '@/lib/growth';
 import {
   SocialDashboardSchema,
@@ -72,10 +71,10 @@ function growthFor(snapshots: SocialSnapshot[]): SocialGrowth {
 }
 
 /**
- * Record today's follower counts as snapshots. Accounts shaped like the Zernio
- * config (~/.config/social/config.json); untracked platforms and accounts with
- * no follower count are skipped. Same-day re-sync overwrites. Returns the
- * number of snapshots recorded.
+ * Record today's follower counts as snapshots. Untracked platforms and
+ * accounts with no follower count are skipped. Same-day re-sync overwrites.
+ * Returns the number of snapshots recorded. (Kept as the seam a future
+ * follower source writes through.)
  */
 export function syncSocialSnapshots(
   db: FounderDb,
@@ -90,17 +89,13 @@ export function syncSocialSnapshots(
       platform: parsed.data,
       capturedAt: today,
       followers: account.followers,
-      source: 'zernio-config',
+      source: 'manual-sync',
     });
     recorded += 1;
   }
   return recorded;
 }
 
-/** Live sync from Alex's Zernio config — called on every dashboard read. */
-export function syncFromZernioConfig(db: FounderDb, today?: string): number {
-  return syncSocialSnapshots(db, zernioAccounts(), today ?? new Date().toISOString().slice(0, 10));
-}
 
 export function buildSocialDashboard(db: FounderDb): SocialDashboard {
   const latest = new Map(db.social.latest().map((s) => [s.platform, s]));

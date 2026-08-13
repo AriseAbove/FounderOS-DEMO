@@ -30,9 +30,17 @@ export const NAV_OPERATE: NavItem[] = [
   { href: '/comms', label: 'Comms', icon: MessageSquare },
   { href: '/funnel', label: 'Funnel', icon: Filter },
   { href: '/workflows', label: 'Workflows', icon: Workflow },
+  { href: '/finances', label: 'Finances', icon: Wallet },
+];
+
+// Hidden until they clearly apply to this operation: the pages still exist
+// (direct URL works) but stay out of the nav so the chrome reflects what is
+// actually in use. Move an entry back into NAV_OPERATE / NAV_LIBRARY to
+// re-show it.
+export const NAV_HIDDEN: NavItem[] = [
   { href: '/social', label: 'Social', icon: Share2 },
   { href: '/content', label: 'Content', icon: Clapperboard },
-  { href: '/finances', label: 'Finances', icon: Wallet },
+  { href: '/personas', label: 'Personas', icon: Layers },
 ];
 
 // The agent workforce: the roster and the org chart that maps how they report.
@@ -53,8 +61,9 @@ export const NAV_SYSTEM: NavItem[] = [
   { href: '/reference', label: 'Reference Model', icon: LayoutGrid },
 ];
 
-// At the very bottom: persona templates that can run variants of this platform.
-export const NAV_LIBRARY: NavItem[] = [{ href: '/personas', label: 'Personas', icon: Layers }];
+// At the very bottom: reserved for library-style views (persona templates
+// moved to NAV_HIDDEN in the Phase 2 purge).
+export const NAV_LIBRARY: NavItem[] = [];
 
 /** Visible top-to-bottom order across all groups. */
 export const NAV_ORDER: string[] = [

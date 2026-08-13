@@ -108,19 +108,14 @@ describe('API route handlers', () => {
     expect(body.doctor.detail.length).toBeGreaterThan(0);
   });
 
-  test('GET /api/social returns the growth dashboard with all five platforms', async () => {
+  test('GET /api/social returns the growth dashboard for the real accounts', async () => {
     const { GET } = await import('@/app/api/social/route');
     const res = await GET();
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.platforms.map((p: { platform: string }) => p.platform)).toEqual([
-      'instagram',
-      'tiktok',
-      'twitter',
-      'youtube',
-      'linkedin',
-    ]);
-    expect(body.totalFollowers).toBeGreaterThan(0);
+    expect(body.platforms.map((p: { platform: string }) => p.platform)).toEqual(['instagram']);
+    // honest zero — no follower source is connected
+    expect(body.totalFollowers).toBe(0);
     expect(body.platforms[0].growth).toHaveProperty('d7');
   });
 
@@ -129,9 +124,9 @@ describe('API route handlers', () => {
     const res = await GET();
     const body = await res.json();
     expect(body.emailList).toBeDefined();
-    expect(body.emailList.subscribers).toBeGreaterThan(0);
+    expect(body.emailList.subscribers).toBeNull(); // honest — no subscriber source
     expect(typeof body.totalDms).toBe('number');
-    expect(body.totalDms).toBeGreaterThan(0);
+    expect(body.totalDms).toBe(0); // honest — no DM source
     expect('monthlyGrowthPct' in body).toBe(true); // number | null, both valid
   });
 
@@ -144,12 +139,11 @@ describe('API route handlers', () => {
     expect(audBody.ranges).toEqual([7, 30, 60, 'all']);
     expect(Array.isArray(audBody.series)).toBe(true);
     expect(audBody.series.some((s: { key: string }) => s.key === 'all')).toBe(true);
-    expect(audBody.series.find((s: { key: string }) => s.key === 'all').points.length).toBeGreaterThan(0);
 
     const dms = await GET(new Request('http://localhost/api/social/series?metric=dms'));
     const dmsBody = await dms.json();
     expect(dmsBody.metric).toBe('dms');
-    expect(dmsBody.series[0].points.length).toBeGreaterThan(0);
+    expect(Array.isArray(dmsBody.series)).toBe(true); // honest empty series
   });
 
   test('GET /api/social/series rejects an unknown metric', async () => {
@@ -198,7 +192,7 @@ describe('API route handlers', () => {
       expect(key in body.audienceGrowth).toBe(true);
       expect(key in body.dmGrowth).toBe(true);
     }
-    expect(body.audienceTotal).toBeGreaterThan(0);
+    expect(body.audienceTotal).toBe(0); // honest — nothing recorded yet
   });
 
   test('POST /api/social/posts enqueues a post; GET lists the queue', async () => {
@@ -238,8 +232,7 @@ describe('API route handlers', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.account.platform).toBe('instagram');
-    expect(Array.isArray(body.snapshots)).toBe(true);
-    expect(body.snapshots.length).toBeGreaterThanOrEqual(1);
+    expect(Array.isArray(body.snapshots)).toBe(true); // honest empty history
   });
 
   test('GET /api/social/[platform] 404s for an untracked platform', async () => {

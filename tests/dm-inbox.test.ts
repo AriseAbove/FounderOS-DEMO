@@ -47,20 +47,12 @@ describe('social.dmMessages', () => {
     expect(db.social.dmMessages('instagram').map((m) => m.id)).toEqual(['ig']);
   });
 
-  test('seed ships a realistic multi-conversation Instagram DM inbox', () => {
+  test('seed ships an empty DM inbox — no invented conversations', () => {
     db = openDb(':memory:');
     seedDatabase(db);
-    const msgs = db.social.dmMessages('instagram');
-    expect(msgs.length).toBeGreaterThan(3);
-    expect(msgs.every((m) => m.platform === 'instagram')).toBe(true);
-    // more than one conversation, and both inbound + outbound present
-    expect(new Set(msgs.map((m) => m.subscriberId)).size).toBeGreaterThan(1);
-    expect(msgs.some((m) => m.direction === 'in')).toBe(true);
-    expect(msgs.some((m) => m.direction === 'out')).toBe(true);
+    expect(db.social.dmMessages('instagram')).toEqual([]);
   });
-});
 
-describe('dmThreads', () => {
   test('groups messages into conversations, newest thread first, chronological within', () => {
     db = openDb(':memory:');
     db.social.upsertDmMessage(msg({ id: 'a1', subscriberId: 'A', text: 'hi', ts: '2026-07-18T09:00:00.000Z' }));

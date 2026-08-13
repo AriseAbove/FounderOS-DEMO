@@ -17,7 +17,7 @@ type RouteEntry = {
 
 // Every app/api/**/route.ts that exports GET, with valid params so each returns
 // a real 200 (not a 400/404 for a missing arg). Live-connector routes
-// (connections, social/sync) must still answer 200 with honest state.
+// (connections) must still answer 200 with honest state.
 const ROUTES: RouteEntry[] = [
   { route: 'agents', load: () => import('@/app/api/agents/route'), url: 'http://localhost/api/agents' },
   { route: 'agents/activity', load: () => import('@/app/api/agents/activity/route'), url: 'http://localhost/api/agents/activity?limit=5' },
@@ -39,13 +39,10 @@ const ROUTES: RouteEntry[] = [
   { route: 'roadmap', load: () => import('@/app/api/roadmap/route'), url: 'http://localhost/api/roadmap' },
   { route: 'social', load: () => import('@/app/api/social/route'), url: 'http://localhost/api/social' },
   { route: 'social/[platform]', load: () => import('@/app/api/social/[platform]/route'), url: 'http://localhost/api/social/instagram', params: { platform: 'instagram' } },
-  { route: 'social/history', load: () => import('@/app/api/social/history/route'), url: 'http://localhost/api/social/history?limit=6' },
   { route: 'social/posts', load: () => import('@/app/api/social/posts/route'), url: 'http://localhost/api/social/posts' },
   { route: 'social/series', load: () => import('@/app/api/social/series/route'), url: 'http://localhost/api/social/series?metric=audience' },
-  { route: 'social/sync', load: () => import('@/app/api/social/sync/route'), url: 'http://localhost/api/social/sync' },
   { route: 'tools', load: () => import('@/app/api/tools/route'), url: 'http://localhost/api/tools' },
   { route: 'businesses', load: () => import('@/app/api/businesses/route'), url: 'http://localhost/api/businesses' },
-  { route: 'webhooks/manychat', load: () => import('@/app/api/webhooks/manychat/route'), url: 'http://localhost/api/webhooks/manychat' },
 ];
 
 function discoverGetRoutes(dir: string, base = ''): string[] {

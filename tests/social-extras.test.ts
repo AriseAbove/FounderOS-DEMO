@@ -112,14 +112,14 @@ describe('buildEmailList', () => {
 });
 
 describe('DM totals', () => {
-  test('seeded DB exposes per-platform DM counts that sum to the total', () => {
+  test('seeded DB has no invented DM counts — totals are honest zeros', () => {
     db = openDb(':memory:');
     seedDatabase(db);
     const byPlatform = dmsByPlatform(db);
-    expect(byPlatform.length).toBeGreaterThan(0);
+    expect(byPlatform.length).toBe(0);
     const sum = byPlatform.reduce((s, d) => s + d.count, 0);
     expect(totalDms(db)).toBe(sum);
-    expect(totalDms(db)).toBeGreaterThan(0);
+    expect(totalDms(db)).toBe(0);
   });
 
   test('DM schema rejects unknown platforms and negative counts', () => {
@@ -206,22 +206,16 @@ describe('audience series + range growth', () => {
   });
 });
 
-describe('seed history is deep enough for growth math', () => {
-  test('followers + DMs carry multi-month history; the real email list is young but honest', () => {
+describe('seed history is honestly empty', () => {
+  test('no invented follower/DM/email history — growth is null until real data lands', () => {
     db = openDb(':memory:');
     seedDatabase(db);
-    // followers span ~90 days, so the merged audience computes every window
-    expect(audienceGrowthPct(db, 7)).not.toBeNull();
-    expect(audienceGrowthPct(db, 30)).not.toBeNull();
-    expect(audienceGrowthPct(db, 60)).not.toBeNull();
-    expect(dmGrowthPct(db, 60)).not.toBeNull();
-    expect(db.social.dmSnapshots().length).toBeGreaterThan(50);
-    // the email list is the seeded Beehiiv account: its
-    // short window is computable, but 60d honestly predates the list → null
+    expect(audienceGrowthPct(db, 7)).toBeNull();
+    expect(dmGrowthPct(db, 60)).toBeNull();
+    expect(db.social.dmSnapshots().length).toBe(0);
     const email = buildEmailList(db);
-    expect(email.subscribers).toBe(1850);
-    expect(email.growth.d7).not.toBeNull();
-    expect(email.growth.d60).toBeNull();
+    expect(email.subscribers).toBeNull();
+    expect(email.growth.d7).toBeNull();
   });
 
   test('re-seed stays idempotent (no duplicate snapshot rows)', () => {

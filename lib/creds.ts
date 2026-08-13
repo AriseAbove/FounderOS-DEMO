@@ -124,8 +124,3 @@ export function resolveCred(name: string, files: string[]): string | undefined {
 export function resolveAttioKey(): string | undefined {
   return readEnvLocal().ATTIO_API_KEY ?? process.env.ATTIO_API_KEY;
 }
-
-/** .env.local / process.env only — see resolveCred for the general pattern. */
-export function resolveManychatKey(): string | undefined {
-  return readEnvLocal().MANYCHAT_API_KEY ?? process.env.MANYCHAT_API_KEY;
-}

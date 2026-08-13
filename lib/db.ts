@@ -839,6 +839,23 @@ export function openDb(path: string) {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(m.id, m.platform, m.subscriberId, m.name, m.handle, m.text, m.direction, m.tag, m.ts, m.source);
     },
+    /** Purge retired seeded rows (Phase 2): dummy follower/DM history and
+        stale config-sourced snapshots leave the DB on re-seed; live-recorded
+        rows survive. */
+    deleteSeeded(): void {
+      db.prepare("DELETE FROM social_snapshots WHERE source IN ('seed-dummy', 'zernio-config')").run();
+      db.prepare("DELETE FROM social_dm_snapshots WHERE source LIKE 'seed%'").run();
+      db.prepare("DELETE FROM social_dm_messages WHERE source LIKE 'seed%'").run();
+      db.prepare('DELETE FROM social_dms').run();
+    },
+    deleteAccountsWherePlatformNotIn(platforms: string[]): void {
+      if (platforms.length === 0) {
+        db.prepare('DELETE FROM social_accounts').run();
+        return;
+      }
+      const placeholders = platforms.map(() => '?').join(', ');
+      db.prepare(`DELETE FROM social_accounts WHERE platform NOT IN (${placeholders})`).run(...platforms);
+    },
     dmMessages(platform?: SocialPlatform): SocialDmMessage[] {
       const cols =
         'id, platform, subscriber_id AS subscriberId, name, handle, text, direction, tag, ts, source';
@@ -908,6 +925,9 @@ export function openDb(path: string) {
         .prepare('SELECT * FROM social_posts ORDER BY created_at DESC')
         .all()
         .map((r) => rowToPost(r as Parameters<typeof rowToPost>[0]));
+    },
+    remove(id: string): void {
+      db.prepare('DELETE FROM social_posts WHERE id = ?').run(id);
     },
     queued(): SocialPost[] {
       return db

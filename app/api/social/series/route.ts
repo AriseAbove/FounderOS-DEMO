@@ -3,7 +3,6 @@ import { getDb } from '@/lib/data';
 import {
   audienceSeries,
   dmSeries,
-  syncFromZernioConfig,
   DM_COLOR,
   GROWTH_RANGES,
 } from '@/lib/social';
@@ -19,7 +18,6 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   const metric = new URL(request.url).searchParams.get('metric');
   const db = getDb();
-  syncFromZernioConfig(db);
 
   if (metric === 'audience') {
     const { channels, all } = audienceSeries(db);

@@ -6,7 +6,6 @@ import {
   buildSocialDashboard,
   dmGrowth,
   monthlyAudienceGrowthPct,
-  syncFromZernioConfig,
   totalDms,
 } from '@/lib/social';
 import { buildEmailList } from '@/lib/email-list';
@@ -17,7 +16,6 @@ export async function GET() {
   const db = getDb();
   // Every read captures today's follower counts from the Zernio config, so
   // growth history accrues for real just by using the dashboard.
-  syncFromZernioConfig(db);
   return NextResponse.json({
     ...buildSocialDashboard(db),
     emailList: buildEmailList(db),

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { readStoreNotes } from '@/lib/connectors/gbrain';
+import { readStoreNotes } from '@/lib/brain';
 import { buildBrainGraph } from '@/lib/brain-graph';
 import { BrainGraphSchema } from '@/lib/schemas';
 

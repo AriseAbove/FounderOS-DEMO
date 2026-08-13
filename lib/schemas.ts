@@ -191,7 +191,8 @@ export const ActivityEventSchema = z.object({
 
 export const BrainOverviewSchema = z.object({
   store: z.object({
-    path: z.string().min(1),
+    // '' = no store configured (honest empty overview)
+    path: z.string(),
     totalFiles: z.number().int().nonnegative(),
     folders: z.array(z.object({ name: z.string().min(1), files: z.number().int().positive() })),
   }),

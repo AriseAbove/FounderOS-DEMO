@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { ArrowUpRight, Zap } from 'lucide-react';
 import { getDb } from '@/lib/data';
 import { allConnectorStatuses } from '@/lib/connectors';
-import { createGBrainProvider } from '@/lib/connectors/gbrain';
+import { getBrainProvider } from '@/lib/brain';
 import { audienceSeries, PLATFORM_COLORS, PLATFORM_LABELS } from '@/lib/social';
 import { postSeriesFromDays, type PostDay } from '@/lib/posting-activity';
 import type { SocialPlatform } from '@/lib/schemas';
@@ -126,7 +126,7 @@ export default async function HomePage() {
   // console past 20s.
   const [connections, overview, feed] = await Promise.all([
     allConnectorStatuses(),
-    createGBrainProvider().overview(),
+    getBrainProvider().overview(),
     gatherCommsFeed(),
   ]);
   const postDays: PostDay[] = []; // no posting source connected

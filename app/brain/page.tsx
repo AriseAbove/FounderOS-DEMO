@@ -1,6 +1,4 @@
-import { createGBrainProvider, readStoreNotes } from '@/lib/connectors/gbrain';
-import { attioClients } from '@/lib/connectors/attio';
-import { readVaultNotes } from '@/lib/connectors/obsidian';
+import { getBrainProvider, readStoreNotes } from '@/lib/brain';
 import type { RosterClient } from '@/lib/schemas';
 import { buildBrainGraph } from '@/lib/brain-graph';
 import { buildKnowledgeGraph } from '@/lib/knowledge-graph';
@@ -88,33 +86,22 @@ function FlowStep({ title, detail, dashed = false }: { title: string; detail: st
   );
 }
 
-// The client roster prefers live Attio deals and falls back to the seeded
-// funnel; cached per process so a hot page doesn't hammer the API.
-let rosterCache: { at: number; value: RosterClient[] } | null = null;
-const ROSTER_TTL_MS = 60_000;
-
-async function clientRoster(db: ReturnType<typeof getDb>): Promise<RosterClient[]> {
-  if (rosterCache && Date.now() - rosterCache.at < ROSTER_TTL_MS) return rosterCache.value;
-  const live = await attioClients();
-  const value: RosterClient[] =
-    live.state === 'connected' && live.clients.length > 0
-      ? live.clients
-      : db.funnel.journeys().map((j) => ({
-          id: j.id,
-          name: j.name,
-          venture: j.venture,
-          status: j.status,
-          amountUsd: j.amountUsd,
-          source: 'funnel' as const,
-        }));
-  rosterCache = { at: Date.now(), value };
-  return value;
+// The client roster reads the funnel repo — the one client source now.
+function clientRoster(db: ReturnType<typeof getDb>): RosterClient[] {
+  return db.funnel.journeys().map((j) => ({
+    id: j.id,
+    name: j.name,
+    venture: j.venture,
+    status: j.status,
+    amountUsd: j.amountUsd,
+    source: 'funnel' as const,
+  }));
 }
 
 // The memory constellation distills the whole brain-store (parse + local PCA
 // over the full note set) — too heavy to redo per request on a force-dynamic page, so
 // cache per server process with a short TTL. Never throws: an unreadable
-// store yields undefined and the graph falls back to the plain Alex dot.
+// store yields undefined and the graph falls back to its plain center dot.
 let memoryCache: { at: number; value: MemoryGraph | undefined } | null = null;
 const MEMORY_TTL_MS = 5 * 60_000;
 
@@ -122,17 +109,11 @@ function memoryConstellation(): MemoryGraph | undefined {
   if (memoryCache && Date.now() - memoryCache.at < MEMORY_TTL_MS) return memoryCache.value;
   let value: MemoryGraph | undefined;
   try {
-    // Alex's memory = the brain-store PLUS the Notes vault (the Claude
-    // Archive is the bulk of it). Store notes win path collisions; each source
-    // keeps its own folders so the constellation clusters by real structure.
+    // The operator's memory = whatever markdown store BRAIN_STORE points at.
+    // Empty (undefined) when no store is configured — the graph renders its
+    // plain fallback instead of an invented constellation.
     const store = readStoreNotes();
-    const seen = new Set(store.map((n) => n.path));
-    const vault = readVaultNotes().filter((n) => !seen.has(n.path));
-    // the Chat Archive is spotlighted: a guaranteed
-    // slice of the page cap and its cluster centered in the disc
-    const distilled = distillMemoryGraph(buildBrainGraph([...store, ...vault]), {
-      centerFolder: 'Chat Archive',
-    });
+    const distilled = distillMemoryGraph(buildBrainGraph(store));
     value = distilled.nodes.length > 0 ? distilled : undefined;
   } catch {
     value = undefined;
@@ -142,13 +123,13 @@ function memoryConstellation(): MemoryGraph | undefined {
 }
 
 export default async function BrainPage() {
-  const overview = await createGBrainProvider().overview();
+  const overview = await getBrainProvider().overview();
   const { store, doctor } = overview;
   const db = getDb();
   const knowledgeGraph = buildKnowledgeGraph(db.agents.all(), db.departments.all(), db.people.all(), db.sopTasks.all());
   const maxFiles = Math.max(1, ...store.folders.map((f) => f.files));
   const clusters = foldersToClusters(store.folders);
-  const storeShort = store.path.replace(process.env.HOME ?? '', '~');
+  const storeShort = store.path ? store.path.replace(process.env.HOME ?? '', '~') : 'BRAIN_STORE not set';
 
   const lastBrainRun = db.agentRuns.byAgent('data-agent')[0];
   // latest run per agent (oldest first so the LAST write per id is the newest)
@@ -159,34 +140,20 @@ export default async function BrainPage() {
       .map((r) => [r.agentId, r]),
   );
   const warnings = doctor.checks.filter((c) => c.status !== 'ok');
-  const supabaseCheck = doctor.checks.find((c) => /supabase|database/i.test(c.name));
-  const zeroEntropyCheck = doctor.checks.find((c) => /zero|embed/i.test(c.name));
-  const fallbackActive = supabaseCheck ? supabaseCheck.status !== 'ok' : !doctor.connected;
+  const fallbackActive = !doctor.connected;
 
   const layers: { name: string; sub: string; val: string; state: string }[] = [
     {
-      name: 'gbrain CLI',
-      sub: 'v0.41 · gbrain CLI · doctor --fast',
-      val: doctor.connected ? 'LIVE' : 'UNREACHABLE',
-      state: doctor.connected ? 'connected' : 'error',
-    },
-    {
-      name: 'brain-store/',
-      sub: `${storeShort} · markdown knowledge`,
-      val: `${store.totalFiles} pages`,
+      name: 'Markdown store',
+      sub: `${storeShort} · source of truth on disk`,
+      val: store.totalFiles > 0 ? `${store.totalFiles} pages` : 'not configured',
       state: store.totalFiles > 0 ? 'connected' : 'available',
     },
     {
-      name: 'ZeroEntropy',
-      sub: 'hybrid-search embeddings · key in ~/.config/knowledge',
-      val: zeroEntropyCheck ? (zeroEntropyCheck.status === 'ok' ? 'LIVE' : zeroEntropyCheck.status.toUpperCase()) : 'LIVE',
-      state: zeroEntropyCheck && zeroEntropyCheck.status !== 'ok' ? 'available' : 'connected',
-    },
-    {
-      name: 'Supabase Second Brain',
-      sub: '1240 pages / 15k chunks · free tier idle-pause',
-      val: fallbackActive ? 'PAUSED' : 'LIVE',
-      state: fallbackActive ? 'available' : 'connected',
+      name: 'Search provider',
+      sub: 'grep over the store today; a vector provider slots in behind the same interface',
+      val: doctor.connected ? 'LIVE' : 'PENDING',
+      state: doctor.connected ? 'connected' : 'available',
     },
   ];
 
@@ -196,7 +163,7 @@ export default async function BrainPage() {
           talk, or drop documents. The graph owns the space under the title. */}
       <PageHeader
         eyebrow="knowledge core"
-        title="G-Brain"
+        title="Knowledge"
         caret
         rightWide
         right={<BrainDump compact />}
@@ -211,7 +178,7 @@ export default async function BrainPage() {
           people={db.people.all()}
           tasks={db.sopTasks.all()}
           memory={memoryConstellation()}
-          clients={await clientRoster(db)}
+          clients={clientRoster(db)}
           runsByAgent={runsByAgent}
         />
       </section>
@@ -302,8 +269,8 @@ export default async function BrainPage() {
           <Stage step="1" title="Markdown brain-store" caption={storeShort}>
             <div className="text-xs text-os-muted">
               {store.totalFiles} pages on disk, plain <span className="font-semibold text-os-text">.md</span> files —
-              the source of truth. <code className="font-mono text-[11px]">gbrain sync</code> walks the git repo and
-              pushes changed pages up.
+              the source of truth. Point <code className="font-mono text-[11px]">BRAIN_STORE</code> at any folder of
+              markdown and it appears here.
             </div>
             <ul className="mt-3 space-y-1.5">
               {store.folders.map((folder) => (
@@ -322,12 +289,13 @@ export default async function BrainPage() {
             </ul>
           </Stage>
 
-          <Arrow label="sync · import" />
+          <Arrow label="read" />
 
-          <Stage step="2" title="gbrain CLI" caption="chunk · embed · route — the engine between disk and database">
-            <div className="flex items-baseline gap-2">
-              <span className="font-mono text-3xl font-bold">{doctor.healthScore ?? '—'}</span>
-              <span className="font-mono text-xs text-os-dim">/ 100 health{doctor.connected ? '' : ' · CLI unreachable'}</span>
+          <Stage step="2" title="Grep search" caption="the working provider — simple, honest, zero dependencies">
+            <div className="text-xs text-os-muted">
+              Queries walk the markdown store directly and return matching lines as snippets. No index to drift,
+              no external service to pause — it works the moment{' '}
+              <code className="font-mono text-[11px]">BRAIN_STORE</code> points at a folder.
             </div>
             <ul className="mt-3 space-y-1.5">
               {doctor.checks.map((check) => (
@@ -340,41 +308,22 @@ export default async function BrainPage() {
               ))}
               {doctor.checks.length === 0 && (
                 <li className="rounded-md-t border border-dashed border-os-border px-3 py-2 font-mono text-[11px] text-os-dim">
-                  doctor offline — {doctor.detail}
+                  {doctor.detail}
                 </li>
               )}
             </ul>
-            <div className="mt-3 flex flex-wrap gap-1">
-              {['put', 'get', 'query', 'search', 'sync', 'import', 'export', 'doctor'].map((cmd) => (
-                <span key={cmd} className="rounded-sm-t border border-os-border bg-os-surface2 px-1.5 py-0.5 font-mono text-[10px] text-os-muted">
-                  {cmd}
-                </span>
-              ))}
-            </div>
           </Stage>
 
-          <Arrow label="embed · upsert" />
+          <Arrow label="upgrade path" />
 
-          <Stage step="3" title="Supabase Postgres + pgvector" caption='"Second Brain" · ZeroEntropy embeddings'>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-md-t border border-os-border bg-os-surface2 px-3 py-2.5">
-                <div className="font-mono text-xl font-bold">1240</div>
-                <div className="font-mono text-[10px] uppercase tracking-wider text-os-dim">pages · last known</div>
-              </div>
-              <div className="rounded-md-t border border-os-border bg-os-surface2 px-3 py-2.5">
-                <div className="font-mono text-xl font-bold">15k</div>
-                <div className="font-mono text-[10px] uppercase tracking-wider text-os-dim">chunks · last known</div>
-              </div>
-            </div>
-            <div className="mt-3 space-y-1.5 text-[11px] leading-relaxed text-os-muted">
+          <Stage step="3" title="Vector provider (future)" caption="same interface, richer retrieval">
+            <div className="space-y-1.5 text-[11px] leading-relaxed text-os-muted">
               <p>
-                Each page is split into chunks; every chunk gets a ZeroEntropy embedding stored in a{' '}
-                <code className="font-mono">vector</code> column. Postgres holds both the text (tsvector) and the
-                vectors, so one database answers keyword and semantic queries.
+                Semantic search slots in behind the same <code className="font-mono">BrainProvider</code> interface —
+                embeddings, hybrid ranking, an external service — without touching a single page or agent.
               </p>
               <p className="text-os-dim">
-                Free tier pauses on idle — when hybrid queries fail, unpause from the Supabase dashboard. The
-                brain-store on disk keeps working regardless.
+                Until one is wired, the OS reports the grep provider honestly instead of pretending to a vector DB.
               </p>
             </div>
           </Stage>
@@ -385,28 +334,21 @@ export default async function BrainPage() {
       <section className="mt-8">
         <SectionHead label="Query path" />
         <p className="mb-3 text-xs text-os-dim">
-          What happens when an agent calls <code className="font-mono">gbrain query</code> — hybrid retrieval with an
-          honest fallback.
+          What happens when an agent searches the knowledge layer — real retrieval with an honest empty result
+          when nothing is configured.
         </p>
         <div className="flex flex-col gap-2 lg:flex-row lg:items-stretch">
           <FlowStep title="Question" detail="Natural-language query from you or an agent run." />
-          <Arrow label="expand" />
-          <FlowStep title="Query expansion" detail="The CLI rewrites the question into search variants (skip with --no-expand)." />
-          <Arrow label="fan out" />
-          <div className="flex flex-1 flex-col gap-2">
-            <FlowStep title="Keyword search" detail="Postgres tsvector full-text match over chunk text." />
-            <FlowStep title="Vector search" detail="pgvector nearest-neighbor over ZeroEntropy embeddings." />
-          </div>
-          <Arrow label="merge" />
-          <FlowStep title="RRF fusion" detail="Reciprocal-rank fusion merges both result lists into one ranking." />
+          <Arrow label="search" />
+          <FlowStep title="Store grep" detail="Walk the markdown store; first matching line per page becomes the snippet." />
           <Arrow label="answer" />
-          <FlowStep title="Ranked snippets" detail="Top pages with snippets, returned to the agent." />
+          <FlowStep title="Ranked snippets" detail="Top pages with snippets, returned to the agent — never invented ones." />
         </div>
         <div className="mt-2 flex flex-col gap-2 lg:flex-row lg:items-stretch">
           <FlowStep
             dashed
-            title="Fallback: local grep"
-            detail="If Supabase is paused or unreachable, FOUNDER OS greps the markdown brain-store directly — fewer smarts, zero downtime."
+            title="Not configured"
+            detail="No BRAIN_STORE set → searches return empty and the status card says so. Nothing fakes an answer."
           />
         </div>
       </section>

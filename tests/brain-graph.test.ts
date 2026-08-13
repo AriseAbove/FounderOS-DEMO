@@ -12,7 +12,7 @@ import {
   projectVector,
   type BrainNote,
 } from '@/lib/brain-graph';
-import { readStoreNotes } from '@/lib/connectors/gbrain';
+import { readStoreNotes } from '@/lib/brain';
 import { BrainGraphSchema } from '@/lib/schemas';
 
 const NOTES: BrainNote[] = [

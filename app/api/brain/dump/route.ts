@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { ingestBrainDump } from '@/lib/brain-dump';
-import { createGBrainProvider, type CaptureInput } from '@/lib/connectors/gbrain';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,12 +17,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
   try {
-    const result = await ingestBrainDump(parsed.data, {
-      capture:
-        process.env.BRAIN_PROVIDER === 'stub'
-          ? undefined
-          : (input: CaptureInput) => createGBrainProvider().capture(input),
-    });
+    // Local markdown write only — no embed hook is wired yet.
+    const result = await ingestBrainDump(parsed.data);
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     return NextResponse.json(

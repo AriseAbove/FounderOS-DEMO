@@ -75,7 +75,7 @@ export const INTEGRATIONS: Integration[] = [
   { slug: 'dropbox', name: 'Dropbox', tagline: 'Sync & share', category: 'Storage' },
   { slug: 'box', name: 'Box', tagline: 'Content cloud', category: 'Storage' },
   { slug: 'onedrive', name: 'OneDrive', tagline: 'Microsoft files', category: 'Storage' },
-  { slug: 'obsidian', name: 'Notes', tagline: 'Markdown vault', category: 'Storage', connectorId: 'obsidian', envKeys: [] },
+  { slug: 'obsidian', name: 'Obsidian', tagline: 'Markdown vault', category: 'Storage' },
 
   // AI & Automation
   { slug: 'openai', name: 'OpenAI', tagline: 'GPT models & embeddings', category: 'AI & Automation' },

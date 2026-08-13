@@ -3,7 +3,6 @@ import { calendarStatus } from '@/lib/connectors/gcal';
 import { paymentsStatus } from '@/lib/connectors/payments';
 import { quickbooksStatus } from '@/lib/connectors/quickbooks';
 import { attioStatus } from '@/lib/connectors/attio';
-import { obsidianStatus } from '@/lib/connectors/obsidian';
 import { llmStatus } from '@/lib/connectors/llm';
 import { trakyoStatus } from '@/lib/connectors/trakyo';
 import { metaAdsStatus } from '@/lib/connectors/meta-ads';
@@ -31,7 +30,6 @@ const CHECKS: [string, ConnectorStatus['kind'], () => Promise<ConnectorStatus>][
   ['trakyo', 'crm', trakyoStatus],
   ['meta-ads', 'ads', metaAdsStatus],
   ['ghl', 'crm', ghlStatus],
-  ['obsidian', 'knowledge', obsidianStatus],
   ['email', 'email', () => emailStatus(runtimeEnv())],
   ['calendar', 'calendar', calendarStatus],
   ['payments', 'payments', () => paymentsStatus(runtimeEnv())],

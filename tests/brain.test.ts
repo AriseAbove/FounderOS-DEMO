@@ -6,9 +6,9 @@ afterEach(() => {
 });
 
 describe('G Brain adapter', () => {
-  test('defaults to the real gbrain provider', () => {
+  test('defaults to the local markdown store provider', () => {
     const brain = getBrainProvider();
-    expect(brain.name).toBe('gbrain');
+    expect(brain.name).toBe('local-store');
   });
 
   test('falls back to stub when BRAIN_PROVIDER=stub', () => {

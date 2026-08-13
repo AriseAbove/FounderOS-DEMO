@@ -100,7 +100,7 @@ describe('API route handlers', () => {
     const res = await GET();
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.store.path.length).toBeGreaterThan(0);
+    expect(typeof body.store.path).toBe('string'); // '' = not configured
     expect(body.store.totalFiles).toBeGreaterThanOrEqual(0);
     expect(Array.isArray(body.store.folders)).toBe(true);
     expect(typeof body.doctor.connected).toBe('boolean');
@@ -243,11 +243,11 @@ describe('API route handlers', () => {
     expect(res.status).toBe(404);
   });
 
-  test('GET /api/brain reports real gbrain status', async () => {
+  test('GET /api/brain reports the real provider status', async () => {
     const { GET } = await import('@/app/api/brain/route');
     const res = await GET(new Request('http://localhost/api/brain'));
     const body = await res.json();
-    expect(body.provider).toBe('gbrain');
+    expect(body.provider).toBe('local-store');
     expect(typeof body.connected).toBe('boolean');
     expect(body.detail.length).toBeGreaterThan(0);
   });

@@ -5,7 +5,7 @@ import { buildSocialDashboard, audienceGrowthPct, PLATFORM_LABELS } from '@/lib/
 import { agentRunVolume, runsWithin } from '@/lib/analytics';
 import { splitMetrics, type MetricInput, type MetricTile } from '@/lib/operating-metrics';
 import { attioStatus } from '@/lib/connectors/attio';
-import { readStoreNotes } from '@/lib/connectors/gbrain';
+import { readStoreNotes } from '@/lib/brain';
 import { stripeSnapshot } from '@/lib/connectors/payments';
 import { unreadCounts } from '@/lib/connectors/email';
 import type { SocialPlatform } from '@/lib/schemas';

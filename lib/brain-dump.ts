@@ -1,20 +1,22 @@
 /**
  * Brain dump: turn a voice/text capture into a real markdown memory file
- * inside the canonical brain-store. The file is the source of truth —
- * `gbrain sync` picks it up and pushes it into the vector DB on its next run.
+ * inside the configured knowledge store (BRAIN_STORE). The file is the
+ * source of truth; a future embedding provider picks it up from disk.
  */
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
-import type { CaptureInput, CaptureOutcome } from '@/lib/connectors/gbrain';
+import { brainStorePath } from '@/lib/brain';
 
-const DEFAULT_STORE = process.env.GBRAIN_STORE ?? path.join(os.homedir(), 'knowledge', 'brain-store');
+export type CaptureInput = { text: string; title?: string; type?: string; slug?: string };
+export type CaptureOutcome =
+  | { ok: true; slug: string; contentHash: string }
+  | { ok: false; error: string };
 
 export type BrainDumpInput = {
   text: string;
   title?: string;
   folder: string; // top-level brain-store folder, e.g. 'inbox' | 'ideas'
-  tags: string[]; // venture tags etc. — #vantage, #launchpad-cohort …
+  tags: string[]; // business tags etc. — #aac, #apps …
 };
 
 export type BrainDumpResult = { relPath: string; title: string };
@@ -31,7 +33,9 @@ export function slugifyTitle(title: string): string {
   return slug || 'untitled';
 }
 
-export function writeBrainDump(input: BrainDumpInput, storePath: string = DEFAULT_STORE): BrainDumpResult {
+export function writeBrainDump(input: BrainDumpInput, storePath?: string): BrainDumpResult {
+  const store = storePath ?? brainStorePath();
+  if (!store) throw new Error('no knowledge store configured — set BRAIN_STORE in .env.local');
   const text = input.text.trim();
   if (!text) throw new Error('brain dump is empty');
   if (!/^[a-z0-9-]+$/i.test(input.folder)) {
@@ -42,7 +46,7 @@ export function writeBrainDump(input: BrainDumpInput, storePath: string = DEFAUL
   const date = new Date().toISOString().slice(0, 10);
   const base = `${date}-${slugifyTitle(title)}`;
 
-  const dir = path.join(storePath, input.folder);
+  const dir = path.join(store, input.folder);
   fs.mkdirSync(dir, { recursive: true });
 
   let slug = base;
@@ -63,14 +67,14 @@ export function writeBrainDump(input: BrainDumpInput, storePath: string = DEFAUL
   ].join('\n');
 
   const relPath = `${input.folder}/${slug}.md`;
-  fs.writeFileSync(path.join(storePath, relPath), body, 'utf8');
+  fs.writeFileSync(path.join(store, relPath), body, 'utf8');
   return { relPath, title };
 }
 
 export type BrainDumpDeps = {
   /** local markdown writer — defaults to writeBrainDump */
   writeLocal?: (input: BrainDumpInput, storePath?: string) => BrainDumpResult;
-  /** gbrain capture(): embeds immediately. Omit (e.g. under BRAIN_PROVIDER=stub) to write locally only. */
+  /** optional embed hook for a future provider. Omit to write locally only. */
   capture?: (input: CaptureInput) => Promise<CaptureOutcome>;
   storePath?: string;
 };
@@ -82,10 +86,10 @@ export type IngestResult = BrainDumpResult & {
 };
 
 /**
- * Ingest a brain dump: always write the local markdown (source of truth), then
- * — when a capture() is wired — embed it into gbrain immediately so agents can
+ * Ingest a brain dump: always write the local markdown (source of truth),
+ * then — when a capture() hook is wired — embed it immediately so agents can
  * retrieve it. A capture failure never loses the local write; it degrades to
- * `embedded: false` with the honest error (e.g. Supabase idle-paused).
+ * `embedded: false` with the honest error.
  */
 export async function ingestBrainDump(input: BrainDumpInput, deps: BrainDumpDeps = {}): Promise<IngestResult> {
   const writeLocal = deps.writeLocal ?? writeBrainDump;

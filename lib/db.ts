@@ -319,13 +319,32 @@ CREATE TABLE IF NOT EXISTS quickbooks_auth (
 );
 `;
 
+/** Runs a schema-altering statement that only needs to succeed once across
+ *  possibly-concurrent connections sharing one on-disk SQLite file (Next.js's
+ *  static-generation pool opens several connections to the same production
+ *  volume during `next build`, each running the same check-then-ALTER
+ *  migration below). The check and the ALTER aren't atomic across separate
+ *  processes: one connection can see a column missing, lose the race to
+ *  another connection that adds it first, and then crash with `SqliteError:
+ *  duplicate column name: <col>` on an ALTER that was always going to be a
+ *  no-op. That specific error means "someone else already did this" -- safe
+ *  to swallow. Any other error is a real bug and still throws. */
+export function safeAlter(db: InstanceType<typeof Database>, sql: string): void {
+  try {
+    db.exec(sql);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!/duplicate column name/i.test(msg)) throw err;
+  }
+}
+
 /** Databases created before the hierarchy build lack these columns. */
 function migrateAgentsTable(db: InstanceType<typeof Database>): void {
   const columns = new Set(
     (db.pragma('table_info(agents)') as { name: string }[]).map((c) => c.name),
   );
-  if (!columns.has('parent_id')) db.exec('ALTER TABLE agents ADD COLUMN parent_id TEXT');
-  if (!columns.has('instance')) db.exec("ALTER TABLE agents ADD COLUMN instance TEXT NOT NULL DEFAULT 'builtin'");
+  if (!columns.has('parent_id')) safeAlter(db, 'ALTER TABLE agents ADD COLUMN parent_id TEXT');
+  if (!columns.has('instance')) safeAlter(db, "ALTER TABLE agents ADD COLUMN instance TEXT NOT NULL DEFAULT 'builtin'");
 }
 
 /** Databases created before the funnel-space build lack these columns; ones
@@ -337,20 +356,20 @@ function migrateFunnelContactsTable(db: InstanceType<typeof Database>): void {
     (db.pragma('table_info(funnel_contacts)') as { name: string }[]).map((c) => c.name),
   );
   if (columns.has('venture') && !columns.has('business')) {
-    db.exec('ALTER TABLE funnel_contacts RENAME COLUMN venture TO business');
+    safeAlter(db, 'ALTER TABLE funnel_contacts RENAME COLUMN venture TO business');
     // Rows in the retired vantage/launchpad taxonomy (and their touches)
     // were invented demo journeys — drop them.
     db.exec("DELETE FROM funnel_touches WHERE contact_id IN (SELECT id FROM funnel_contacts WHERE business NOT IN ('aac', 'apps'))");
     db.exec("DELETE FROM funnel_contacts WHERE business NOT IN ('aac', 'apps')");
     columns.add('business');
   }
-  if (!columns.has('relationship')) db.exec("ALTER TABLE funnel_contacts ADD COLUMN relationship TEXT NOT NULL DEFAULT 'warm'");
-  if (!columns.has('likelihood')) db.exec('ALTER TABLE funnel_contacts ADD COLUMN likelihood INTEGER NOT NULL DEFAULT 50');
-  if (!columns.has('email')) db.exec('ALTER TABLE funnel_contacts ADD COLUMN email TEXT');
-  if (!columns.has('phone')) db.exec('ALTER TABLE funnel_contacts ADD COLUMN phone TEXT');
+  if (!columns.has('relationship')) safeAlter(db, "ALTER TABLE funnel_contacts ADD COLUMN relationship TEXT NOT NULL DEFAULT 'warm'");
+  if (!columns.has('likelihood')) safeAlter(db, 'ALTER TABLE funnel_contacts ADD COLUMN likelihood INTEGER NOT NULL DEFAULT 50');
+  if (!columns.has('email')) safeAlter(db, 'ALTER TABLE funnel_contacts ADD COLUMN email TEXT');
+  if (!columns.has('phone')) safeAlter(db, 'ALTER TABLE funnel_contacts ADD COLUMN phone TEXT');
   // dossier identity (Round 15) — the human behind the deal
   for (const col of ['person', 'company', 'role', 'linkedin']) {
-    if (!columns.has(col)) db.exec(`ALTER TABLE funnel_contacts ADD COLUMN ${col} TEXT`);
+    if (!columns.has(col)) safeAlter(db, `ALTER TABLE funnel_contacts ADD COLUMN ${col} TEXT`);
   }
 }
 
@@ -359,7 +378,7 @@ function migrateFunnelContactsTable(db: InstanceType<typeof Database>): void {
 function migrateSkillsTable(db: InstanceType<typeof Database>): void {
   const columns = new Set((db.pragma('table_info(skills)') as { name: string }[]).map((c) => c.name));
   if (columns.size > 0 && !columns.has('markdown')) {
-    db.exec("ALTER TABLE skills ADD COLUMN markdown TEXT NOT NULL DEFAULT ''");
+    safeAlter(db, "ALTER TABLE skills ADD COLUMN markdown TEXT NOT NULL DEFAULT ''");
     db.exec('DELETE FROM skills');
   }
 }
@@ -396,6 +415,11 @@ function rowToAgent(row: AgentRow): Agent {
 
 export function openDb(path: string) {
   const db = new Database(path);
+  // WAL allows concurrent readers, but a second concurrent writer (e.g. two
+  // Next.js static-generation workers opening the same on-disk file at
+  // build time) still hits SQLITE_BUSY without this — wait instead of
+  // failing the build immediately.
+  db.pragma('busy_timeout = 5000');
   db.pragma('journal_mode = WAL');
   db.exec(DDL);
   migrateAgentsTable(db);

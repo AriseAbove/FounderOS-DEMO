@@ -31,10 +31,10 @@ describe('graph lenses', () => {
   test('entity lenses match by node kind against the real seeded graph', () => {
     // invented staff purged — the people lens is honestly empty
     expect(lensNodeSet('ent-people', ctx).size).toBe(0);
-    expect(lensNodeSet('ent-subagents', ctx).size).toBe(7);
-    // only staffed pillars appear as team nodes (sales, tech, comms, finance)
-    expect(lensNodeSet('ent-departments', ctx).size).toBe(4);
-    expect(lensNodeSet('ent-sops', ctx).size).toBe(7);
+    expect(lensNodeSet('ent-subagents', ctx).size).toBe(8);
+    // only staffed pillars appear as team nodes (sales, tech, comms, finance, marketing-growth)
+    expect(lensNodeSet('ent-departments', ctx).size).toBe(5);
+    expect(lensNodeSet('ent-sops', ctx).size).toBe(8);
   });
 
   test('workflows and projects are honestly empty until modeled', () => {

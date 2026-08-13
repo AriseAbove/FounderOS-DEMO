@@ -133,6 +133,20 @@ const agents: Agent[] = [
     parentId: null,
     instance: 'builtin',
   },
+  // ── Marketing/Growth ────────────────────────────────────────────────────
+  {
+    id: 'social-pulse',
+    departmentId: 'dept-marketing-growth',
+    name: 'Social Pulse',
+    role: 'Publishing',
+    status: 'planned',
+    tier: 'lead',
+    description: 'Publishes posts queued on the Social tab through OneUp\'s real API. Activates when ONEUP_API_KEY + ONEUP_CATEGORY_ID land.',
+    model: 'oneup rest api',
+    tools: ['oneup'],
+    parentId: null,
+    instance: 'builtin',
+  },
   // ── Finances ─────────────────────────────────────────────────────────────
   {
     id: 'quickbooks-pulse',
@@ -242,6 +256,18 @@ const sopTasks: SopTask[] = [
       'Never move a journey stage — stage changes are Sean’s decision',
     ],
   },
+  {
+    id: 'sop-social-pulse', departmentId: 'dept-marketing-growth', assigneeKind: 'agent', assigneeId: 'social-pulse',
+    title: 'Publish every queued post through OneUp',
+    summary: 'Social tab queue → real OneUp accounts, honest per-post outcomes.',
+    steps: [
+      'Pull every post queued on the Social tab (status: queued)',
+      'Match each post\'s platforms to OneUp\'s real connected accounts',
+      'Publish via OneUp\'s scheduletextpost/scheduleimagepost API',
+      'Mark a post failed with the real reason on a platform mismatch or a rejected post — never silently drop it',
+      'Never post without ONEUP_CATEGORY_ID configured — no guessed category',
+    ],
+  },
 ];
 
 // The honest tool list: only what this OS actually integrates with today.
@@ -252,6 +278,7 @@ const tools: Tool[] = [
   { id: 'tool-quickbooks', name: 'QuickBooks', category: 'Finance', status: 'available', color: GRAY.white, description: 'The real books: MTD income/expenses + open invoices once the OAuth grant lands.' },
   { id: 'tool-llm', name: 'Claude API', category: 'AI', status: 'available', color: GRAY.light, description: 'LLM lane for agent chat — set ANTHROPIC_API_KEY (stub provider in tests).' },
   { id: 'tool-allo', name: 'Allo (call log)', category: 'Sales', status: 'available', color: GRAY.light, description: 'AI receptionist call log → funnel lead intake — set ALLO_API_KEY (Conversations Read scope).' },
+  { id: 'tool-oneup', name: 'OneUp (social publish)', category: 'Marketing', status: 'available', color: GRAY.mid, description: 'Publishes Social-tab posts to real connected accounts — set ONEUP_API_KEY + ONEUP_CATEGORY_ID.' },
   { id: 'tool-brain-store', name: 'Markdown knowledge store', category: 'Knowledge', status: 'available', color: GRAY.mid, description: 'Point BRAIN_STORE at a folder of markdown — grep search + capture, no external service.' },
   { id: 'tool-railway', name: 'Railway (hosting)', category: 'Infrastructure', status: 'connected', color: GRAY.dim, description: 'Production host; SQLite lives on a mounted volume so redeploys keep data.' },
 ];

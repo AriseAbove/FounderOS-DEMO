@@ -34,25 +34,32 @@ fix (`e34de32`).
 - `tests/oneup.test.ts` — 20 tests, TDD-first, dependency-injected `fetch`
   (matches `tests/allo.test.ts`'s convention) so real HTTP is never touched
   by the suite.
+- `lib/social-oneup.ts` — the publish path is wired. `publishQueuedSocialPosts()`
+  pulls every `status: 'queued'` post, matches its abstract platforms
+  (`facebook`/`instagram`/… ) to OneUp's real connected accounts by
+  `social_network_type` (loose case-insensitive match — see
+  `PLATFORM_MATCHERS` in that file; if a platform never matches on a real
+  `listOneUpAccounts()` pull, that's a signal to add the exact observed
+  string, not to widen the match), and calls `publishOneUpPost()`. Every
+  outcome is honest: a post with no matching connected account, or one
+  OneUp itself rejects, is marked `'failed'` in the DB with the real reason
+  — never silently dropped, never marked `'published'` on a guess.
+  `tests/social-oneup.test.ts` — 13 tests covering the matcher, the schedule-
+  time formatter, and the full publish loop against an injected `fetch`.
+- **Sean's real `category_id` is `175179`** (category name "AAC Social
+  Posts", confirmed 2026-08-13 via `GET /api/listcategory` in Sean's own
+  browser). Set `ONEUP_CATEGORY_ID=175179` in Railway's env alongside
+  `ONEUP_API_KEY` — `publishQueuedSocialPosts()` throws an honest error and
+  refuses to guess a category if it's unset.
+- **Social Pulse** (`social-pulse`, dept-marketing-growth) is a new real
+  agent on `/agents` — `socialPulseRun()` in `lib/agents/real.ts` reports
+  not-configured until both env vars land, then publishes whatever's queued
+  and reports `N/total published` per run. Seeded (`lib/seed.ts`) with a
+  matching SOP task (`sop-social-pulse`) and tool row (`tool-oneup`).
 
 ## What's NOT done yet (deliberately deferred)
 
-1. **Wiring the publish path into the Social Agent.** `POST
-   /api/social/posts` still only queues a post (`status: 'queued'`); nothing
-   picks it up and calls `publishOneUpPost()` yet. That's the next real
-   step, and it needs one thing only Sean can provide first:
-
-   **Sean's OneUp `category_id`.** Every `publishOneUpPost()` call requires
-   a `category_id` — OneUp's grouping of which connected accounts a post
-   goes out to. I don't have Sean's real API key (by design — it lives in
-   Railway's `.env.local`, never in chat or this repo), so I can't call
-   `listOneUpCategories()` myself to find it. Once Sean (or a session with
-   the real key) runs `listOneUpCategories()` against production, drop the
-   real id into `.env.local` as `ONEUP_CATEGORY_ID` (or hardcode it in the
-   Social Agent wiring — TBD which reads better) and the publish wiring
-   becomes a small, mechanical step.
-
-2. **Reviews.** `docs.oneupapp.io`'s nav has no dedicated "reviews" section
+1. **Reviews.** `docs.oneupapp.io`'s nav has no dedicated "reviews" section
    — the closest real surface is Comment Management (`fetch-top-comments`,
    `reply-to-post`, `reply-to-comment`), which the docs explicitly flag as
    **not available on the Basic plan**. Before building anything here,
@@ -60,7 +67,7 @@ fix (`e34de32`).
    aren't reachable via API and the honest move is a clearly-labeled
    "upgrade to unlock" state, not a silently-broken feature.
 
-3. **Analytics / follower snapshots.** `lib/schemas.ts`'s
+2. **Analytics / follower snapshots.** `lib/schemas.ts`'s
    `SocialSnapshotSchema` and the `/analytics` and `/social` audience charts
    still run on the pre-existing "Zernio config" placeholder path (see
    `lib/db.ts`'s `zernio-config` seed-purge source, `lib/operating-metrics.ts`,
@@ -72,7 +79,7 @@ fix (`e34de32`).
    "connected" only when it truly is) — left untouched until real analytics
    data can actually flow.
 
-4. **Live test post.** Not attempted. Posting anything — even a throwaway —
+3. **Live test post.** Not attempted. Posting anything — even a throwaway —
    to Sean's real, live Facebook/Instagram/GBP accounts is a public,
    irreversible action; per this session's own operating rules that needs
    Sean's explicit go-ahead before it happens, not just "step 9 of the
@@ -82,4 +89,3 @@ fix (`e34de32`).
 
 - What's the OneUp plan tier (Basic vs. a higher tier)? Determines whether
   reviews/comments and analytics are reachable via API at all.
-- Confirm the `category_id` to use for AAC's posts (see above).

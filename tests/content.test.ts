@@ -15,14 +15,14 @@ describe('contentAgents', () => {
     expect(crew.map((a) => a.id)).not.toContain('data-agent');
   });
 
-  test('deterministic — and honestly empty until a content crew exists', () => {
+  test('deterministic, and includes the real Social Pulse publisher', () => {
     db = openDb(':memory:');
     seedDatabase(db);
     const a = contentAgents(db.agents.all()).map((x) => x.id);
     const b = contentAgents(db.agents.all()).map((x) => x.id);
     expect(a).toEqual(b);
-    // The purge removed the demo's fictional content crew; the pillar is
-    // empty until real content agents land.
-    expect(a.length).toBe(0);
+    // The purge removed the demo's fictional content crew; social-pulse
+    // (a real OneUp publisher, not a larp) is the first real member.
+    expect(a).toEqual(['social-pulse']);
   });
 });

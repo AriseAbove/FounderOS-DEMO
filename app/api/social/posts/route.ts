@@ -19,10 +19,12 @@ const CreateSchema = z.object({
 });
 
 /**
- * Queue a post for OneUp. This does NOT post live — it persists with status
- * 'queued'; the Social agent on the Agents page picks it up. Wiring the
- * actual OneUp publish call (lib/connectors/oneup.ts's publishOneUpPost) into
- * that agent run is a deliberate later step — see docs/oneup-integration.md.
+ * Queue a post for OneUp. This does NOT post live on its own — it persists
+ * with status 'queued'; Social Pulse (dept-marketing-growth on the Agents
+ * page, lib/agents/real.ts's socialPulseRun) publishes queued posts through
+ * OneUp's real API (lib/social-oneup.ts's publishQueuedSocialPosts) the next
+ * time it runs, once ONEUP_API_KEY + ONEUP_CATEGORY_ID are both set — see
+ * docs/oneup-integration.md.
  */
 export async function POST(request: Request) {
   const parsed = CreateSchema.safeParse(await request.json().catch(() => null));

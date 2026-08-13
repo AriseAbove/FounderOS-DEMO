@@ -278,4 +278,20 @@ describe('social post queue', () => {
     expect(queued[0].platforms).toEqual(['twitter']);
     expect(db.socialPosts.all()).toHaveLength(2);
   });
+
+  test('setStatus updates status and drops the post out of queued()', () => {
+    db = openDb(':memory:');
+    db.socialPosts.enqueue({
+      id: 'p1',
+      caption: 'first',
+      mediaUrl: null,
+      platforms: ['instagram'],
+      status: 'queued',
+      scheduledFor: null,
+      createdAt: '2026-06-13T10:00:00Z',
+    });
+    db.socialPosts.setStatus('p1', 'published');
+    expect(db.socialPosts.all()[0].status).toBe('published');
+    expect(db.socialPosts.queued()).toEqual([]);
+  });
 });

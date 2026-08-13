@@ -5,6 +5,8 @@ import { calendarStatus, upcomingEvents, caldavAccounts } from '@/lib/connectors
 import { quickbooksStatus } from '@/lib/connectors/quickbooks';
 import { alloConfigured, fetchAlloCalls } from '@/lib/connectors/allo';
 import { importAlloCalls } from '@/lib/funnel-allo';
+import { oneupConfigured } from '@/lib/connectors/oneup';
+import { publishQueuedSocialPosts } from '@/lib/social-oneup';
 import { runtimeEnv } from '@/lib/creds';
 import { getDb } from '@/lib/data';
 import type { LlmToolSpec } from '@/lib/connectors/llm';
@@ -71,6 +73,35 @@ async function alloRun(): Promise<AgentRunResult> {
     ok: true,
     summary: `${calls.length} calls in the Allo log · ${res.newContacts} new lead journey(s) · ${res.newTouches} new touch(es) · ${res.skipped} skipped (spam/outbound)`,
     data: res,
+  };
+}
+
+async function socialPulseRun(): Promise<AgentRunResult> {
+  const env = runtimeEnv();
+  if (!oneupConfigured(env)) {
+    return {
+      ok: false,
+      summary: 'ONEUP_API_KEY not set — save it via /integrations (Marketing → OneUp) to publish queued posts',
+    };
+  }
+  if (!env.ONEUP_CATEGORY_ID) {
+    return {
+      ok: false,
+      summary:
+        'ONEUP_CATEGORY_ID not set — GET /api/listcategory with the OneUp API key to find it, see docs/oneup-integration.md',
+    };
+  }
+  const queuedBefore = getDb().socialPosts.queued().length;
+  if (queuedBefore === 0) {
+    return { ok: true, summary: 'OneUp connected · nothing queued to publish' };
+  }
+  const outcomes = await publishQueuedSocialPosts(getDb(), env);
+  const published = outcomes.filter((o) => o.ok).length;
+  const failed = outcomes.length - published;
+  return {
+    ok: failed === 0,
+    summary: `${published}/${outcomes.length} queued post(s) published via OneUp${failed > 0 ? ` · ${failed} failed` : ''}`,
+    data: outcomes,
   };
 }
 
@@ -169,6 +200,15 @@ export const realAgents: RuntimeAgent[] = [
     description: 'Pulls the Allo (248) 717-1417 call log and files inbound lead calls into the AAC pipeline.',
     departmentId: 'dept-sales',
     run: alloRun,
+  },
+
+  // ── Marketing/Growth ─────────────────────────────────────────────────
+  {
+    id: 'social-pulse',
+    name: 'Social Pulse',
+    description: 'Publishes posts queued on the Social tab through OneUp (real accounts, real API — see docs/oneup-integration.md).',
+    departmentId: 'dept-marketing-growth',
+    run: socialPulseRun,
   },
 
   // ── Finance ──────────────────────────────────────────────────────────

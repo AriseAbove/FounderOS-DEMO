@@ -53,6 +53,7 @@ import {
   type SocialDmSnapshot,
   type SocialDmMessage,
   type SocialPost,
+  type SocialPostStatus,
   type FunnelContact,
   type FunnelTouch,
   type FunnelJourney,
@@ -989,6 +990,9 @@ export function openDb(path: string) {
     },
     remove(id: string): void {
       db.prepare('DELETE FROM social_posts WHERE id = ?').run(id);
+    },
+    setStatus(id: string, status: SocialPostStatus): void {
+      db.prepare('UPDATE social_posts SET status = ? WHERE id = ?').run(status, id);
     },
     queued(): SocialPost[] {
       return db

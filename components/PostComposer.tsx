@@ -14,6 +14,8 @@ const PLATFORMS: { id: SocialPost['platforms'][number]; label: string }[] = [
   { id: 'twitter', label: 'Twitter / X' },
   { id: 'youtube', label: 'YouTube' },
   { id: 'linkedin', label: 'LinkedIn' },
+  { id: 'facebook', label: 'Facebook' },
+  { id: 'googlebusiness', label: 'Google Business' },
 ];
 
 function fmtWhen(iso: string): string {

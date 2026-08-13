@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Instagram, Linkedin, Mail, Music2, Twitter, Youtube, type LucideIcon } from 'lucide-react';
+import { Facebook, Instagram, Linkedin, Mail, Music2, Store, Twitter, Youtube, type LucideIcon } from 'lucide-react';
 import { getDb } from '@/lib/data';
 import {
   audienceGrowth,
@@ -28,6 +28,8 @@ const PLATFORM_ICONS: Record<SocialPlatform, LucideIcon> = {
   twitter: Twitter,
   youtube: Youtube,
   linkedin: Linkedin,
+  facebook: Facebook,
+  googlebusiness: Store, // no literal Google Business mark in lucide — same stand-in convention as Music2/TikTok
 };
 
 // Human label for a raw platform string (falls back to capitalising it).

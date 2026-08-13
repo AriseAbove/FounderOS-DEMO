@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Instagram, Linkedin, Music2, Twitter, Youtube, type LucideIcon } from 'lucide-react';
+import { Facebook, Instagram, Linkedin, Music2, Store, Twitter, Youtube, type LucideIcon } from 'lucide-react';
 import { getDb } from '@/lib/data';
 import { buildSocialDashboard, audienceGrowthPct, PLATFORM_LABELS } from '@/lib/social';
 import { agentRunVolume, runsWithin } from '@/lib/analytics';
@@ -21,6 +21,8 @@ const PLATFORM_ICONS: Record<SocialPlatform, LucideIcon> = {
   twitter: Twitter,
   youtube: Youtube,
   linkedin: Linkedin,
+  facebook: Facebook,
+  googlebusiness: Store, // no literal Google Business mark in lucide — same stand-in convention as Music2/TikTok
 };
 
 // Value + small-unit split per tile (compact for audience, $ for money).

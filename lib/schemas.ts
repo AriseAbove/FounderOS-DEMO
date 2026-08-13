@@ -281,7 +281,18 @@ export const AgentCronSchema = z.object({
   createdAt: z.string().min(1),
 });
 
-export const SocialPlatformSchema = z.enum(['instagram', 'tiktok', 'twitter', 'youtube', 'linkedin']);
+// facebook + googlebusiness added alongside the OneUp connector — they're
+// the two extra channel types OneUp actually publishes to for AAC (Facebook
+// Page + Google Business Profile), on top of the pre-existing set.
+export const SocialPlatformSchema = z.enum([
+  'instagram',
+  'tiktok',
+  'twitter',
+  'youtube',
+  'linkedin',
+  'facebook',
+  'googlebusiness',
+]);
 
 export const SocialAccountSchema = z.object({
   platform: SocialPlatformSchema,

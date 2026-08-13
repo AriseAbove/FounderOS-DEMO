@@ -24,7 +24,7 @@ import {
 import { PLATFORM_LABELS } from '@/lib/social';
 
 describe('postingCadenceByPlatform', () => {
-  const PLATFORMS = ['instagram', 'tiktok', 'twitter', 'youtube', 'linkedin'] as const;
+  const PLATFORMS = ['instagram', 'tiktok', 'twitter', 'youtube', 'linkedin', 'facebook', 'googlebusiness'] as const;
 
   test('one entry per day, ascending, ending on endDate, every platform keyed', () => {
     const c = postingCadenceByPlatform('2026-06-14', 30);

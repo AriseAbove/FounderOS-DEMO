@@ -54,6 +54,7 @@ const LETTERMARK: Record<string, string> = {
   gohighlevel: '#2A9D8F',
   zernio: '#6E56CF',
   oneup: '#3B82F6',
+  googlebusiness: '#4285F4',
   arcads: '#FF6A3D',
   fanbasis: '#22C55E',
   trakyo: '#EAB308',

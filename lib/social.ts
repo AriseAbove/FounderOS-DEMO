@@ -19,6 +19,8 @@ export const PLATFORM_LABELS: Record<SocialPlatform, string> = {
   twitter: 'Twitter / X',
   youtube: 'YouTube',
   linkedin: 'LinkedIn',
+  facebook: 'Facebook',
+  googlebusiness: 'Google Business',
 };
 
 // Brand-ish line colors for the pop-out charts (distinct, not theme-tied).
@@ -28,6 +30,8 @@ export const PLATFORM_COLORS: Record<SocialPlatform, string> = {
   twitter: '#1d9bf0',
   youtube: '#ff4d4d',
   linkedin: '#0a85c2',
+  facebook: '#1877f2',
+  googlebusiness: '#4285F4',
 };
 export const EMAIL_COLOR = '#8b7cff';
 export const ALL_AUDIENCE_COLOR = '#3df08c';
@@ -255,6 +259,8 @@ const POSTING_PROFILE: Record<SocialPlatform, { freq: number; max: number; weekd
   twitter: { freq: 0.88, max: 3, weekdayBias: 0.06 },
   youtube: { freq: 0.16, max: 1, weekdayBias: 0.05 },
   linkedin: { freq: 0.4, max: 1, weekdayBias: 0.3 },
+  facebook: { freq: 0.43, max: 1, weekdayBias: 0.15 },
+  googlebusiness: { freq: 0.3, max: 1, weekdayBias: 0.2 },
 };
 
 export type PostingByPlatformPoint = { date: string; counts: Record<SocialPlatform, number> };

@@ -125,14 +125,18 @@ describe('syncSocialSnapshots', () => {
       {
         instagram: { handle: '@ariseaboveconstruction', followers: 420 },
         tiktok: { handle: '@ariseaboveconstruction', followers: 120 },
-        facebook: { handle: 'Arise Above Construction', followers: 100 }, // untracked platform
+        facebook: { handle: 'Arise Above Construction', followers: 100 }, // OneUp's Facebook channel — tracked
+        pinterest: { handle: 'Arise Above Construction', followers: 100 }, // untracked platform
         linkedin: { handle: 'Arise Above Construction' }, // no follower count yet
       },
       '2026-06-13',
     );
-    expect(recorded).toBe(2);
+    expect(recorded).toBe(3);
     expect(db.social.snapshots('instagram')).toEqual([
       { platform: 'instagram', capturedAt: '2026-06-13', followers: 420, source: 'manual-sync' },
+    ]);
+    expect(db.social.snapshots('facebook')).toEqual([
+      { platform: 'facebook', capturedAt: '2026-06-13', followers: 100, source: 'manual-sync' },
     ]);
     expect(db.social.snapshots('linkedin')).toEqual([]);
   });

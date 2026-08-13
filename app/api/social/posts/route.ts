@@ -19,9 +19,10 @@ const CreateSchema = z.object({
 });
 
 /**
- * Queue a post for the Zernio-publishing agent. This does NOT post live — it
- * persists with status 'queued'; the Social agent on the Agents page picks it
- * up. Wiring an actual Zernio publish is a deliberate later step.
+ * Queue a post for OneUp. This does NOT post live — it persists with status
+ * 'queued'; the Social agent on the Agents page picks it up. Wiring the
+ * actual OneUp publish call (lib/connectors/oneup.ts's publishOneUpPost) into
+ * that agent run is a deliberate later step — see docs/oneup-integration.md.
  */
 export async function POST(request: Request) {
   const parsed = CreateSchema.safeParse(await request.json().catch(() => null));

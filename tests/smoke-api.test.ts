@@ -44,7 +44,7 @@ const ROUTES: RouteEntry[] = [
   { route: 'social/series', load: () => import('@/app/api/social/series/route'), url: 'http://localhost/api/social/series?metric=audience' },
   { route: 'social/sync', load: () => import('@/app/api/social/sync/route'), url: 'http://localhost/api/social/sync' },
   { route: 'tools', load: () => import('@/app/api/tools/route'), url: 'http://localhost/api/tools' },
-  { route: 'ventures', load: () => import('@/app/api/ventures/route'), url: 'http://localhost/api/ventures' },
+  { route: 'businesses', load: () => import('@/app/api/businesses/route'), url: 'http://localhost/api/businesses' },
   { route: 'webhooks/manychat', load: () => import('@/app/api/webhooks/manychat/route'), url: 'http://localhost/api/webhooks/manychat' },
 ];
 

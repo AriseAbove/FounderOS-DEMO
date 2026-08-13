@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { VENTURES } from '@/lib/ventures';
+import { BUSINESSES } from '@/lib/businesses';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  return NextResponse.json({ ventures: VENTURES });
+  return NextResponse.json({ businesses: BUSINESSES });
 }

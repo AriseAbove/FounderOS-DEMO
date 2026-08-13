@@ -3,7 +3,9 @@
 import { usePathname } from 'next/navigation';
 import { Bot, Search } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { BusinessSwitcher } from '@/components/BusinessSwitcher';
 import { CONDUCTOR_OPEN_EVENT } from '@/components/ConductorPanel';
+import type { BusinessFilter } from '@/lib/business-filter';
 
 const SEGMENT_LABELS: Record<string, string> = {
   '': 'home',
@@ -22,7 +24,7 @@ export function openPalette() {
   window.dispatchEvent(new CustomEvent('alex:palette'));
 }
 
-export function Topbar() {
+export function Topbar({ businessFilter }: { businessFilter: BusinessFilter }) {
   const pathname = usePathname();
   const segment = pathname.split('/')[1] ?? '';
   const here = SEGMENT_LABELS[segment] ?? segment;
@@ -35,6 +37,8 @@ export function Topbar() {
         <span className="text-os-text">{here}</span>
       </div>
       <div className="ml-auto flex items-center gap-2.5">
+        <BusinessSwitcher initial={businessFilter} />
+        <div className="h-4 w-px bg-os-border" />
         <ThemeToggle />
         <button
           onClick={openPalette}

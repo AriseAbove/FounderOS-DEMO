@@ -8,6 +8,8 @@ import { ConductorPanel } from '@/components/ConductorPanel';
 import { getDb } from '@/lib/data';
 import type { Command } from '@/lib/palette';
 import { THEME_INIT_SCRIPT } from '@/lib/theme';
+import { resolveBusinessFilter } from '@/lib/business-filter';
+import { readBusinessFilterCookie } from '@/lib/business-filter-server';
 
 const fontMono = JetBrains_Mono({
   subsets: ['latin'],
@@ -59,6 +61,7 @@ function buildCommands(): Command[] {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const businessFilter = resolveBusinessFilter(readBusinessFilterCookie());
   return (
     <html lang="en" className={fontMono.variable} suppressHydrationWarning>
       <head>
@@ -70,7 +73,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* os-shell yields to the Conductor dock: the panel sets --conductor-w
             and the whole content column glides left instead of being covered */}
         <div className="os-shell ml-[232px] flex min-h-screen min-w-0 flex-col" style={{ marginRight: 'var(--conductor-w, 0px)' }}>
-          <Topbar />
+          <Topbar businessFilter={businessFilter} />
           <main className="min-w-0 flex-1 px-8 pb-16 pt-7 wide:px-10 ultra:px-12">
             {/* Width tiers: 1280 on laptops · 1760 on large monitors ·
                 full-bleed on 32"/ultrawide. See tailwind screens wide/ultra. */}

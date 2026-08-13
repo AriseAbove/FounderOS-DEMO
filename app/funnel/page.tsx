@@ -22,7 +22,6 @@ import { attioStatus } from '@/lib/connectors/attio';
 import { ghlStatus } from '@/lib/connectors/ghl';
 import { trakyoStatus } from '@/lib/connectors/trakyo';
 import { metaAdsStatus } from '@/lib/connectors/meta-ads';
-import { getVenture } from '@/lib/ventures';
 import { FunnelRadialLazy, FunnelSpaceLazy } from '@/components/FunnelGraphsLazy';
 import { Badge, SectionHead } from '@/components/terminal';
 import {
@@ -47,8 +46,20 @@ function usd(amount: number): string {
   return `$${Math.round(amount).toLocaleString('en-US')}`;
 }
 
+// Funnel-taxonomy branding (Attio/GHL client pipeline) is separate from the
+// AAC/Apps business lens — these two colors are cosmetic for this demo CRM
+// data and untouched by the Phase 1 business-lens rename.
+const VENTURE_COLORS: Record<FunnelVenture, string> = {
+  vantage: '#00ffaa',
+  'launchpad-cohort': '#d9263f',
+};
+
 function ventureColor(id: FunnelVenture): string {
-  return getVenture(id)?.color ?? 'var(--accent)';
+  return VENTURE_COLORS[id] ?? 'var(--accent)';
+}
+
+function ventureLabel(id: FunnelVenture): string | undefined {
+  return VENTURE_TABS.find((t) => t.id === id)?.label;
 }
 
 /** Compact source check: ✓ when connected, ○ when pending — detail on hover. */
@@ -206,7 +217,7 @@ function JourneyTableRows({
             <span
               className="h-2 w-2 shrink-0 rounded-full"
               style={{ background: ventureColor(journey.venture) }}
-              title={getVenture(journey.venture)?.label}
+              title={ventureLabel(journey.venture)}
             />
             <span className="min-w-0">
               <span className="block truncate text-[12.5px] font-semibold" title={journey.name}>

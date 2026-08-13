@@ -53,7 +53,7 @@ const MATCHERS: { id: FunnelAcquisition; re: RegExp }[] = [
 /**
  * Which rim segment a journey enters through — classified from its entry
  * touch (label + channel). Unattributed stays word_of_mouth: the honest
- * bucket for "we didn't track this", exactly Alex's framing of referrals.
+ * bucket for "we didn't track this", exactly the operator's framing of referrals.
  */
 export function acquisitionFor(j: HasTouches): FunnelAcquisition {
   const entry = j.touches[0];

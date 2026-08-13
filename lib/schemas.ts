@@ -291,7 +291,7 @@ export const SocialAccountSchema = z.object({
 });
 
 // One row per platform per day. History accrues from the Zernio config on
-// every dashboard read; Alex's own scrapes can insert richer rows later.
+// every dashboard read; the operator's own scrapes can insert richer rows later.
 export const SocialSnapshotSchema = z.object({
   platform: SocialPlatformSchema,
   capturedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'capturedAt must look like 2026-06-13'),
@@ -425,7 +425,7 @@ export const WorkflowStepSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
   ownerKind: WorkflowOwnerKindSchema,
-  owner: z.string().min(1), // "Alex · Founder" / "SDR Agent"
+  owner: z.string().min(1), // "Sean · Owner" / "SDR Agent"
   hoursPerWeek: z.number().nonnegative(),
   tools: z.array(z.string()), // tool slugs (same namespace as agents)
   edgeLabel: z.string().nullable(), // label on the edge INTO the next step

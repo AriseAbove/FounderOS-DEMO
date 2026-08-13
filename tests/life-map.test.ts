@@ -10,7 +10,7 @@ import { realAgents } from '@/lib/agents/real';
 import { AGENT_BRAIN_SCOPES } from '@/lib/brain-graph';
 
 describe('LIFE_AREAS', () => {
-  test("covers Alex's named areas with distinct colors", () => {
+  test("covers the named life areas with distinct colors", () => {
     const ids = LIFE_AREAS.map((a) => a.id);
     expect(ids).toEqual(expect.arrayContaining(['sales', 'marketing', 'finances', 'communication']));
     const colors = LIFE_AREAS.map((a) => a.color);
@@ -40,7 +40,7 @@ describe('LIFE_AREAS', () => {
 });
 
 describe('CONTACT_TIERS', () => {
-  test("Alex's three priorities: 1 red, 2 yellow, 3 green", () => {
+  test("the three contact priorities: 1 red, 2 yellow, 3 green", () => {
     expect(CONTACT_TIERS.map((t) => t.tier)).toEqual([1, 2, 3]);
     expect(CONTACT_TIERS[0].color).toBe('#ef4444'); // red
     expect(CONTACT_TIERS[1].color).toBe('#eab308'); // yellow

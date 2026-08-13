@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 /**
- * Reads Alex's real Claude Code skills from ~/.claude/skills/<name>/SKILL.md,
+ * Reads the operator's real Claude Code skills from ~/.claude/skills/<name>/SKILL.md,
  * honest about what's on disk (empty list when the directory is absent). The
  * full SKILL.md is loaded on demand via readSkillMarkdown so the /skills page
  * ships light. Frontmatter parsing is pure + tested.

@@ -1,7 +1,7 @@
-# FOUNDER OS
+# ARISE OS
 
-Personal OS / AI agent command center. Live web recreation of the FounderOS
-"Conducting AI" board. Runs on port **4100**.
+The Arise Above business operating system — one command center for Arise Above
+Construction (AAC) and the Arise Above Apps portfolio. Runs on port **4100**.
 
 ## Commands
 
@@ -13,126 +13,97 @@ npm run seed       # re-seed data/founder-os.db (idempotent)
 npm run build && npm start
 ```
 
-## Stack
+## Architecture: repo-layer, honest-status
 
-Next.js 14 App Router (server components) + TypeScript + Tailwind +
-better-sqlite3 (`data/founder-os.db`, WAL, auto-seeded on first touch) +
-Zod + Vitest.
+The load-bearing design rule. Every page and API route reads through the
+repository layer — never query SQLite directly from a page or route:
 
-## Architecture: larp-first, real-ready
-
-This is the load-bearing design rule. v1 looks alive because of rich seeded
-data, but every page and API route reads through the repository layer — never
-query SQLite directly from a page or route:
-
-- `lib/data.ts` — `getDb()` app singleton; seeds on first touch
-- `lib/db.ts` — `openDb()` + repos (`departments`, `agents`, `metrics`, `tools`, …)
-- `lib/seed.ts` — all seeded content lives here
+- `lib/data.ts` — `getDb()` app singleton; seeds on first touch and re-seeds
+  once whenever `SEED_VERSION` (lib/seed.ts) bumps. Purge clauses in the seed
+  only ever remove rows the seed itself created — real recorded data survives.
+- `lib/db.ts` — `openDb()` + repos (`departments`, `agents`, `funnel`, …)
+- `lib/seed.ts` — the honest baseline. NO invented data: no fake clients,
+  followers, dollars, staff, or work items. If a seed entry isn't real or an
+  obviously-labeled structural placeholder, it doesn't ship.
 - `lib/schemas.ts` — Zod schemas validate every row on the way OUT of the DB
 
-Swapping seeded tables for live sources (Attio, Zernio, OpenClaw, MCP status)
-is a repo-level change. Keep it that way: new data = new repo method + Zod
-schema + seed entry + test.
+New data = new repo method + Zod schema + seed entry + test.
 
-## G-Brain
+## The business lens
 
-G-Brain is the knowledge/memory layer behind `/brain` and every agent, behind
-a provider abstraction (`lib/brain.ts` / `lib/connectors/gbrain.ts`):
+`lib/businesses.ts` defines the two businesses (`aac`, `apps`). The Topbar's
+AAC / Apps / Combined switcher persists as a cookie (`lib/business-filter.ts`
+client-safe + `lib/business-filter-server.ts` for `cookies()`); server
+components read it per request. Business-scoped repo methods take an explicit
+business argument.
 
-- `BRAIN_PROVIDER=gbrain` shells out to the `gbrain` CLI (`doctor --json
-  --fast`, `query --no-expand`) against a markdown knowledge store, with a
-  local grep fallback when the backing database is unreachable.
-- `BRAIN_PROVIDER=stub` is a no-dependency stand-in used by tests and by any
-  environment without the CLI installed.
-- `GBRAIN_BIN` and `GBRAIN_STORE` point the real provider at a CLI binary and
-  a knowledge-store directory; both are unset by default in this repo and
-  must be configured per environment via `.env.local` (never hardcode a path
-  to a specific person's home directory).
+## The funnel
 
-## Real connectors & agents
+AAC's real pipeline: `inquiry → follow_up → walkthrough_scheduled →
+estimate_sent → negotiation → contract_signed → active_project →
+complete_paid` (`lib/funnel.ts`). "Won" = contract_signed onward (`isWon`) —
+won journeys never stall/decay and count toward revenue. Arise Above Apps'
+funnel stages are STILL UNDEFINED — `apps` journeys reuse the AAC stages as a
+clearly-flagged placeholder; do not present them as Apps truth or invent an
+Apps stage model without Sean's direction. Stage hubs/rings in the two funnel
+canvases derive from `FUNNEL_STAGES` (never hardcode the stage count); colors
+are `--funnel-s0..s7` per theme in `app/globals.css`.
 
-Real integrations, not larp — but "real" means honest status reporting, not
-pre-wired to any one person's machine.
+## Connectors & agents
 
-- `lib/connectors/` — 12 connector groups, all returning honest
-  `ConnectorStatus` (never fake "connected"): `email.ts` (4 IMAP slots),
-  `slack.ts`, `payments.ts` (Stripe + registry), `notion.ts`, `gbrain.ts`,
-  `zernio.ts`, `attio.ts`, `arcads.ts`, `miro.ts`, `wispr.ts`, `obsidian.ts`
-  (vault fs; needs filesystem permission on macOS), `local-stack.ts` (local
-  service ports). None of these are pre-configured — each goes live the
-  moment its credentials land in `.env.local` (see `.env.example`) and stays
-  in an honest "not configured" state until then.
-- `lib/creds.ts` — credential resolution: process.env first, then a live
-  `.env.local` overlay, then (optionally) local env files a caller passes
-  in. NEVER copy secret values into this repo.
-- `lib/agents/runtime.ts` + `real.ts` — agent registry; every seeded agent row
-  maps 1:1 to a `RuntimeAgent` with a real `run()` (enforced by seed tests).
-  Runs persist to `agent_runs`. `POST /api/agents/[id]/run`.
+Real integrations only — "real" means honest status reporting, nothing
+pre-wired to any one machine.
+
+- `lib/connectors/` — email.ts (4 IMAP slots), gcal.ts (ICS/CalDAV),
+  quickbooks.ts (OAuth; tokens live in the DB via the `quickbooksAuth` repo,
+  never in .env.local), llm.ts (Anthropic; stub for tests). Each returns an
+  honest `ConnectorStatus` and goes live the moment its credentials land in
+  `.env.local` (see `.env.example`).
+- `lib/brain.ts` — the knowledge layer behind a provider abstraction: a local
+  markdown store provider (point `BRAIN_STORE` at a folder — real grep search,
+  folder overview; `lib/brain-dump.ts` captures write real files there) and a
+  stub for tests. A vector provider slots in behind the same interface.
+- `lib/agents/runtime.ts` + `real.ts` — the roster: conductor, comms-agent,
+  gmail-worker, calendar-worker, data-agent, quickbooks-pulse. Every seeded
+  agent row maps 1:1 to a `RuntimeAgent` with a real `run()` (enforced by
+  seed tests). Runs persist to `agent_runs`.
 - `/integrations` is the live Connections board (`GET /api/connections`).
-- Credentials go in `.env.local` (gitignored) — see `.env.example`. NEVER
-  commit keys, and never copy keys out of any external credential store into
-  this repo.
+- Credentials go in `.env.local` (gitignored). NEVER commit keys.
 
 ## Views
 
-`/` operator console (pulse row, connections strip, agent list, compact
-G-Brain core) · `/comms` unified feed · `/social` Zernio growth dashboard ·
-`/agents` roster with Run buttons + last-run state · `/org` hierarchy board
-(operator → Conductor super agent → 5 pillars: Sales, Marketing/Growth, TECH,
-Finances, Communications → worker pills; broadcast composer; markup frozen —
-do not restructure) · `/brain` G-Brain knowledge core (signature `BrainViz`
-rings + live `gbrain ›` query card + doctor warnings, with the original
-capture / life-map / pipeline / graph / query-path sections kept underneath) ·
-`/roadmap` phases + quarters · `/analytics` real connector numbers ·
-`/funnel` living client-journey flow (stage columns left→right, one node per
-client, 4–5 touch markers per path; seeded dummy, real-ready for organic +
-paid attribution) · `/reference` reference model · `/integrations` live
-connections board. Chrome: fixed `Sidebar` (Operate/System groups) + sticky
-`Topbar` (breadcrumb + ⌘K) + `CommandPalette` (⌘K, digit-key view jumps). API
-routes mirror these under `app/api/*` — note `GET /api/brain?q=` runs a
-hybrid search; bare `GET` returns provider status.
+`/` operator console · `/comms` unified email + calendar feed · `/funnel` the
+AAC pipeline (flow + radial views) · `/finances` QuickBooks + statement
+uploads · `/agents` roster with Run buttons · `/org` hierarchy board with the
+business lens (markup frozen — do not restructure) · `/brain` knowledge layer ·
+`/roadmap` the real rebuild roadmap · `/analytics` real connector numbers ·
+`/reference` reference model · `/integrations` connections board ·
+`/workflows` `/tasks` `/skills` supporting views. Hidden from nav until they
+apply (see `NAV_HIDDEN` in `lib/nav.ts`): `/social`, `/content`, `/personas` —
+the pages still load by direct URL and render honest empty states.
 
 ## Conventions
 
 - TDD: failing test first, then implementation. Tests live in `tests/`,
   one file per module; use `FOUNDER_OS_DB=:memory:` pattern (see `tests/db.test.ts`).
 - Zod-validate anything that crosses the DB or API boundary.
-- THEME: **Monolith Signal (`mono`) is the default** (2026-07-12,
-  `DEFAULT_THEME` in `lib/theme.ts`; bare `:root` in `app/globals.css` carries
-  the mono tokens). "Terminal" (`dark`) — the phosphor-green command deck on
-  near-black — stays as a pickable colorway. Tokens live in
-  `tailwind.config.ts` (`os.*` colors) AND as raw CSS vars in
-  `app/globals.css` (the brain viz SVG + `color-mix` effects need `var()`
-  access; keep the two in sync). Terminal tokens: `bg #050807`, `surface
-  #0a0f0c`, `border #18211b` / `border-strong #243029`, `text #e4efe6` /
-  `muted #8fa295` / `dim #54665b`, `accent #3df08c` (phosphor green), honest
-  status colors `ok`/`warn #ffc53d`/`err #ff6259`. G-Brain viz uses its own
-  independent violet/cyan/green palette (`--brain-1/2/3`). Lettering (Monolith pass,
-  2026-07-10): JetBrains Mono everywhere — `font-sans` and `font-mono` both
-  resolve to `--font-mono`; Space Grotesk is retired. Page titles 25px/700
-  uppercase tracking 0.06em (`PageHeader`), eyebrows 9.5px/0.32em with a `//`
-  prefix, section labels 10px/700/0.26em. Square corners (radius tokens are
-  0), square LED status dots (blink, no pulse ring), no emblem hover-spin,
-  hairline borders, no shadows on cards, 48px grid texture on the canvas
-  (mono theme flattens it). The `mono` theme is **Monolith Signal**: bare
-  black `#0a0a0a`, white accent, `--hairline #1c1c1c`, and color means
-  status only (`ok #2fd36f`/`warn #ffb000`/`err #ff2d3f`). Shared primitives in `components/terminal.tsx`
-  (`Dot`, `Badge`, `Label`, `SectionHead`, `Kbd`, `Spark`). `/org` keeps its
-  existing markup — it inherits the tokens through Tailwind classes only.
-- Env vars: `FOUNDER_OS_DB`, `BRAIN_PROVIDER`, `GBRAIN_BIN`, `GBRAIN_STORE`,
-  plus connector creds in `.env.local`.
+- HONESTY: no invented numbers anywhere. Empty states say why they're empty
+  and what connects them. A connector is "connected" only when it truly is.
+- THEME: **Monolith Signal (`mono`) is the default** (`DEFAULT_THEME` in
+  `lib/theme.ts`; bare `:root` in `app/globals.css` carries the mono tokens).
+  Tokens live in `tailwind.config.ts` (`os.*`) AND as raw CSS vars in
+  `app/globals.css` — keep the two in sync. JetBrains Mono everywhere; square
+  corners; hairline borders; color = status only in mono.
+- Env vars: `FOUNDER_OS_DB`, `BRAIN_PROVIDER`, `BRAIN_STORE`, `LLM_PROVIDER`,
+  plus connector creds in `.env.local`. (`FOUNDER_OS_DB` and the
+  `founder-os.db` filename keep their original names for deploy compat.)
 - Heavy interaction-driven visualizations load via `next/dynamic`
-  (`ssr: false`) behind dimension-matched skeletons (see
-  `BrainGraphView`/`AudienceConsistencyLazy`; contract in
-  `tests/code-splitting.test.ts`). Use `next/image` for any future raster
-  images — every current visual is SVG/canvas, so nothing needed a retrofit.
-- Hosting: Railway (see `README.md` → Deploying to Railway). The SQLite store
-  needs a mounted volume in production — an ephemeral filesystem silently
-  drops the DB (including any stored OAuth tokens) on every redeploy. Point
-  `FOUNDER_OS_DB` at a path inside the mounted volume.
-- Future: migrate hosting to a dedicated host if Railway's limits are hit;
-  keep the managed-database swap (see README's "full plan") in mind before
-  scaling connector volume up.
+  (`ssr: false`) behind dimension-matched skeletons (contract in
+  `tests/code-splitting.test.ts`).
+- Hosting: Railway (see `README.md`). The SQLite store needs a mounted volume
+  in production — an ephemeral filesystem silently drops the DB (including
+  stored OAuth tokens) on every redeploy. Point `FOUNDER_OS_DB` at a path
+  inside the mounted volume.
 
 ## Multi-agent etiquette
 

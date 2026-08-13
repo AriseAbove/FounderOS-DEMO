@@ -9,17 +9,17 @@ import type { ConnectorStatus } from '@/lib/connectors/types';
 async function brainConnectorStatus(): Promise<ConnectorStatus> {
   const status = await getBrainProvider().status();
   return {
-    id: 'gbrain',
-    name: 'G-Brain',
+    id: 'brain',
+    name: 'Knowledge store',
     kind: 'brain',
-    state: status.connected ? 'connected' : 'error',
+    state: status.connected ? 'connected' : 'not_configured',
     detail: status.detail,
     meta: { provider: status.provider },
   };
 }
 
 const CHECKS: [string, ConnectorStatus['kind'], () => Promise<ConnectorStatus>][] = [
-  ['gbrain', 'brain', brainConnectorStatus],
+  ['brain', 'brain', brainConnectorStatus],
   ['llm', 'orchestration', llmStatus],
   ['email', 'email', () => emailStatus(runtimeEnv())],
   ['calendar', 'calendar', calendarStatus],

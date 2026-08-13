@@ -1,4 +1,4 @@
-# FOUNDER OS — agent rules
+# ARISE OS — agent rules
 
 Full project docs live in **CLAUDE.md** (same directory) — read it first.
 This file exists so non-Claude agents (Codex, etc.) get the same house rules.
@@ -11,6 +11,11 @@ This file exists so non-Claude agents (Codex, etc.) get the same house rules.
   into this repo.
 - **Never push to any remote or touch `main` without Sean's explicit yes.**
   Commit locally, small checkpoints, often.
+- **No invented data.** The Phase 2 purge removed every fake number, client,
+  follower, and staff member. Don't reintroduce any: seeds are real or
+  clearly-labeled structural placeholders, empty states stay honest.
+- **The Apps funnel is undefined.** `apps` journeys ride AAC's stages as a
+  flagged placeholder — don't invent an Apps stage model without Sean.
 - **Don't kill another session's dev server** if one is already running on
   4100. If your edit crashes the dev server's hot reload, fix it fast: a
   crash loop corrupts `.next` and breaks every session's page chunks (kill
@@ -25,7 +30,10 @@ This file exists so non-Claude agents (Codex, etc.) get the same house rules.
   `npm run typecheck` must be green before claiming done.
 - Everything reads through the repo layer: `lib/db.ts` repos + `lib/schemas.ts`
   Zod validation + `lib/seed.ts` seeds. Never query SQLite from a page/route.
-- Theme via CSS vars on `data-theme` (five themes in `app/globals.css`);
+- Seed changes: bump `SEED_VERSION` in `lib/seed.ts` so existing DBs pick the
+  change up exactly once. Purge clauses may only remove rows the seed itself
+  created.
+- Theme via CSS vars on `data-theme` (themes in `app/globals.css`);
   Tailwind `os.*` tokens map to them. Keep `tailwind.config.ts` and
   `globals.css` in sync.
 - Commands: `npm run dev` (port 4100) · `npm test` · `npm run typecheck` ·

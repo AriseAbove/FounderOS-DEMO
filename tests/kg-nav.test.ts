@@ -5,7 +5,7 @@ import { describe, expect, test } from 'vitest';
 const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8');
 
 /**
- * Graph navigation contract (Alex, 2026-07-12): side paddles turn the
+ * Graph navigation contract (design, 2026-07-12): side paddles turn the
  * wheel from mid-height — never only from the top bar — and the detail card
  * carries an explicit trail: Back · <pillar> steps node → pillar; the pillar
  * bar's Back steps pillar → home.
@@ -31,13 +31,13 @@ describe('knowledge-graph wheel navigation', () => {
     expect(src).not.toContain('left-5 top-1/2'); // the old mid-left docked panel is gone
   });
 
-  test('paddles stay pinned — no shifting when a detail card opens (Alex)', () => {
+  test('paddles stay pinned — no shifting when a detail card opens (by design)', () => {
     // the arrow lives in ONE spot; a card may cover it, it never jumps around
     expect(read('components/KnowledgeGraphFullscreen.tsx')).not.toContain('right-[310px]');
     expect(read('components/KnowledgeGraph.tsx')).not.toContain('right-[264px]');
   });
 
-  test('no auto-popping roster card on the Clients pillar (Alex: reads as a bug)', () => {
+  test('no auto-popping roster card on the Clients pillar (design: reads as a bug)', () => {
     const src = read('components/KnowledgeGraph.tsx');
     expect(src).not.toContain('ClientRosterCard');
     expect(src).not.toContain('rosterCard');

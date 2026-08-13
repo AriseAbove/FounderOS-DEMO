@@ -2,7 +2,7 @@
 
 /**
  * The pinned lead dossier — one card, both canvases (network + radial), so a
- * clicked node answers Alex's three questions in order: WHO is this
+ * clicked node answers the operator's three questions in order: WHO is this
  * (person · role @ company), WHERE did they come from (acquisition segment +
  * the actual entry touch), and HOW do I reach them (full contact values, not
  * just icons). Status strip + touch trail keep the pipeline context, and the

@@ -22,7 +22,7 @@ export const THEME_META: Record<Theme, { name: string; blurb: string; swatch: [s
   'mono-light': { name: 'Daylight', blurb: 'soft grey on white, easy on the eyes', swatch: ['#f5f6f8', '#1b1e23', '#2b8fd8'] },
 };
 
-export const THEME_STORAGE_KEY = 'alex-theme';
+export const THEME_STORAGE_KEY = 'os-theme';
 
 export function isTheme(value: unknown): value is Theme {
   return typeof value === 'string' && (THEMES as readonly string[]).includes(value);

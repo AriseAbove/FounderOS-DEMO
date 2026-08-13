@@ -1,11 +1,10 @@
 'use client';
 
 /**
- * Voice/text capture straight into the brain-store. The mic uses the
+ * Voice/text capture straight into the knowledge store. The mic uses the
  * browser's built-in speech recognition (Chrome/Safari — no API key);
- * Save writes a real markdown memory file AND embeds it into G-Brain immediately
- * (via `gbrain capture`) so agents can retrieve it — degrades to local-only if the
- * knowledgebase is unreachable.
+ * Save writes a real markdown memory file into BRAIN_STORE so agents can
+ * retrieve it through the local provider.
  */
 import { useEffect, useRef, useState } from 'react';
 import { Mic, MicOff, BrainCircuit, Upload } from 'lucide-react';
@@ -158,7 +157,7 @@ export function BrainDump({ compact = false }: { compact?: boolean }) {
   };
 
   if (compact) {
-    // ONE untitled part (Alex): a wide, short capture bar tucked across the
+    // ONE untitled part (by design): a wide, short capture bar tucked across the
     // top-right whitespace beside the title — type, talk, drop, or upload
     // documents into the brain. Horizontal, not tall: the graph owns the space
     // directly under the title.

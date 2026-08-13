@@ -17,15 +17,15 @@ function wrap(vevent: string): string {
 describe('caldavAccounts', () => {
   test('derives Google inbox slots, strips password spaces, skips incomplete/non-Google', () => {
     const env = {
-      INBOX_1_HOST: 'imap.gmail.com', INBOX_1_USER: 'one@founderos.ai', INBOX_1_PASS: 'aaaa bbbb cccc dddd', INBOX_1_NAME: 'FounderOS',
+      INBOX_1_HOST: 'imap.gmail.com', INBOX_1_USER: 'one@example', INBOX_1_PASS: 'aaaa bbbb cccc dddd', INBOX_1_NAME: 'Main',
       INBOX_2_HOST: 'imap.gmail.com', INBOX_2_USER: 'two@gmail.com', INBOX_2_PASS: '', // incomplete
       INBOX_3_HOST: 'outlook.office365.com', INBOX_3_USER: 'three@work.com', INBOX_3_PASS: 'zzzz', // non-Google
-      INBOX_4_HOST: 'imap.gmail.com', INBOX_4_USER: 'four@vantage.ai', INBOX_4_PASS: 'eeee', INBOX_4_NAME: 'Vantage',
+      INBOX_4_HOST: 'imap.gmail.com', INBOX_4_USER: 'four@example.org', INBOX_4_PASS: 'eeee', INBOX_4_NAME: 'Vantage',
     };
     const accts = caldavAccounts(env);
-    expect(accts.map((a) => a.user)).toEqual(['one@founderos.ai', 'four@vantage.ai']);
+    expect(accts.map((a) => a.user)).toEqual(['one@example', 'four@example.org']);
     expect(accts[0].pass).toBe('aaaabbbbccccdddd'); // spaces stripped
-    expect(accts[0].name).toBe('FounderOS');
+    expect(accts[0].name).toBe('Main');
     expect(accts[0].color).not.toBe(accts[1].color); // distinct colors per slot
   });
 });

@@ -21,7 +21,7 @@ const SEGMENT_LABELS: Record<string, string> = {
 };
 
 export function openPalette() {
-  window.dispatchEvent(new CustomEvent('alex:palette'));
+  window.dispatchEvent(new CustomEvent('os:palette'));
 }
 
 export function Topbar({ businessFilter }: { businessFilter: BusinessFilter }) {

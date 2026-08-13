@@ -33,7 +33,7 @@ const GRAY = {
   dark: '#525252',
 };
 
-// Alex's five operating pillars (2026-06-12 directive).
+// the operator's five operating pillars (2026-06-12 directive).
 const departments: Department[] = [
   { id: 'dept-sales', name: 'Sales', slug: 'sales', tagline: 'Pipeline and deals.', color: GRAY.white, order: 1 },
   { id: 'dept-marketing-growth', name: 'Marketing/Growth', slug: 'marketing-growth', tagline: 'Publishing, content, attention.', color: GRAY.light, order: 2 },

@@ -25,7 +25,7 @@ describe('social schemas', () => {
       SocialAccountSchema.parse({ platform: 'myspace', handle: '@x', url: null, order: 1 }),
     ).toThrow();
     expect(() =>
-      SocialAccountSchema.parse({ platform: 'instagram', handle: '@founderos.ai', url: null, order: 1 }),
+      SocialAccountSchema.parse({ platform: 'instagram', handle: '@example', url: null, order: 1 }),
     ).not.toThrow();
   });
 
@@ -38,8 +38,8 @@ describe('social schemas', () => {
 describe('social repo', () => {
   test('round-trips accounts ordered by their order column', () => {
     db = openDb(':memory:');
-    db.social.upsertAccount({ platform: 'tiktok', handle: '@founderos.ai', url: null, order: 2 });
-    db.social.upsertAccount({ platform: 'instagram', handle: '@founderos.ai', url: null, order: 1 });
+    db.social.upsertAccount({ platform: 'tiktok', handle: '@example', url: null, order: 2 });
+    db.social.upsertAccount({ platform: 'instagram', handle: '@example', url: null, order: 1 });
     expect(db.social.accounts().map((a) => a.platform)).toEqual(['instagram', 'tiktok']);
   });
 
@@ -209,7 +209,7 @@ describe('seeded social data', () => {
     // an older DB still holding retired dummy history + a live-recorded row
     db.social.insertSnapshot({ platform: 'instagram', capturedAt: '2026-05-01', followers: 42000, source: 'seed-dummy' });
     db.social.insertSnapshot({ platform: 'instagram', capturedAt: '2026-06-01', followers: 300, source: 'manual-sync' });
-    db.social.upsertAccount({ platform: 'tiktok', handle: '@founderos.ai', url: null, order: 2 });
+    db.social.upsertAccount({ platform: 'tiktok', handle: '@example', url: null, order: 2 });
     seedDatabase(db);
     expect(db.social.snapshots('instagram').map((s) => s.source)).toEqual(['manual-sync']);
     expect(db.social.accounts().map((a) => a.platform)).toEqual(['instagram']); // retired accounts leave

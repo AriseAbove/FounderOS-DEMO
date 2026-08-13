@@ -1,8 +1,8 @@
 {
-  "name": "founder-os",
+  "name": "arise-os",
   "version": "1.0.0",
   "private": true,
-  "description": "FOUNDER OS — personal operating system and AI agent command center",
+  "description": "ARISE OS — Arise Above business operating system and agent command center",
   "scripts": {
     "dev": "next dev -p 4100",
     "build": "next build",

@@ -18,27 +18,25 @@ const fontMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'FOUNDER OS',
-  description: 'Personal operating system and AI agent command center',
+  title: 'ARISE OS',
+  description: 'Arise Above operating system — business command center',
 };
 
 const NAV_COMMANDS: Command[] = [
   { id: 'nav-home', label: 'Home', keywords: 'dashboard today overview start', href: '/', hint: 'view' },
-  { id: 'nav-social', label: 'Social', keywords: 'instagram tiktok twitter x youtube linkedin followers growth zernio founderos', href: '/social', hint: 'view' },
-  { id: 'nav-comms', label: 'Comms', keywords: 'messages email whatsapp slack inbox unified feed', href: '/comms', hint: 'view' },
+  { id: 'nav-social', label: 'Social', keywords: 'instagram tiktok twitter x youtube linkedin followers growth audience', href: '/social', hint: 'view' },
+  { id: 'nav-comms', label: 'Comms', keywords: 'messages email calendar inbox unified feed', href: '/comms', hint: 'view' },
   { id: 'nav-agents', label: 'Agents', keywords: 'runtime run real roster', href: '/agents', hint: 'view' },
   { id: 'nav-connections', label: 'Connections', keywords: 'integrations tools status creds', href: '/integrations', hint: 'view' },
   { id: 'nav-roadmap', label: 'Roadmap', keywords: 'plan phases quarters', href: '/roadmap', hint: 'view' },
   { id: 'nav-analytics', label: 'Analytics', keywords: 'metrics numbers', href: '/analytics', hint: 'view' },
   { id: 'nav-reference', label: 'Reference Model', keywords: 'domains business brm', href: '/reference', hint: 'view' },
   { id: 'nav-org', label: 'Org Chart', keywords: 'org chart hierarchy departments tree structure leads specialists', href: '/org', hint: 'view' },
-  { id: 'nav-brain', label: 'G-Brain', keywords: 'brain knowledge core markdown vector pgvector supabase embeddings zeroentropy graph doctor', href: '/brain', hint: 'view' },
-  // Local apps discovered on this machine — open in a new tab
-  { id: 'ext-command-center', label: 'Command Center', keywords: 'command-center kanban missions port 4000', href: 'http://localhost:4000', hint: 'localhost' },
-  { id: 'ext-remotion', label: 'Remotion Studio', keywords: 'video render pipeline port 3789', href: 'http://localhost:3789', hint: 'localhost' },
-  { id: 'ext-skool', label: 'Skool Community', keywords: 'launchpad cohort community posts', href: 'https://www.skool.com/launchpad-cohort', hint: 'web' },
-  { id: 'ext-attio', label: 'Attio CRM', keywords: 'deals pipeline vantage', href: 'https://app.attio.com', hint: 'web' },
-  { id: 'ext-fathom', label: 'Fathom Calls', keywords: 'meetings recordings notes', href: 'https://fathom.video', hint: 'web' },
+  { id: 'nav-brain', label: 'Knowledge', keywords: 'brain knowledge core markdown store search graph', href: '/brain', hint: 'view' },
+  // Real external destinations for this operation — open in a new tab
+  { id: 'ext-allo', label: 'Allo CRM', keywords: 'allo receptionist calls leads contacts', href: 'https://web.withallo.com/contacts', hint: 'web' },
+  { id: 'ext-site', label: 'ariseaboveconstruction.com', keywords: 'website marketing site', href: 'https://ariseaboveconstruction.com', hint: 'web' },
+  { id: 'ext-qbo', label: 'QuickBooks', keywords: 'books accounting invoices', href: 'https://qbo.intuit.com', hint: 'web' },
 ];
 
 function buildCommands(): Command[] {

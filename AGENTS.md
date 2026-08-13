@@ -6,16 +6,17 @@ This file exists so non-Claude agents (Codex, etc.) get the same house rules.
 ## Non-negotiables
 
 - **Never commit or copy secrets.** Credentials live in `.env.local`
-  (gitignored) and Alex's canonical files; `lib/creds.ts` resolves them.
-  Never copy keys from `~/knowledge/.env.agents` into the repo.
-- **Never push to any remote or touch `main` without Alex's explicit yes.**
-  Commit locally on `founder-os`, small checkpoints, often.
-- **Don't kill the dev server on 4100 or 4101** — other sessions use them.
-  If your edit crashes the dev server's hot reload, fix it fast: a crash loop
-  corrupts `.next` and breaks every session's page chunks (kill the port,
-  `rm -rf .next`, restart).
+  (gitignored); `lib/creds.ts` resolves them process.env-first with a live
+  `.env.local` overlay. Never copy keys out of any external credential store
+  into this repo.
+- **Never push to any remote or touch `main` without Sean's explicit yes.**
+  Commit locally, small checkpoints, often.
+- **Don't kill another session's dev server** if one is already running on
+  4100. If your edit crashes the dev server's hot reload, fix it fast: a
+  crash loop corrupts `.next` and breaks every session's page chunks (kill
+  the port, `rm -rf .next`, restart).
 - `/org` markup is frozen — do not restructure it.
-- No em/en dashes in anything written for Alex.
+- No em/en dashes in anything written for Sean.
 
 ## How to work
 
@@ -29,10 +30,14 @@ This file exists so non-Claude agents (Codex, etc.) get the same house rules.
   `globals.css` in sync.
 - Commands: `npm run dev` (port 4100) · `npm test` · `npm run typecheck` ·
   `npm run seed` · `npm run brain:docs`.
+- Production DB lives on a mounted Railway volume, not the container's
+  ephemeral filesystem — see CLAUDE.md's Conventions section before touching
+  anything that assumes the SQLite file (or a stored OAuth token) survives a
+  redeploy.
 
 ## Multi-agent etiquette
 
-Multiple agent sessions (Claude, Codex) work this repo concurrently:
+Multiple agent sessions (Claude, Codex) may work this repo concurrently:
 - `git log --oneline` to see where others are; commit small and often.
 - Coordinate by surface: don't edit a page/component another session has
   uncommitted changes in (`git status` shows them).

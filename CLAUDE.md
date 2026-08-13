@@ -1,7 +1,7 @@
 # FOUNDER OS
 
 Personal OS / AI agent command center. Live web recreation of the FounderOS
-"Conducting AI" board. Runs on port **4100** (command-center owns 4000).
+"Conducting AI" board. Runs on port **4100**.
 
 ## Commands
 
@@ -34,38 +34,44 @@ Swapping seeded tables for live sources (Attio, Zernio, OpenClaw, MCP status)
 is a repo-level change. Keep it that way: new data = new repo method + Zod
 schema + seed entry + test.
 
-## G-Brain — ANSWERED (2026-06-11)
+## G-Brain
 
-G-Brain = **GBrain v0.41** (`gbrain` CLI on PATH): markdown
-knowledge in `~/knowledge/brain-store/` + Supabase backend ("Second Brain",
-free tier — pauses on idle) + ZeroEntropy embeddings (key in
-`~/.config/knowledge/config.json`). The real provider in `lib/connectors/gbrain.ts`
-shells out to the CLI (`doctor --json --fast`, `query --no-expand`) and falls
-back to local brain-store grep when the database is unreachable. Default
-`BRAIN_PROVIDER=gbrain`; `stub` exists for tests.
+G-Brain is the knowledge/memory layer behind `/brain` and every agent, behind
+a provider abstraction (`lib/brain.ts` / `lib/connectors/gbrain.ts`):
 
-## Real connectors & agents (v2)
+- `BRAIN_PROVIDER=gbrain` shells out to the `gbrain` CLI (`doctor --json
+  --fast`, `query --no-expand`) against a markdown knowledge store, with a
+  local grep fallback when the backing database is unreachable.
+- `BRAIN_PROVIDER=stub` is a no-dependency stand-in used by tests and by any
+  environment without the CLI installed.
+- `GBRAIN_BIN` and `GBRAIN_STORE` point the real provider at a CLI binary and
+  a knowledge-store directory; both are unset by default in this repo and
+  must be configured per environment via `.env.local` (never hardcode a path
+  to a specific person's home directory).
 
-Alex's directive: real integrations, not larp. Strict black & white theme
-(UI polish deferred — he'll design it himself once everything is wired).
+## Real connectors & agents
+
+Real integrations, not larp — but "real" means honest status reporting, not
+pre-wired to any one person's machine.
 
 - `lib/connectors/` — 12 connector groups, all returning honest
   `ConnectorStatus` (never fake "connected"): `email.ts` (4 IMAP slots),
   `slack.ts`, `payments.ts` (Stripe + registry), `notion.ts`, `gbrain.ts`,
-  `zernio.ts` (key from ~/.config/social/.env — LIVE), `attio.ts` (key reused
-  from ~/.config/mcp.json mcpServers — LIVE), `arcads.ts` (local `.env` —
-  LIVE), `miro.ts` (knowledge/.env.agents — LIVE),
-  `wispr.ts` (local flow.sqlite readonly — LIVE), `obsidian.ts` (vault fs;
-  needs macOS Documents permission), `local-stack.ts` (local service ports
-  + tmux + brew binaries).
-- `lib/creds.ts` — credential resolution: process.env first, then Alex's
-  canonical files at runtime. NEVER copy secret values into this repo.
+  `zernio.ts`, `attio.ts`, `arcads.ts`, `miro.ts`, `wispr.ts`, `obsidian.ts`
+  (vault fs; needs filesystem permission on macOS), `local-stack.ts` (local
+  service ports). None of these are pre-configured — each goes live the
+  moment its credentials land in `.env.local` (see `.env.example`) and stays
+  in an honest "not configured" state until then.
+- `lib/creds.ts` — credential resolution: process.env first, then a live
+  `.env.local` overlay, then (optionally) local env files a caller passes
+  in. NEVER copy secret values into this repo.
 - `lib/agents/runtime.ts` + `real.ts` — agent registry; every seeded agent row
   maps 1:1 to a `RuntimeAgent` with a real `run()` (enforced by seed tests).
   Runs persist to `agent_runs`. `POST /api/agents/[id]/run`.
 - `/integrations` is the live Connections board (`GET /api/connections`).
 - Credentials go in `.env.local` (gitignored) — see `.env.example`. NEVER
-  commit keys; never copy keys from `~/knowledge/.env.agents` into the repo.
+  commit keys, and never copy keys out of any external credential store into
+  this repo.
 
 ## Views
 
@@ -78,14 +84,13 @@ do not restructure) · `/brain` G-Brain knowledge core (signature `BrainViz`
 rings + live `gbrain ›` query card + doctor warnings, with the original
 capture / life-map / pipeline / graph / query-path sections kept underneath) ·
 `/roadmap` phases + quarters · `/analytics` real connector numbers ·
-`/funnel` living client-journey flow (Vantage + Launchpad Cohort: stage
-columns left→right, one node per client, 4–5 touch markers per path; seeded
-dummy, real-ready for Trakyo organic + Meta Ads MCP paid attribution) ·
-`/reference` reference model · `/integrations` live connections board. Chrome:
-fixed `Sidebar` (Operate/System groups) + sticky `Topbar` (breadcrumb + ⌘K) +
-`CommandPalette` (⌘K, digit-key view jumps). API routes mirror these under
-`app/api/*` — note `GET /api/brain?q=` runs a hybrid search; bare `GET` returns
-provider status.
+`/funnel` living client-journey flow (stage columns left→right, one node per
+client, 4–5 touch markers per path; seeded dummy, real-ready for organic +
+paid attribution) · `/reference` reference model · `/integrations` live
+connections board. Chrome: fixed `Sidebar` (Operate/System groups) + sticky
+`Topbar` (breadcrumb + ⌘K) + `CommandPalette` (⌘K, digit-key view jumps). API
+routes mirror these under `app/api/*` — note `GET /api/brain?q=` runs a
+hybrid search; bare `GET` returns provider status.
 
 ## Conventions
 
@@ -121,13 +126,22 @@ provider status.
   `BrainGraphView`/`AudienceConsistencyLazy`; contract in
   `tests/code-splitting.test.ts`). Use `next/image` for any future raster
   images — every current visual is SVG/canvas, so nothing needed a retrofit.
-- Future: migrate hosting to a dedicated host; Supabase stays managed.
+- Hosting: Railway (see `README.md` → Deploying to Railway). The SQLite store
+  needs a mounted volume in production — an ephemeral filesystem silently
+  drops the DB (including any stored OAuth tokens) on every redeploy. Point
+  `FOUNDER_OS_DB` at a path inside the mounted volume.
+- Future: migrate hosting to a dedicated host if Railway's limits are hit;
+  keep the managed-database swap (see README's "full plan") in mind before
+  scaling connector volume up.
 
 ## Multi-agent etiquette
 
-Multiple Claude Code sessions work on this repo concurrently:
+Multiple Claude Code sessions may work on this repo concurrently:
 
 - Commit small checkpoints often (`git log --oneline` to see where others are).
 - Run `npm test && npm run typecheck` before claiming anything done.
-- Don't kill the dev server on 4100 — another session may be using it.
+- Don't kill another session's dev server if one is already running on 4100.
+  If your edit crashes the dev server's hot reload, fix it fast: a crash loop
+  corrupts `.next` and breaks every session's page chunks (kill the port,
+  `rm -rf .next`, restart).
 - Leave handoff notes in `docs/` if you stop mid-feature.

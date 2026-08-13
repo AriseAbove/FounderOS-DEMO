@@ -56,15 +56,22 @@ pre-wired to any one machine.
 
 - `lib/connectors/` — email.ts (4 IMAP slots), gcal.ts (ICS/CalDAV),
   quickbooks.ts (OAuth; tokens live in the DB via the `quickbooksAuth` repo,
-  never in .env.local), llm.ts (Anthropic; stub for tests). Each returns an
-  honest `ConnectorStatus` and goes live the moment its credentials land in
-  `.env.local` (see `.env.example`).
+  never in .env.local; PRODUCTION is the default environment —
+  `QUICKBOOKS_ENVIRONMENT=sandbox` only for dev keys), allo.ts (the AI
+  receptionist's call log via Allo's REST API — `ALLO_API_KEY`), llm.ts
+  (Anthropic; stub for tests). Each returns an honest `ConnectorStatus` and
+  goes live the moment its credentials land in `.env.local`
+  (see `.env.example`).
+- `lib/funnel-allo.ts` — Allo call log → pipeline import: inbound calls only,
+  spam kept out, idempotent by call id, and a call never moves a journey's
+  stage (stage changes are Sean's decision). Runs via the Allo Pulse agent,
+  POST /api/funnel/sync-allo, or the sync button on /funnel.
 - `lib/brain.ts` — the knowledge layer behind a provider abstraction: a local
   markdown store provider (point `BRAIN_STORE` at a folder — real grep search,
   folder overview; `lib/brain-dump.ts` captures write real files there) and a
   stub for tests. A vector provider slots in behind the same interface.
 - `lib/agents/runtime.ts` + `real.ts` — the roster: conductor, comms-agent,
-  gmail-worker, calendar-worker, data-agent, quickbooks-pulse. Every seeded
+  gmail-worker, calendar-worker, data-agent, quickbooks-pulse, allo-pulse. Every seeded
   agent row maps 1:1 to a `RuntimeAgent` with a real `run()` (enforced by
   seed tests). Runs persist to `agent_runs`.
 - `/integrations` is the live Connections board (`GET /api/connections`).

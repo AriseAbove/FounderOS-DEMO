@@ -3,6 +3,8 @@ import { getBrainProvider } from '@/lib/brain';
 import { parseInboxConfigs, unreadCounts } from '@/lib/connectors/email';
 import { calendarStatus, upcomingEvents, caldavAccounts } from '@/lib/connectors/gcal';
 import { quickbooksStatus } from '@/lib/connectors/quickbooks';
+import { alloConfigured, fetchAlloCalls } from '@/lib/connectors/allo';
+import { importAlloCalls } from '@/lib/funnel-allo';
 import { runtimeEnv } from '@/lib/creds';
 import { getDb } from '@/lib/data';
 import type { LlmToolSpec } from '@/lib/connectors/llm';
@@ -53,6 +55,23 @@ async function calendarRun(): Promise<AgentRunResult> {
 async function quickbooksRun(): Promise<AgentRunResult> {
   const status = await quickbooksStatus(runtimeEnv());
   return { ok: status.state === 'connected', summary: status.detail, data: status.meta };
+}
+
+async function alloRun(): Promise<AgentRunResult> {
+  const env = runtimeEnv();
+  if (!alloConfigured(env)) {
+    return {
+      ok: false,
+      summary: 'ALLO_API_KEY not set — create a key in Allo (settings → API, Conversations Read scope) and add it to the environment',
+    };
+  }
+  const calls = await fetchAlloCalls(env);
+  const res = importAlloCalls(getDb(), calls, new Date());
+  return {
+    ok: true,
+    summary: `${calls.length} calls in the Allo log · ${res.newContacts} new lead journey(s) · ${res.newTouches} new touch(es) · ${res.skipped} skipped (spam/outbound)`,
+    data: res,
+  };
 }
 
 const label = (r: AgentRunResult) => (r.ok ? 'LIVE' : 'DOWN');
@@ -141,6 +160,15 @@ export const realAgents: RuntimeAgent[] = [
         },
       ];
     },
+  },
+
+  // ── Sales: the funnel's front door ───────────────────────────────────
+  {
+    id: 'allo-pulse',
+    name: 'Allo Pulse',
+    description: 'Pulls the Allo (248) 717-1417 call log and files inbound lead calls into the AAC pipeline.',
+    departmentId: 'dept-sales',
+    run: alloRun,
   },
 
   // ── Finance ──────────────────────────────────────────────────────────

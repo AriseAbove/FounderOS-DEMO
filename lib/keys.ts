@@ -26,6 +26,7 @@ export const KEY_SLOTS: KeySlot[] = [
   { envVar: 'QUICKBOOKS_CLIENT_ID', label: 'QuickBooks client id', group: 'QuickBooks' },
   { envVar: 'QUICKBOOKS_CLIENT_SECRET', label: 'QuickBooks client secret', group: 'QuickBooks' },
   { envVar: 'BRAIN_STORE', label: 'Knowledge store path', group: 'Knowledge', hint: 'folder of markdown files' },
+  { envVar: 'ALLO_API_KEY', label: 'Allo API key', group: 'Allo', hint: 'Conversations Read scope' },
 ];
 
 export function maskSecret(value: string): string {

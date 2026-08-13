@@ -31,10 +31,10 @@ describe('graph lenses', () => {
   test('entity lenses match by node kind against the real seeded graph', () => {
     // invented staff purged — the people lens is honestly empty
     expect(lensNodeSet('ent-people', ctx).size).toBe(0);
-    expect(lensNodeSet('ent-subagents', ctx).size).toBe(6);
-    // only staffed pillars appear as team nodes (tech, comms, finance)
-    expect(lensNodeSet('ent-departments', ctx).size).toBe(3);
-    expect(lensNodeSet('ent-sops', ctx).size).toBe(6);
+    expect(lensNodeSet('ent-subagents', ctx).size).toBe(7);
+    // only staffed pillars appear as team nodes (sales, tech, comms, finance)
+    expect(lensNodeSet('ent-departments', ctx).size).toBe(4);
+    expect(lensNodeSet('ent-sops', ctx).size).toBe(7);
   });
 
   test('workflows and projects are honestly empty until modeled', () => {
@@ -45,9 +45,10 @@ describe('graph lenses', () => {
   test('core and enabling split the pillars cleanly and light whole sectors', () => {
     const core = lensNodeSet('fn-core', ctx);
     const enabling = lensNodeSet('fn-enabling', ctx);
-    // the whole kept roster is enabling infrastructure right now — core
-    // (sales/marketing/clients) is honestly empty until those lanes staff up
-    expect(core.size).toBe(0);
+    // Sales staffed up with Allo Pulse — the first core (revenue-driving)
+    // sector lights: the sales team node plus its lead-intake agent.
+    expect(core.has('team:dept-sales')).toBe(true);
+    expect(core.has('emp:allo-pulse')).toBe(true);
     expect(enabling.has('team:dept-tech')).toBe(true);
     // a node is never both core and enabling
     for (const id of core) expect(enabling.has(id), id).toBe(false);

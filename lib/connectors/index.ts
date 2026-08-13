@@ -1,6 +1,7 @@
 import { emailStatus } from '@/lib/connectors/email';
 import { calendarStatus } from '@/lib/connectors/gcal';
 import { quickbooksStatus } from '@/lib/connectors/quickbooks';
+import { alloStatus } from '@/lib/connectors/allo';
 import { llmStatus } from '@/lib/connectors/llm';
 import { getBrainProvider } from '@/lib/brain';
 import { runtimeEnv } from '@/lib/creds';
@@ -24,6 +25,7 @@ const CHECKS: [string, ConnectorStatus['kind'], () => Promise<ConnectorStatus>][
   ['email', 'email', () => emailStatus(runtimeEnv())],
   ['calendar', 'calendar', calendarStatus],
   ['quickbooks', 'payments', () => quickbooksStatus(runtimeEnv())],
+  ['allo', 'crm', () => alloStatus(runtimeEnv())],
 ];
 
 export async function allConnectorStatuses(): Promise<ConnectorStatus[]> {

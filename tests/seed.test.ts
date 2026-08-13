@@ -64,6 +64,7 @@ describe('seedDatabase', () => {
       expect(byId.get(id)).toBe('dept-comms');
     }
     expect(byId.get('quickbooks-pulse')).toBe('dept-finance');
+    expect(byId.get('allo-pulse')).toBe('dept-sales');
   });
 
   test('re-seeding removes departments that left the model', () => {

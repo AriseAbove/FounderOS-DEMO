@@ -16,6 +16,9 @@ import { lastMessageFor } from '@/lib/funnel-contact';
 import { gatherCommsFeed } from '@/lib/comms-feed';
 import type { CommsItem } from '@/lib/comms';
 import { FunnelRadialLazy, FunnelSpaceLazy } from '@/components/FunnelGraphsLazy';
+import AlloSyncButton from '@/components/AlloSyncButton';
+import { alloConfigured } from '@/lib/connectors/allo';
+import { runtimeEnv } from '@/lib/creds';
 import { Badge, SectionHead } from '@/components/terminal';
 import {
   FunnelStageSchema,
@@ -321,6 +324,7 @@ export default async function FunnelPage({
       <header className="mb-2 flex items-end justify-between gap-4">
         <h1 className="text-[25px] font-bold uppercase leading-[1.1] tracking-[0.06em]">Funnel</h1>
         <div className="flex shrink-0 items-center gap-2">
+          <AlloSyncButton configured={alloConfigured(runtimeEnv())} />
           {journeys.length === 0 && (
             <Badge tone="warn" ghost>
               no leads recorded yet

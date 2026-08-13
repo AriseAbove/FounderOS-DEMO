@@ -37,9 +37,9 @@ const GRAY = {
 const departments: Department[] = [
   { id: 'dept-sales', name: 'Sales', slug: 'sales', tagline: 'Pipeline and deals.', color: GRAY.white, order: 1 },
   { id: 'dept-marketing-growth', name: 'Marketing/Growth', slug: 'marketing-growth', tagline: 'Publishing, content, attention.', color: GRAY.light, order: 2 },
-  { id: 'dept-tech', name: 'TECH', slug: 'tech', tagline: 'AI & automations · G-Brain.', color: GRAY.mid, order: 3 },
+  { id: 'dept-tech', name: 'TECH', slug: 'tech', tagline: 'AI, automations, knowledge layer.', color: GRAY.mid, order: 3 },
   { id: 'dept-finance', name: 'Finances', slug: 'finances', tagline: 'Every processor, one view.', color: GRAY.dim, order: 4 },
-  { id: 'dept-comms', name: 'Communications', slug: 'communications', tagline: 'Gmail, WhatsApp, Slack → one feed.', color: GRAY.dark, order: 5 },
+  { id: 'dept-comms', name: 'Communications', slug: 'communications', tagline: 'Email + calendar → one feed.', color: GRAY.dark, order: 5 },
   { id: 'dept-clients', name: 'Clients', slug: 'clients', tagline: 'Every client, onboarded and served.', color: GRAY.light, order: 6 },
 ];
 
@@ -117,6 +117,20 @@ const agents: Agent[] = [
     model: 'node-ical',
     tools: ['calendar'],
     parentId: 'comms-agent',
+    instance: 'builtin',
+  },
+  // ── Sales ────────────────────────────────────────────────────────────────
+  {
+    id: 'allo-pulse',
+    departmentId: 'dept-sales',
+    name: 'Allo Pulse',
+    role: 'Lead Intake',
+    status: 'planned',
+    tier: 'lead',
+    description: 'Pulls the Allo (248) 717-1417 call log and files inbound lead calls into the AAC pipeline at Inquiry. Activates when ALLO_API_KEY lands.',
+    model: 'allo rest api',
+    tools: ['allo'],
+    parentId: null,
     instance: 'builtin',
   },
   // ── Finances ─────────────────────────────────────────────────────────────
@@ -216,6 +230,18 @@ const sopTasks: SopTask[] = [
       'Surface token-refresh failures the moment they happen',
     ],
   },
+  {
+    id: 'sop-allo-pulse', departmentId: 'dept-sales', assigneeKind: 'agent', assigneeId: 'allo-pulse',
+    title: 'File every real lead call',
+    summary: 'Allo call log → AAC pipeline, spam stays out.',
+    steps: [
+      'Pull the call log from the Allo REST API with the scoped key',
+      'Open a new journey at Inquiry for every first-time legitimate caller',
+      'Append a touch to the existing journey on repeat calls — idempotent by call id',
+      'Keep spam, hangups, and outbound legs out of the pipeline',
+      'Never move a journey stage — stage changes are Sean’s decision',
+    ],
+  },
 ];
 
 // The honest tool list: only what this OS actually integrates with today.
@@ -225,6 +251,7 @@ const tools: Tool[] = [
   { id: 'tool-calendar', name: 'Calendar (ICS/CalDAV)', category: 'Comms', status: 'available', color: GRAY.mid, description: 'Upcoming events across calendar feeds — set CAL_1_USER/_PASS.' },
   { id: 'tool-quickbooks', name: 'QuickBooks', category: 'Finance', status: 'available', color: GRAY.white, description: 'The real books: MTD income/expenses + open invoices once the OAuth grant lands.' },
   { id: 'tool-llm', name: 'Claude API', category: 'AI', status: 'available', color: GRAY.light, description: 'LLM lane for agent chat — set ANTHROPIC_API_KEY (stub provider in tests).' },
+  { id: 'tool-allo', name: 'Allo (call log)', category: 'Sales', status: 'available', color: GRAY.light, description: 'AI receptionist call log → funnel lead intake — set ALLO_API_KEY (Conversations Read scope).' },
   { id: 'tool-brain-store', name: 'Markdown knowledge store', category: 'Knowledge', status: 'available', color: GRAY.mid, description: 'Point BRAIN_STORE at a folder of markdown — grep search + capture, no external service.' },
   { id: 'tool-railway', name: 'Railway (hosting)', category: 'Infrastructure', status: 'connected', color: GRAY.dim, description: 'Production host; SQLite lives on a mounted volume so redeploys keep data.' },
 ];
@@ -237,7 +264,7 @@ const roadmap: RoadmapItem[] = [
   { id: 'rm-qbo', title: 'Connect QuickBooks', quarter: '2026-Q3', status: 'now', departmentId: 'dept-finance', description: 'OAuth grant → real MTD income, expenses, open invoices on /finances.' },
   { id: 'rm-email', title: 'Connect the inboxes', quarter: '2026-Q3', status: 'now', departmentId: 'dept-comms', description: 'IMAP creds into INBOX_1..4 slots → live unified /comms.' },
   { id: 'rm-cal', title: 'Connect the calendar', quarter: '2026-Q3', status: 'now', departmentId: 'dept-comms', description: 'CalDAV creds → real schedule in /comms and agent context.' },
-  { id: 'rm-allo', title: 'Allo call log → funnel', quarter: '2026-Q4', status: 'next', departmentId: 'dept-sales', description: 'Real AAC leads flow from the AI receptionist into the pipeline stages.' },
+  { id: 'rm-allo', title: 'Allo call log → funnel', quarter: '2026-Q3', status: 'now', departmentId: 'dept-sales', description: 'Wired: Allo Pulse pulls the call log into the pipeline. Live the moment ALLO_API_KEY lands in the environment.' },
   { id: 'rm-apps-funnel', title: 'Define the Apps funnel', quarter: '2026-Q4', status: 'next', departmentId: 'dept-sales', description: 'Arise Above Apps gets its own stage model — the aac placeholder retires.' },
   { id: 'rm-crm', title: 'Evaluate CRM sync', quarter: '2026-Q4', status: 'later', departmentId: 'dept-sales', description: 'HubSpot (or Allo built-in CRM) as the lead source of record feeding the funnel.' },
 ];
@@ -341,7 +368,7 @@ const skills: Omit<Skill, 'markdown'>[] = [
 
 /** Bump when the seed content changes shape — existing DBs re-seed once to
  *  pick up the new baseline (and purge retired rows). */
-export const SEED_VERSION = '2026-08-13-phase2-purge';
+export const SEED_VERSION = '2026-08-13-allo-pipeline';
 
 export function seedDatabase(db: FounderDb): void {
   // INSERT OR REPLACE in every repo makes re-seeding idempotent by id.

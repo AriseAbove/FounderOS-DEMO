@@ -11,7 +11,7 @@ describe('shared nav config', () => {
   });
 
   test('Agents group holds the roster and the org chart', () => {
-    expect(NAV_AGENTS.map((n) => n.href)).toEqual(['/agents', '/tasks', '/skills', '/org']);
+    expect(NAV_AGENTS.map((n) => n.href)).toEqual(['/agents', '/sops', '/tasks', '/skills', '/org']);
   });
 
   test('Intelligence group holds G-Brain', () => {

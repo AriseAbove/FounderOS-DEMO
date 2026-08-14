@@ -28,6 +28,7 @@ const PAGES: PageEntry[] = [
   { file: 'social/[platform]/page.tsx', load: () => import('@/app/social/[platform]/page'), props: { params: { platform: 'instagram' } } },
   { file: 'content/page.tsx', load: () => import('@/app/content/page') },
   { file: 'agents/page.tsx', load: () => import('@/app/agents/page') },
+  { file: 'sops/page.tsx', load: () => import('@/app/sops/page') },
   { file: 'tasks/page.tsx', load: () => import('@/app/tasks/page') },
   { file: 'skills/page.tsx', load: () => import('@/app/skills/page') },
   { file: 'org/page.tsx', load: () => import('@/app/org/page'), props: { searchParams: {} } },

@@ -12,6 +12,7 @@ import {
   ListChecks,
   Sparkles,
   Network,
+  ClipboardList,
   Brain,
   Wallet,
   Filter,
@@ -46,6 +47,7 @@ export const NAV_HIDDEN: NavItem[] = [
 // The agent workforce: the roster and the org chart that maps how they report.
 export const NAV_AGENTS: NavItem[] = [
   { href: '/agents', label: 'Agents', icon: Users },
+  { href: '/sops', label: 'SOPs', icon: ClipboardList },
   { href: '/tasks', label: 'Tasks', icon: ListChecks },
   { href: '/skills', label: 'Skills', icon: Sparkles },
   { href: '/org', label: 'Org Chart', icon: Network },

@@ -344,6 +344,9 @@ const roadmap: RoadmapItem[] = [
   { id: 'rm-email', title: 'Connect the inboxes', quarter: '2026-Q3', status: 'now', departmentId: 'dept-comms', description: 'IMAP creds into INBOX_1..4 slots → live unified /comms.' },
   { id: 'rm-cal', title: 'Connect the calendar', quarter: '2026-Q3', status: 'now', departmentId: 'dept-comms', description: 'CalDAV creds → real schedule in /comms and agent context.' },
   { id: 'rm-allo', title: 'Allo call log → funnel', quarter: '2026-Q3', status: 'now', departmentId: 'dept-sales', description: 'Wired: Allo Pulse pulls the call log into the pipeline. Live the moment ALLO_API_KEY lands in the environment.' },
+  { id: 'rm-website-leads', title: 'Website form leads → funnel', quarter: '2026-Q3', status: 'done', departmentId: 'dept-sales', description: 'Website Pulse reads FormSubmit.co notification emails from the connected inbox and files them into the pipeline, tagged by real source (not a blanket "Website" bucket) — no new credentials, reuses the Comms inbox. Radial funnel attribution sharpened to match.' },
+  { id: 'rm-chief-of-staff', title: 'Chief of Staff: proactive signals', quarter: '2026-Q3', status: 'now', departmentId: 'dept-tech', description: 'Watches the funnel, QuickBooks, and inboxes for hot leads, overdue invoices, and unread work mail; hourly GitHub Actions check pushes only genuinely new high-severity signals via ntfy. Wired — live once NTFY_TOPIC and CRON_SECRET are set.' },
+  { id: 'rm-sops', title: 'Agent SOPs, surfaced', quarter: '2026-Q3', status: 'done', departmentId: 'dept-tech', description: 'Every agent and person\'s written Standard Operating Procedure gets its own readable page (/sops) instead of being buried in the knowledge graph — the checklist each worker actually follows, in one place.' },
   { id: 'rm-apps-funnel', title: 'Define the Apps funnel', quarter: '2026-Q4', status: 'next', departmentId: 'dept-sales', description: 'Arise Above Apps gets its own stage model — the aac placeholder retires.' },
   { id: 'rm-crm', title: 'Evaluate CRM sync', quarter: '2026-Q4', status: 'later', departmentId: 'dept-sales', description: 'HubSpot (or Allo built-in CRM) as the lead source of record feeding the funnel.' },
 ];
@@ -447,7 +450,7 @@ const skills: Omit<Skill, 'markdown'>[] = [
 
 /** Bump when the seed content changes shape — existing DBs re-seed once to
  *  pick up the new baseline (and purge retired rows). */
-export const SEED_VERSION = '2026-08-14-website-leads';
+export const SEED_VERSION = '2026-08-14-roadmap-refresh';
 
 export function seedDatabase(db: FounderDb): void {
   // The whole reseed runs as ONE SQLite transaction, not ~100 separate

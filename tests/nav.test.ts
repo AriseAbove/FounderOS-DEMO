@@ -1,13 +1,28 @@
 import { describe, expect, test } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { NAV_OPERATE, NAV_AGENTS, NAV_INTELLIGENCE, NAV_SYSTEM, NAV_LIBRARY, NAV_ORDER, DIGIT_VIEWS } from '@/lib/nav';
+import {
+  NAV_OPERATE,
+  NAV_AGENTS,
+  NAV_INTELLIGENCE,
+  NAV_MARKETING,
+  NAV_SYSTEM,
+  NAV_LIBRARY,
+  NAV_ORDER,
+  DIGIT_VIEWS,
+} from '@/lib/nav';
 
 describe('shared nav config', () => {
-  test('NAV_ORDER is the visible order: Operate → Agents → Intelligence → System → Variants', () => {
+  test('NAV_ORDER is the visible order: Operate → Agents → Intelligence → Marketing → System → Variants', () => {
     expect(NAV_ORDER).toEqual(
-      [...NAV_OPERATE, ...NAV_AGENTS, ...NAV_INTELLIGENCE, ...NAV_SYSTEM, ...NAV_LIBRARY].map((n) => n.href),
+      [...NAV_OPERATE, ...NAV_AGENTS, ...NAV_INTELLIGENCE, ...NAV_MARKETING, ...NAV_SYSTEM, ...NAV_LIBRARY].map(
+        (n) => n.href,
+      ),
     );
+  });
+
+  test('Marketing group holds Social, Content, and Personas — surfaced now that OneUp is live', () => {
+    expect(NAV_MARKETING.map((n) => n.href)).toEqual(['/social', '/content', '/personas']);
   });
 
   test('Agents group holds the roster and the org chart', () => {
@@ -38,11 +53,14 @@ describe('shared nav config', () => {
     }
   });
 
-  test('regression: Finances stays digit-reachable; hidden modules are not', () => {
+  test('regression: Finances stays digit-reachable; Marketing group sits past the first 9', () => {
     expect(DIGIT_VIEWS, '/finances must be reachable by digit').toContain('/finances');
-    // Social/Content/Personas are hidden until they clearly apply
+    // Social/Content/Personas are visible in nav (Marketing group) but land
+    // after Operate + Agents fill the first 9 digit slots — not a hidden
+    // state, just where they fall in visible order.
     for (const href of ['/social', '/content', '/personas']) {
       expect(DIGIT_VIEWS).not.toContain(href);
+      expect(NAV_ORDER).toContain(href);
     }
   });
 

@@ -97,9 +97,10 @@ uploads · `/agents` roster with Run buttons · `/org` hierarchy board with the
 business lens (markup frozen — do not restructure) · `/brain` knowledge layer ·
 `/roadmap` the real rebuild roadmap · `/analytics` real connector numbers ·
 `/reference` reference model · `/integrations` connections board ·
-`/workflows` `/tasks` `/skills` supporting views. Hidden from nav until they
-apply (see `NAV_HIDDEN` in `lib/nav.ts`): `/social`, `/content`, `/personas` —
-the pages still load by direct URL and render honest empty states.
+`/workflows` `/tasks` `/skills` supporting views. `/social`, `/content`,
+`/personas` surfaced into their own "Marketing" nav group (`NAV_MARKETING` in
+`lib/nav.ts`) on 2026-08-14 now that OneUp (social connector) is live — they
+still render honest empty states wherever there's genuinely nothing yet.
 
 ## Conventions
 

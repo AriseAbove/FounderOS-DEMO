@@ -48,9 +48,19 @@ export interface BrainProvider {
   overview(): Promise<BrainOverview>;
 }
 
-/** The configured markdown store directory, or null when none is set. */
+/** Bundled starter content: real markdown generated from the honest seed
+ *  data (agents, SOPs, tools, people, pillars) via `npm run brain:docs` —
+ *  see scripts/generate-brain-docs.ts. Checked into the repo so Knowledge
+ *  search has something real to search on day one, with zero required
+ *  config. An operator's own BRAIN_STORE always overrides it. */
+const BUNDLED_STORE = path.join(process.cwd(), 'knowledge', 'brain-store');
+
+/** The configured markdown store directory, or the bundled starter store if
+ *  it exists on disk and nothing was explicitly configured, or null. */
 export function brainStorePath(): string | null {
-  return process.env.BRAIN_STORE ?? process.env.GBRAIN_STORE ?? null;
+  if (process.env.BRAIN_STORE) return process.env.BRAIN_STORE;
+  if (process.env.GBRAIN_STORE) return process.env.GBRAIN_STORE;
+  return fs.existsSync(BUNDLED_STORE) ? BUNDLED_STORE : null;
 }
 
 function walkMarkdown(dir: string, files: string[] = []): string[] {

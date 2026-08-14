@@ -340,7 +340,7 @@ const roadmap: RoadmapItem[] = [
   { id: 'rm-p0', title: 'Phase 0: foundation', quarter: '2026-Q3', status: 'done', departmentId: 'dept-tech', description: 'Railway volume mounted (DB survives deploys), creds hygiene, ownership docs.' },
   { id: 'rm-p1', title: 'Phase 1: business lens', quarter: '2026-Q3', status: 'done', departmentId: 'dept-tech', description: 'AAC / Apps / Combined switcher; businesses replace the demo ventures.' },
   { id: 'rm-p2', title: 'Phase 2: the purge', quarter: '2026-Q3', status: 'done', departmentId: 'dept-tech', description: 'Demo connectors, invented data, and fictional roster removed; AAC pipeline in the funnel.' },
-  { id: 'rm-qbo', title: 'Reconnect QuickBooks', quarter: '2026-Q3', status: 'now', departmentId: 'dept-finance', description: 'Was connected, but the token expired — /finances shows "Reconnect needed." Waiting on you: one click at /finances → Reconnect, log into Intuit. Then MTD income, expenses, and open invoices go live immediately.' },
+  { id: 'rm-qbo', title: 'Reconnect QuickBooks', quarter: '2026-Q3', status: 'done', departmentId: 'dept-finance', description: 'Live: /finances is pulling real QuickBooks data — company name, MTD income/expenses, and open invoices (confirmed $178,262 across 67 unpaid invoices with real customer/address data). The token is valid; no reconnect needed.' },
   { id: 'rm-email', title: 'Connect the inboxes', quarter: '2026-Q3', status: 'done', departmentId: 'dept-comms', description: 'Live: INBOX_1 is connected and pulling real mail into /comms (1 inbox, thousands of real messages triaged). Inboxes 2-4 are open slots for whenever there\'s a second address to add — not required.' },
   { id: 'rm-cal', title: 'Connect the calendar', quarter: '2026-Q3', status: 'done', departmentId: 'dept-comms', description: 'Live: the calendar connector reuses the same Gmail app password already sitting in INBOX_1 (CalDAV over the existing credential, no separate setup) — /comms shows Calendar: Connected with real events.' },
   { id: 'rm-allo', title: 'Allo call log → funnel', quarter: '2026-Q3', status: 'done', departmentId: 'dept-sales', description: 'Live: ALLO_API_KEY is set and Allo Pulse is pulling real inbound calls into the pipeline — 170+ real Inquiry-stage leads on /funnel right now, tagged ALLO with call summaries.' },
@@ -450,7 +450,7 @@ const skills: Omit<Skill, 'markdown'>[] = [
 
 /** Bump when the seed content changes shape — existing DBs re-seed once to
  *  pick up the new baseline (and purge retired rows). */
-export const SEED_VERSION = '2026-08-14-chief-of-staff-live';
+export const SEED_VERSION = '2026-08-14-quickbooks-confirmed-live';
 
 export function seedDatabase(db: FounderDb): void {
   // The whole reseed runs as ONE SQLite transaction, not ~100 separate

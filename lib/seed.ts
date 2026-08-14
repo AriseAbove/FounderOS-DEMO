@@ -398,6 +398,25 @@ const skills: Omit<Skill, 'markdown'>[] = [
 export const SEED_VERSION = '2026-08-14-social-pulse';
 
 export function seedDatabase(db: FounderDb): void {
+  // The whole reseed runs as ONE SQLite transaction, not ~100 separate
+  // auto-committed statements. Two reasons: (1) atomicity — a mid-seed
+  // failure now rolls back instead of leaving a half-written baseline: some
+  // rows on the new version, others still stale; (2) concurrency safety —
+  // Next.js's build-time static-generation worker pool opens several
+  // connections to the same on-disk production file, and each one that sees
+  // a stale seed_version independently runs this whole function. Before this
+  // wrap, that meant many workers interleaving ~100 unbatched writes each,
+  // which could hold the SQLite write lock long enough to exceed the 5s
+  // busy_timeout (Railway build failure on commit aa9094d — a version-string
+  // bump with zero schema changes still triggered `SqliteError: database is
+  // locked`, proving the migration-only busy_timeout fix in openDb didn't
+  // cover this). A single transaction shrinks each worker's lock-holding
+  // window to one fast commit, so a losing worker's wait comfortably fits
+  // inside busy_timeout instead of queuing behind dozens of others' retries.
+  db.transaction(() => seedDatabaseBody(db));
+}
+
+function seedDatabaseBody(db: FounderDb): void {
   // INSERT OR REPLACE in every repo makes re-seeding idempotent by id.
   for (const d of departments) db.departments.insert(d);
   for (const a of agents) db.agents.insert(a);

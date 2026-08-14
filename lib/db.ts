@@ -1271,6 +1271,14 @@ export function openDb(path: string) {
     workflows,
     skills,
     quickbooksAuth,
+    /** Runs `fn` inside a single SQLite transaction. Used to wrap the whole
+        reseed (lib/seed.ts's seedDatabase) as one atomic write instead of
+        dozens of separate auto-committed statements — see
+        tests/db-reseed-race.test.ts for why that matters under concurrent
+        writers (Next.js's build-time static-generation worker pool). */
+    transaction<T>(fn: () => T): T {
+      return db.transaction(fn)();
+    },
     close: () => db.close(),
   };
 }

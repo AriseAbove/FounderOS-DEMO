@@ -39,15 +39,27 @@ business argument.
 
 ## The funnel
 
-AAC's real pipeline: `inquiry → follow_up → walkthrough_scheduled →
-estimate_sent → negotiation → contract_signed → active_project →
-complete_paid` (`lib/funnel.ts`). "Won" = contract_signed onward (`isWon`) —
-won journeys never stall/decay and count toward revenue. Arise Above Apps'
-funnel stages are STILL UNDEFINED — `apps` journeys reuse the AAC stages as a
-clearly-flagged placeholder; do not present them as Apps truth or invent an
-Apps stage model without Sean's direction. Stage hubs/rings in the two funnel
-canvases derive from `FUNNEL_STAGES` (never hardcode the stage count); colors
-are `--funnel-s0..s7` per theme in `app/globals.css`.
+Two real pipelines, one shared `FunnelStage` enum (`lib/schemas.ts`) scoped
+per journey by its `business` field (`lib/funnel.ts`):
+
+- AAC — a sales pipeline: `inquiry → follow_up → walkthrough_scheduled →
+  estimate_sent → negotiation → contract_signed → active_project →
+  complete_paid`. "Won" = contract_signed onward.
+- Apps — decided 2026-08-14: Sean builds and publishes the apps himself, so
+  it is a product/acquisition pipeline, not a sales one: `discovered →
+  installed → activated → trial_started → subscribed → retained`. "Won" =
+  subscribed onward.
+
+`stagesFor(business)` returns the right stage set; `ALL_FUNNEL_STAGES` is the
+safe flat lookup for label rendering regardless of business (ids never
+collide). `isWon`/`journeyMeta`/`funnelSummary`/`funnelSpaceModel` all work
+across both pipelines. The two funnel canvases (FunnelSpace, FunnelRadial)
+still render hub geometry off the AAC backbone (`FUNNEL_STAGES`, unconditionally)
+— a dedicated Apps canvas view is a scoped follow-up, not yet wired, since
+Apps has zero live journeys today; do not hardcode the AAC stage count
+elsewhere on the assumption it is the only pipeline. Colors are
+`--funnel-s0..s7` per theme in `app/globals.css` (Apps' 6 stages reuse the
+first 6 tokens).
 
 ## Connectors & agents
 

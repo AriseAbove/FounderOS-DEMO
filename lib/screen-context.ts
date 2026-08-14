@@ -8,7 +8,7 @@
  */
 import { NAV_AGENTS, NAV_INTELLIGENCE, NAV_LIBRARY, NAV_OPERATE, NAV_SYSTEM } from '@/lib/nav';
 import { getDb } from '@/lib/data';
-import { funnelSummary, isWon, journeyMeta, splitFunnelJourneys, FUNNEL_STAGES } from '@/lib/funnel';
+import { funnelSummary, isWon, journeyMeta, splitFunnelJourneys, ALL_FUNNEL_STAGES } from '@/lib/funnel';
 
 const ALL_NAV = [...NAV_OPERATE, ...NAV_AGENTS, ...NAV_INTELLIGENCE, ...NAV_SYSTEM, ...NAV_LIBRARY];
 
@@ -57,7 +57,7 @@ async function funnelContext(): Promise<string> {
     .map(({ j, meta }) => ({ name: j.name, days: meta.daysSinceLastTouch }));
   const stageCounts = new Map<string, number>();
   for (const j of active) {
-    const label = FUNNEL_STAGES.find((s) => s.id === j.status)?.label ?? j.status;
+    const label = ALL_FUNNEL_STAGES.find((s) => s.id === j.status)?.label ?? j.status;
     stageCounts.set(label, (stageCounts.get(label) ?? 0) + 1);
   }
   const sources = 'the funnel repo';
@@ -65,7 +65,10 @@ async function funnelContext(): Promise<string> {
     clients: summary.clients,
     converted: summary.converted,
     revenueUsd: summary.revenueUsd,
-    stageCounts: FUNNEL_STAGES.map((s) => [s.label, stageCounts.get(s.label) ?? 0]),
+    // Only show stages that actually have journeys today — Apps' pipeline
+    // stays out of this line entirely while it has zero live journeys,
+    // instead of padding the summary with a wall of honest zeros.
+    stageCounts: ALL_FUNNEL_STAGES.filter((s) => stageCounts.has(s.label)).map((s) => [s.label, stageCounts.get(s.label) ?? 0]),
     archived: archived.length,
     sources,
     decaying,

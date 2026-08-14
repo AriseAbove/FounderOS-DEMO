@@ -12,10 +12,8 @@ import {
   type FunnelBusiness,
 } from '@/lib/schemas';
 
-/** AAC's real pipeline, in order — inquiry to complete-and-paid.
- *  (Arise Above Apps' funnel stages are still undefined; 'apps' journeys
- *  ride these as a flagged placeholder until Apps defines its own.) */
-export const FUNNEL_STAGES: { id: FunnelStage; label: string }[] = [
+/** AAC's real pipeline, in order — inquiry to complete-and-paid. */
+export const AAC_FUNNEL_STAGES: { id: FunnelStage; label: string }[] = [
   { id: 'inquiry', label: 'Inquiry' },
   { id: 'follow_up', label: 'Follow-up' },
   { id: 'walkthrough_scheduled', label: 'Walk-through' },
@@ -26,21 +24,64 @@ export const FUNNEL_STAGES: { id: FunnelStage; label: string }[] = [
   { id: 'complete_paid', label: 'Complete & paid' },
 ];
 
-/** Won = the deal is booked (deposit stage onward). Won journeys never
- *  stall/decay and count toward revenue. */
+/** Apps' real pipeline (decided 2026-08-14): Sean builds and publishes the
+ *  apps himself, so this is a product/acquisition funnel, not a sales
+ *  pipeline — discovery through paid retention, no client to walk through
+ *  or negotiate with. */
+export const APPS_FUNNEL_STAGES: { id: FunnelStage; label: string }[] = [
+  { id: 'discovered', label: 'Discovered' },
+  { id: 'installed', label: 'Installed' },
+  { id: 'activated', label: 'Activated' },
+  { id: 'trial_started', label: 'Trial started' },
+  { id: 'subscribed', label: 'Subscribed' },
+  { id: 'retained', label: 'Retained' },
+];
+
+export const FUNNEL_STAGES_BY_BUSINESS: Record<FunnelBusiness, { id: FunnelStage; label: string }[]> = {
+  aac: AAC_FUNNEL_STAGES,
+  apps: APPS_FUNNEL_STAGES,
+};
+
+/** Every stage across every business — safe for label lookups that don't
+ *  care which pipeline a journey belongs to (ids never collide across
+ *  businesses). */
+export const ALL_FUNNEL_STAGES: { id: FunnelStage; label: string }[] = [
+  ...AAC_FUNNEL_STAGES,
+  ...APPS_FUNNEL_STAGES,
+];
+
+/** The stage set for one business, or AAC's as the shared backbone when
+ *  business is unset (the funnel page's mixed "All" tab). NOTE: the two
+ *  funnel canvases (FunnelSpace, FunnelRadial) still render hub geometry
+ *  off the AAC backbone unconditionally — a dedicated Apps canvas view
+ *  (real hub positions/colors for the 6 Apps stages) is a scoped follow-up,
+ *  not yet wired, since Apps has zero live journeys today. */
+export function stagesFor(business: FunnelBusiness | undefined): { id: FunnelStage; label: string }[] {
+  return business ? FUNNEL_STAGES_BY_BUSINESS[business] : AAC_FUNNEL_STAGES;
+}
+
+/** Back-compat alias — AAC's pipeline, the default/most common case (the
+ *  two funnel canvases still import this directly for their geometry). */
+export const FUNNEL_STAGES = AAC_FUNNEL_STAGES;
+
+/** Won = the deal/subscription is booked — AAC: deposit stage onward. Apps:
+ *  paid conversion onward. Won journeys never stall/decay and count toward
+ *  revenue. */
 export const WON_STAGES: ReadonlySet<FunnelStage> = new Set([
   'contract_signed',
   'active_project',
   'complete_paid',
+  'subscribed',
+  'retained',
 ]);
 
 export function isWon(stage: FunnelStage): boolean {
   return WON_STAGES.has(stage);
 }
 
-const STAGE_INDEX: Record<FunnelStage, number> = Object.fromEntries(
-  FUNNEL_STAGES.map((s, i) => [s.id, i]),
-) as Record<FunnelStage, number>;
+function buildStageIndex(stages: { id: FunnelStage }[]): Partial<Record<FunnelStage, number>> {
+  return Object.fromEntries(stages.map((s, i) => [s.id, i])) as Partial<Record<FunnelStage, number>>;
+}
 
 /** Display glyphs for touch channels (journey chips). */
 export const CHANNEL_GLYPHS: Record<string, string> = {
@@ -81,12 +122,13 @@ export type JourneyState = 'converted' | 'stalled' | 'active' | 'decayed';
  * color-state the space renders — green once won (contract signed onward),
  * red when a pre-win lead has sat quiet past STALL_DAYS, blue otherwise, and
  * `decayed` (out of the space, into the archive) past DECAY_DAYS.
- * Fresh inquiries never stall — but even they decay after 90 quiet days.
+ * Fresh entries (a journey's business's first stage) never stall — but even
+ * they decay after 90 quiet days.
  */
 export function journeyMeta(j: FunnelJourney, now: Date): { daysSinceLastTouch: number; state: JourneyState } {
   const lastAt = j.touches[j.touches.length - 1]?.at ?? j.createdAt;
   const days = Math.max(0, Math.floor((now.getTime() - new Date(`${lastAt}T00:00:00Z`).getTime()) / 86_400_000));
-  const canStall = !isWon(j.status) && j.status !== 'inquiry';
+  const canStall = !isWon(j.status) && j.status !== stagesFor(j.business)[0]?.id;
   const state: JourneyState =
     isWon(j.status)
       ? 'converted'
@@ -186,13 +228,21 @@ export type FunnelSpaceNode = {
  * Model for the "open space" view: each journey becomes one moving node.
  * Repeated touches inside a stage collapse into a single hub visit (the node
  * travels sections, not touches); color-state comes from journeyMeta and size
- * from likelihood.
+ * from likelihood. `stages` is the canvas backbone the caller is rendering
+ * against (defaults to AAC's, today's only real canvas geometry) — a touch
+ * whose stage id isn't in that set (e.g. an Apps journey inside the mixed
+ * "All" canvas) parks at hub 0 rather than crashing; see `stagesFor`.
  */
-export function funnelSpaceModel(journeys: FunnelJourney[], now: Date): FunnelSpaceNode[] {
+export function funnelSpaceModel(
+  journeys: FunnelJourney[],
+  now: Date,
+  stages: { id: FunnelStage; label: string }[] = AAC_FUNNEL_STAGES,
+): FunnelSpaceNode[] {
+  const stageIndex = buildStageIndex(stages);
   return journeys.map((j) => {
     const hubs: number[] = [];
     for (const t of j.touches) {
-      const col = STAGE_INDEX[t.stage];
+      const col = stageIndex[t.stage] ?? 0;
       if (hubs[hubs.length - 1] !== col) hubs.push(col);
     }
     if (hubs.length === 0) hubs.push(0);
@@ -228,26 +278,34 @@ export function funnelSpaceModel(journeys: FunnelJourney[], now: Date): FunnelSp
 /**
  * Per-stage reached counts + stage→stage conversion. "Reached" means the
  * journey's furthest stage is at or past the bar's stage — a journey that
- * skipped an optional touch still progressed past that point.
+ * skipped an optional touch still progressed past that point. `stages`
+ * scopes the breakdown to one business's pipeline (defaults to AAC's); a
+ * journey whose status isn't in that set (e.g. an Apps journey while
+ * summarizing AAC's stages) still counts toward `clients`/`converted`, just
+ * not toward any row in the per-stage breakdown.
  */
-export function funnelSummary(journeys: FunnelJourney[]): FunnelSummary {
+export function funnelSummary(
+  journeys: FunnelJourney[],
+  stages: { id: FunnelStage; label: string }[] = AAC_FUNNEL_STAGES,
+): FunnelSummary {
   const won = journeys.filter((j) => isWon(j.status));
-  const stages = FUNNEL_STAGES.map(({ id }, i) => {
-    const reached = journeys.filter((j) => STAGE_INDEX[j.status] >= i);
+  const stageIndex = buildStageIndex(stages);
+  const rows = stages.map(({ id }, i) => {
+    const reached = journeys.filter((j) => (stageIndex[j.status] ?? -1) >= i);
     return {
       stage: id,
       total: reached.length,
       conversionFromPrev: null as number | null,
     };
   });
-  for (let i = 1; i < stages.length; i++) {
-    const prev = stages[i - 1].total;
-    stages[i].conversionFromPrev = prev > 0 ? Math.round((stages[i].total / prev) * 1000) / 10 : null;
+  for (let i = 1; i < rows.length; i++) {
+    const prev = rows[i - 1].total;
+    rows[i].conversionFromPrev = prev > 0 ? Math.round((rows[i].total / prev) * 1000) / 10 : null;
   }
   return FunnelSummarySchema.parse({
     clients: journeys.length,
     converted: won.length,
     revenueUsd: won.reduce((sum, j) => sum + (j.amountUsd ?? 0), 0),
-    stages,
+    stages: rows,
   });
 }

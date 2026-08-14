@@ -486,10 +486,15 @@ export const RosterClientSchema = z.object({
 });
 
 // ── Funnel — client journeys from inquiry to complete-and-paid ──────────────
-// AAC's real pipeline, in order. (Arise Above Apps' funnel stages are still
-// undefined — 'apps' journeys reuse these as a clearly-flagged placeholder
-// until Apps defines its own; do not treat the stage names as Apps truth.)
+// Two real pipelines share this one enum (a touch's `stage` isn't tagged with
+// a business directly — the parent journey's `business` field is what scopes
+// which stage set an id belongs to; see lib/funnel.ts `stagesFor`/`ALL_FUNNEL_STAGES`).
+// AAC — construction sales pipeline, inquiry through complete-and-paid.
+// Apps — decided 2026-08-14: Sean builds and publishes the apps himself, so
+// this is a product/acquisition pipeline (discovery through paid retention),
+// not a sales pipeline — no client to walk through or negotiate with.
 export const FunnelStageSchema = z.enum([
+  // AAC
   'inquiry',
   'follow_up',
   'walkthrough_scheduled',
@@ -498,6 +503,13 @@ export const FunnelStageSchema = z.enum([
   'contract_signed',
   'active_project',
   'complete_paid',
+  // Apps
+  'discovered',
+  'installed',
+  'activated',
+  'trial_started',
+  'subscribed',
+  'retained',
 ]);
 export const FunnelBusinessSchema = z.enum(['aac', 'apps']);
 export const FunnelChannelSchema = z.enum(['call', 'sms', 'email', 'dm', 'walkthrough', 'document', 'crm', 'organic', 'ads']);

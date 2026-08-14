@@ -185,12 +185,61 @@
   --kg-tool: var(--brain-2);
 }
 
+/* Copper — warm metal on a dark espresso surface: the accent is copper
+   itself, and the one break from that warm family is patina teal (the
+   color copper actually oxidizes to) carrying ok/brain-2/mid-funnel, so the
+   palette tells one coherent material story instead of a generic orange.
+   The default identity as of 2026-08-14 (Sean's call, off the monochrome
+   mono default) — bare :root rides along so a pre-script or no-JS load
+   already renders Copper. */
+:root,
+:root[data-theme='copper'] {
+  color-scheme: dark;
+  --bg: #150f0c;
+  --bg-2: #17110d;
+  --surface: #1f1712;
+  --surface-2: #2a1f17;
+  --surface-3: #35281d;
+  --border: #3d2e22;
+  --border-strong: #52402f;
+  --text: #f5ede3;
+  --text-2: #d3bfa8;
+  --text-3: #9c8570;
+  --accent: #c8783f;
+  --accent-2: #ad6435;
+  --accent-ink: #180d06;
+  --accent-soft: rgba(200, 120, 63, 0.1);
+  --accent-line: rgba(200, 120, 63, 0.3);
+  --ok: #5fae8f;
+  --warn: #e0a458;
+  --err: #e2604f;
+  --glow: 0 0 24px rgba(200, 120, 63, 0.18);
+  --grid: rgba(245, 237, 227, 0.02);
+  --hairline: #241a13;
+  --brain-1: #c8783f;
+  --brain-2: #5fae8f;
+  --brain-3: #e0a458;
+  --funnel-hot: #e2604f;
+  --funnel-warm: #c8783f;
+  --funnel-cold: #6f5c4a;
+  --funnel-s0: #c8783f;
+  --funnel-s1: #dba05a;
+  --funnel-s2: #e6c375;
+  --funnel-s3: #4f9c82;
+  --funnel-s4: #5fae8f;
+  --funnel-s5: #d97a63;
+  --funnel-s6: #8a6a4a;
+  --funnel-s7: #b5651d;
+  /* kg tool nodes follow the theme's brain-2 (mono overrides to red). */
+  --kg-tool: var(--brain-2);
+}
+
 /* Mono — MONOLITH SIGNAL (design handoff 2026-07-10): white/grey structure
    on bare black, boxes flattened, zero glow/grid, and a strict traffic-light
-   rule — color only ever means status: green good · yellow degraded · red bad. */
-/* Mono (Monolith Signal) — the default identity; bare :root rides along so a
-   pre-script or no-JS load already renders Monolith. */
-:root,
+   rule — color only ever means status: green good · yellow degraded · red bad.
+   No longer the default identity (see Copper above, 2026-08-14) — still a
+   fully selectable theme, just an explicit pick now instead of the bare-root
+   fallback. */
 :root[data-theme='mono'] {
   color-scheme: dark;
   --bg: #0a0a0a;

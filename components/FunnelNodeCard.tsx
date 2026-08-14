@@ -9,7 +9,7 @@
  * last message exchanged is fetched live the moment the card pins.
  */
 import { useEffect, useState } from 'react';
-import { CHANNEL_GLYPHS, FUNNEL_STAGES, STALL_DAYS, type FunnelSpaceNode } from '@/lib/funnel';
+import { ALL_FUNNEL_STAGES, CHANNEL_GLYPHS, STALL_DAYS, type FunnelSpaceNode } from '@/lib/funnel';
 import { originOf } from '@/lib/funnel-radial';
 import { usd } from '@/lib/funnel-viz';
 import type { CommsItem } from '@/lib/comms';
@@ -85,7 +85,7 @@ export function FunnelNodeCard({ node, onClose }: { node: FunnelSpaceNode; onClo
   const dealDiffers = node.person !== null && node.person !== node.name;
   const digits = node.phone?.replace(/[^\d]/g, '');
   const isGhl = node.url?.includes('gohighlevel');
-  const stageLabel = FUNNEL_STAGES.find((s) => s.id === node.status)?.label;
+  const stageLabel = ALL_FUNNEL_STAGES.find((s) => s.id === node.status)?.label;
 
   return (
     // top-11 keeps the canvas's fullscreen button (top-1) clickable above it

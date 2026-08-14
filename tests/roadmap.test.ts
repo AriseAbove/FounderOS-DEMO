@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { openDb, type FounderDb } from '@/lib/db';
 import { seedDatabase } from '@/lib/seed';
-import { groupRoadmapByQuarter, roadmapProgress } from '@/lib/roadmap';
+import { groupRoadmapByQuarter, roadmapProgress, splitRoadmap } from '@/lib/roadmap';
 import type { RoadmapItem } from '@/lib/schemas';
 
 const ITEMS: RoadmapItem[] = [
@@ -31,6 +31,29 @@ describe('roadmapProgress', () => {
   test('rounds the percentage to the nearest whole number', () => {
     const p = roadmapProgress([ITEMS[0], ITEMS[2], ITEMS[3]]); // 1 done of 3 → 33%
     expect(p.percentDone).toBe(33);
+  });
+});
+
+describe('splitRoadmap', () => {
+  test('splits done from everything else — no quarter/schedule framing', () => {
+    const { shipped, waiting } = splitRoadmap(ITEMS);
+    expect(shipped.map((i) => i.id)).toEqual(['a', 'b']);
+    expect(waiting.map((i) => i.id)).toEqual(['c', 'd', 'e']); // now, then next, then later
+  });
+
+  test('waiting items sort by urgency first, title second — never by quarter', () => {
+    const items: RoadmapItem[] = [
+      { id: 'z-later', title: 'Z later item', quarter: '2026-Q4', status: 'later', departmentId: null, description: '' },
+      { id: 'a-now', title: 'A now item', quarter: '2027-Q1', status: 'now', departmentId: null, description: '' },
+      { id: 'b-now', title: 'B now item', quarter: '2026-Q3', status: 'now', departmentId: null, description: '' },
+    ];
+    const { waiting } = splitRoadmap(items);
+    // urgency wins even though the 'later' item's quarter string sorts earliest
+    expect(waiting.map((i) => i.id)).toEqual(['a-now', 'b-now', 'z-later']);
+  });
+
+  test('empty roadmap splits to two empty arrays', () => {
+    expect(splitRoadmap([])).toEqual({ shipped: [], waiting: [] });
   });
 });
 

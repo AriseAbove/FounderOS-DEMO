@@ -22,6 +22,27 @@ export function roadmapProgress(items: RoadmapItem[]): RoadmapProgress {
   return { total, done, now, next, later, percentDone: total === 0 ? 0 : Math.round((done / total) * 100) };
 }
 
+export type RoadmapSplit = { shipped: RoadmapItem[]; waiting: RoadmapItem[] };
+
+const URGENCY: Record<RoadmapItem['status'], number> = { done: -1, now: 0, next: 1, later: 2 };
+
+/**
+ * Every AAC build plan reduces to two honest buckets, not a quarter-by-quarter
+ * schedule: what's actually live, and what's still waiting — every remaining
+ * item today is blocked on Sean himself (a credential only he holds, an OAuth
+ * grant only he can authorize, or a decision only he can make), never on
+ * agent time. `waiting` is ordered most-blocking first (status urgency, then
+ * title) so the item needing him soonest reads at the top.
+ */
+export function splitRoadmap(items: RoadmapItem[]): RoadmapSplit {
+  const shipped = items.filter((i) => i.status === 'done');
+  const waiting = items
+    .filter((i) => i.status !== 'done')
+    .slice()
+    .sort((a, b) => URGENCY[a.status] - URGENCY[b.status] || a.title.localeCompare(b.title));
+  return { shipped, waiting };
+}
+
 export function groupRoadmapByQuarter(items: RoadmapItem[]): QuarterGroup[] {
   const byQuarter = new Map<string, RoadmapItem[]>();
   for (const item of items) {

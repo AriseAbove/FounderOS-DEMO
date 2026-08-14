@@ -28,7 +28,7 @@ const NAV_COMMANDS: Command[] = [
   { id: 'nav-comms', label: 'Comms', keywords: 'messages email calendar inbox unified feed', href: '/comms', hint: 'view' },
   { id: 'nav-agents', label: 'Agents', keywords: 'runtime run real roster', href: '/agents', hint: 'view' },
   { id: 'nav-connections', label: 'Connections', keywords: 'integrations tools status creds', href: '/integrations', hint: 'view' },
-  { id: 'nav-roadmap', label: 'Roadmap', keywords: 'plan phases quarters', href: '/roadmap', hint: 'view' },
+  { id: 'nav-roadmap', label: 'Roadmap', keywords: 'plan phases waiting on you', href: '/roadmap', hint: 'view' },
   { id: 'nav-analytics', label: 'Analytics', keywords: 'metrics numbers', href: '/analytics', hint: 'view' },
   { id: 'nav-reference', label: 'Reference Model', keywords: 'domains business brm', href: '/reference', hint: 'view' },
   { id: 'nav-org', label: 'Org Chart', keywords: 'org chart hierarchy departments tree structure leads specialists', href: '/org', hint: 'view' },

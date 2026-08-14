@@ -98,7 +98,9 @@ export async function screenContextFor(path: string): Promise<{ title: string; c
       };
     }
     if (clean.startsWith('/roadmap')) {
-      return { title, context: `${title}: ${db.roadmap.all().length} roadmap items across quarters.` };
+      const items = db.roadmap.all();
+      const shipped = items.filter((r) => r.status === 'done').length;
+      return { title, context: `${title}: ${shipped}/${items.length} shipped, the rest waiting on Sean (no quarter scheduling).` };
     }
     return { title, context: `${title} view of Founder OS.` };
   } catch {

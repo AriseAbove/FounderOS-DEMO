@@ -8,7 +8,7 @@ import { postSeriesFromDays, type PostDay } from '@/lib/posting-activity';
 import type { SocialPlatform } from '@/lib/schemas';
 import { gatherCommsFeed } from '@/lib/comms-feed';
 import { inboundLast24h } from '@/lib/comms';
-import { groupRoadmapByQuarter, roadmapProgress } from '@/lib/roadmap';
+import { roadmapProgress, splitRoadmap } from '@/lib/roadmap';
 import { PageHeader } from '@/components/PageHeader';
 import { HomeSocialGraph } from '@/components/HomeSocialGraph';
 import { Badge, Dot, Kbd, Label, SectionHead, Spark } from '@/components/terminal';
@@ -170,9 +170,8 @@ export default async function HomePage() {
   }));
 
   const roadmapItems = db.roadmap.all();
-  const nowQuarter = groupRoadmapByQuarter(roadmapItems)[0];
-  const nowItems = nowQuarter?.items.slice(0, 5) ?? [];
   const buildPlan = roadmapProgress(roadmapItems);
+  const waitingOnYou = splitRoadmap(roadmapItems).waiting.slice(0, 5);
 
   // Ticker line items — newest agent runs, honest OK / FAIL.
   const ticker = recentRuns.slice(0, 8);
@@ -353,32 +352,31 @@ export default async function HomePage() {
                 href="/roadmap"
               />
               <div className="rounded-lg-t border border-os-border bg-os-surface px-[15px] py-3.5">
-                {/* Stacked progress bar: done / now / next / later, left to right */}
+                {/* Two-segment bar: shipped vs waiting on you — no now/next/later
+                    scheduling split, since everything not shipped is blocked
+                    on the same person, not on a queue. */}
                 <div className="flex h-[6px] w-full overflow-hidden rounded-sm-t bg-os-surface2">
-                  {(
-                    [
-                      ['done', buildPlan.done, 'var(--ok)'],
-                      ['now', buildPlan.now, 'var(--accent)'],
-                      ['next', buildPlan.next, 'var(--warn)'],
-                      ['later', buildPlan.later, 'var(--border-strong)'],
-                    ] as const
-                  ).map(([key, n, color]) =>
-                    n > 0 ? (
-                      <span key={key} style={{ width: `${(n / buildPlan.total) * 100}%`, backgroundColor: color }} />
-                    ) : null,
+                  {buildPlan.done > 0 && (
+                    <span style={{ width: `${(buildPlan.done / buildPlan.total) * 100}%`, backgroundColor: 'var(--ok)' }} />
                   )}
+                  {waitingOnYou.length > 0 || buildPlan.total - buildPlan.done > 0 ? (
+                    <span
+                      style={{
+                        width: `${((buildPlan.total - buildPlan.done) / buildPlan.total) * 100}%`,
+                        backgroundColor: 'var(--accent)',
+                      }}
+                    />
+                  ) : null}
                 </div>
                 <div className="mt-2.5 flex flex-wrap items-center gap-x-3.5 gap-y-1 font-mono text-[10px] text-os-dim">
-                  <span className="text-os-ok">{buildPlan.done} done</span>
-                  <span className="text-os-accent">{buildPlan.now} now</span>
-                  <span className="text-os-warn">{buildPlan.next} next</span>
-                  <span>{buildPlan.later} later</span>
-                  <span className="ml-auto text-os-muted">{buildPlan.percentDone}% shipped</span>
+                  <span className="text-os-ok">{buildPlan.done} shipped</span>
+                  <span className="text-os-accent">{buildPlan.total - buildPlan.done} waiting on you</span>
+                  <span className="ml-auto text-os-muted">{buildPlan.percentDone}% done</span>
                 </div>
 
-                {nowItems.length > 0 && (
+                {waitingOnYou.length > 0 && (
                   <ul className="mt-3.5 flex flex-col gap-1.5 border-t border-os-border pt-3">
-                    {nowItems.map((it) => (
+                    {waitingOnYou.map((it) => (
                       <li key={it.id} className="flex items-center gap-2.5">
                         <span className="shrink-0 font-mono font-bold text-os-accent">›</span>
                         <span className="min-w-0 flex-1 truncate text-[12.5px] text-os-muted">{it.title}</span>

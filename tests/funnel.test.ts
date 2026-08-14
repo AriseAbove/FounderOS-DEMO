@@ -12,6 +12,9 @@ import {
   DECAY_FADE_START,
   DECAY_DAYS,
   FUNNEL_STAGES,
+  AAC_FUNNEL_STAGES,
+  APPS_FUNNEL_STAGES,
+  stagesFor,
   WON_STAGES,
 } from '@/lib/funnel';
 import { orbitSpread } from '@/lib/funnel-viz';
@@ -75,10 +78,38 @@ describe('the AAC pipeline stage model', () => {
     ]);
   });
 
-  test('won = contract signed onward', () => {
-    expect([...WON_STAGES].sort()).toEqual(['active_project', 'complete_paid', 'contract_signed']);
+  test('won = contract signed onward (AAC) or subscribed onward (Apps)', () => {
+    expect([...WON_STAGES].sort()).toEqual([
+      'active_project',
+      'complete_paid',
+      'contract_signed',
+      'retained',
+      'subscribed',
+    ]);
     expect(isWon('contract_signed')).toBe(true);
     expect(isWon('estimate_sent')).toBe(false);
+    expect(isWon('subscribed')).toBe(true);
+    expect(isWon('retained')).toBe(true);
+    expect(isWon('discovered')).toBe(false);
+  });
+});
+
+describe('the Apps pipeline stage model', () => {
+  test('runs discovered → retained in order — a product funnel, not a sales pipeline', () => {
+    expect(APPS_FUNNEL_STAGES.map((s) => s.id)).toEqual([
+      'discovered',
+      'installed',
+      'activated',
+      'trial_started',
+      'subscribed',
+      'retained',
+    ]);
+  });
+
+  test('stagesFor picks the right pipeline per business; unset falls back to AAC', () => {
+    expect(stagesFor('aac')).toBe(AAC_FUNNEL_STAGES);
+    expect(stagesFor('apps')).toBe(APPS_FUNNEL_STAGES);
+    expect(stagesFor(undefined)).toBe(AAC_FUNNEL_STAGES);
   });
 });
 
@@ -208,6 +239,55 @@ describe('funnelSummary', () => {
       expect(s.conversionFromPrev).toBeNull();
     }
   });
+
+  const appsJourney = (id: string, status: FunnelContact['status']): FunnelJourney => ({
+    id,
+    name: id,
+    business: 'apps',
+    status,
+    product: null,
+    amountUsd: null,
+    relationship: 'warm',
+    likelihood: 50,
+    url: null,
+    email: null,
+    phone: null,
+    person: null,
+    company: null,
+    role: null,
+    linkedin: null,
+    createdAt: '2026-06-01',
+    touches: [
+      { id: `${id}-t1`, contactId: id, seq: 1, stage: 'discovered', channel: 'organic', label: 'App Store find', source: 'website', at: '2026-06-01' },
+    ],
+  });
+
+  test('scopes the breakdown to the Apps pipeline when given APPS_FUNNEL_STAGES — won = subscribed onward', () => {
+    const summary = funnelSummary(
+      [
+        appsJourney('a1', 'retained'),
+        appsJourney('a2', 'subscribed'),
+        appsJourney('a3', 'trial_started'),
+        appsJourney('a4', 'installed'),
+      ],
+      stagesFor('apps'),
+    );
+    FunnelSummarySchema.parse(summary);
+    expect(summary.clients).toBe(4);
+    expect(summary.converted).toBe(2); // subscribed + retained
+    expect(summary.stages.map((s) => s.stage)).toEqual(APPS_FUNNEL_STAGES.map((s) => s.id));
+    const byStage = Object.fromEntries(summary.stages.map((s) => [s.stage, s]));
+    expect(byStage.discovered).toMatchObject({ total: 4 });
+    expect(byStage.installed).toMatchObject({ total: 4 }); // all 4 reached at least 'installed'
+    expect(byStage.subscribed).toMatchObject({ total: 2 });
+    expect(byStage.retained).toMatchObject({ total: 1 });
+  });
+
+  test('an Apps journey summarized against the AAC backbone counts toward totals but not any stage row', () => {
+    const summary = funnelSummary([appsJourney('a1', 'discovered')]); // default stages = AAC's
+    expect(summary.clients).toBe(1);
+    for (const s of summary.stages) expect(s.total).toBe(0);
+  });
 });
 
 describe('journeyMeta', () => {
@@ -265,6 +345,24 @@ describe('journeyMeta', () => {
   test('fresh inquiries never stall — inquiry stays blue however long it sits', () => {
     const now = new Date('2026-07-02T12:00:00Z');
     expect(journeyMeta(journeyLastTouchedAt('inquiry', daysAgoIso(now, 30)), now).state).toBe('active');
+  });
+
+  test('fresh Apps entries never stall either — discovered stays blue, but a later stage does stall', () => {
+    const now = new Date('2026-07-02T12:00:00Z');
+    const at = daysAgoIso(now, 30);
+    const discovered: FunnelJourney = {
+      ...journeyLastTouchedAt('discovered', at),
+      business: 'apps',
+      touches: [{ id: 'jm-t1', contactId: 'jm', seq: 1, stage: 'discovered', channel: 'organic', label: 'x', source: 'website', at }],
+    };
+    expect(journeyMeta(discovered, now).state).toBe('active');
+    const installedAt = daysAgoIso(now, 10);
+    const installed: FunnelJourney = {
+      ...journeyLastTouchedAt('installed', installedAt),
+      business: 'apps',
+      touches: [{ id: 'jm-t1', contactId: 'jm', seq: 1, stage: 'installed', channel: 'organic', label: 'x', source: 'website', at: installedAt }],
+    };
+    expect(journeyMeta(installed, now).state).toBe('stalled');
   });
 
   test('past 90 quiet days an unwon lead decays into the archive', () => {
@@ -415,6 +513,30 @@ describe('funnelSpaceModel', () => {
 
   test('returns an empty model for no journeys', () => {
     expect(funnelSpaceModel([], NOW)).toEqual([]);
+  });
+
+  test('rendered against APPS_FUNNEL_STAGES, an Apps journey hubs onto its own pipeline', () => {
+    const j = mkJourney(
+      'app1',
+      'subscribed',
+      [
+        mkTouch('app1', 1, 'discovered', 20, 'organic'),
+        mkTouch('app1', 2, 'installed', 15, 'organic'),
+        mkTouch('app1', 3, 'subscribed', 5, 'organic'),
+      ],
+      { business: 'apps' },
+    );
+    const [node] = funnelSpaceModel([j], NOW, stagesFor('apps'));
+    expect(node.hubs).toEqual([0, 1, 4]); // discovered=0, installed=1, subscribed=4
+    expect(node.currentHub).toBe(4);
+    expect(node.state).toBe('converted');
+  });
+
+  test('rendered against the AAC backbone (the default), an unknown Apps stage id parks at hub 0 instead of crashing', () => {
+    const j = mkJourney('app2', 'discovered', [mkTouch('app2', 1, 'discovered', 3, 'organic')], { business: 'apps' });
+    const [node] = funnelSpaceModel([j], NOW); // no stages arg — defaults to AAC's
+    expect(node.hubs).toEqual([0]);
+    expect(node.currentHub).toBe(0);
   });
 });
 

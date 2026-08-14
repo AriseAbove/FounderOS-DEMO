@@ -5,6 +5,8 @@ import { calendarStatus, upcomingEvents, caldavAccounts } from '@/lib/connectors
 import { quickbooksStatus } from '@/lib/connectors/quickbooks';
 import { alloConfigured, fetchAlloCalls } from '@/lib/connectors/allo';
 import { importAlloCalls } from '@/lib/funnel-allo';
+import { fetchWebsiteFormLeads } from '@/lib/connectors/website-leads';
+import { importWebsiteFormLeads } from '@/lib/funnel-website';
 import { oneupConfigured } from '@/lib/connectors/oneup';
 import { publishQueuedSocialPosts } from '@/lib/social-oneup';
 import { runtimeEnv } from '@/lib/creds';
@@ -73,6 +75,23 @@ async function alloRun(): Promise<AgentRunResult> {
   return {
     ok: true,
     summary: `${calls.length} calls in the Allo log · ${res.newContacts} new lead journey(s) · ${res.newTouches} new touch(es) · ${res.skipped} skipped (spam/outbound)`,
+    data: res,
+  };
+}
+
+async function websitePulseRun(): Promise<AgentRunResult> {
+  const env = runtimeEnv();
+  if (parseInboxConfigs(env).length === 0) {
+    return {
+      ok: false,
+      summary: 'No inboxes configured — set INBOX_1..4_HOST/_USER/_PASS in .env.local (same inbox Comms already uses)',
+    };
+  }
+  const leads = await fetchWebsiteFormLeads(env);
+  const res = importWebsiteFormLeads(getDb(), leads, new Date());
+  return {
+    ok: true,
+    summary: `${leads.length} website form submission(s) found · ${res.newContacts} new lead journey(s) · ${res.newTouches} new touch(es) · ${res.skipped} skipped (no phone/email)`,
     data: res,
   };
 }
@@ -233,6 +252,14 @@ export const realAgents: RuntimeAgent[] = [
     description: 'Pulls the Allo (248) 717-1417 call log and files inbound lead calls into the AAC pipeline.',
     departmentId: 'dept-sales',
     run: alloRun,
+  },
+  {
+    id: 'website-pulse',
+    name: 'Website Pulse',
+    description:
+      'Reads FormSubmit.co website-form notification emails from the connected inbox and files them into the AAC pipeline — no new credentials, reuses the Comms inbox.',
+    departmentId: 'dept-sales',
+    run: websitePulseRun,
   },
 
   // ── Marketing/Growth ─────────────────────────────────────────────────

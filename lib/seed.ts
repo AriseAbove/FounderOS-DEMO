@@ -146,6 +146,19 @@ const agents: Agent[] = [
     parentId: null,
     instance: 'builtin',
   },
+  {
+    id: 'website-pulse',
+    departmentId: 'dept-sales',
+    name: 'Website Pulse',
+    role: 'Lead Intake',
+    status: 'planned',
+    tier: 'lead',
+    description: 'Reads FormSubmit.co website-form notification emails from the connected inbox and files them into the AAC pipeline at Inquiry. No new credentials — activates the moment an INBOX_* slot is set (the same one Comms already reads).',
+    model: 'imap + formsubmit parser',
+    tools: ['imap'],
+    parentId: null,
+    instance: 'builtin',
+  },
   // ── Marketing/Growth ────────────────────────────────────────────────────
   {
     id: 'social-pulse',
@@ -278,6 +291,19 @@ const sopTasks: SopTask[] = [
       'Open a new journey at Inquiry for every first-time legitimate caller',
       'Append a touch to the existing journey on repeat calls — idempotent by call id',
       'Keep spam, hangups, and outbound legs out of the pipeline',
+      'Never move a journey stage — stage changes are Sean’s decision',
+    ],
+  },
+  {
+    id: 'sop-website-pulse', departmentId: 'dept-sales', assigneeKind: 'agent', assigneeId: 'website-pulse',
+    title: 'File every real website form submission',
+    summary: 'FormSubmit.co notification emails → AAC pipeline, specific attribution kept.',
+    steps: [
+      'Search the connected inbox for FormSubmit.co notification emails from the last 45 days',
+      'Parse both live forms\' field layouts (the booking form and the main-site contact form)',
+      'Open a new journey at Inquiry for every first-time submitter, or merge onto an existing one by phone/email',
+      'Fold the "how found AAC" answer into the touch label so Google/Referral attribution stays specific, not just "Website"',
+      'Drop submissions with no phone or email — not reachable, not a lead',
       'Never move a journey stage — stage changes are Sean’s decision',
     ],
   },
@@ -421,7 +447,7 @@ const skills: Omit<Skill, 'markdown'>[] = [
 
 /** Bump when the seed content changes shape — existing DBs re-seed once to
  *  pick up the new baseline (and purge retired rows). */
-export const SEED_VERSION = '2026-08-14-chief-of-staff';
+export const SEED_VERSION = '2026-08-14-website-leads';
 
 export function seedDatabase(db: FounderDb): void {
   // The whole reseed runs as ONE SQLite transaction, not ~100 separate

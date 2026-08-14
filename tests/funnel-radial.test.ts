@@ -93,6 +93,17 @@ describe('acquisitionFor — keyword classification of the entry touch', () => {
     expect(acquisitionFor(firstTouch('Opportunity created in CRM', 'crm'))).toBe('word_of_mouth');
     expect(acquisitionFor(journey({}, []))).toBe('word_of_mouth');
   });
+
+  test('organic channel with no keyword hit still reads website (a real form submission, no "how found" answer)', () => {
+    expect(acquisitionFor(firstTouch('Website form: submission', 'organic'))).toBe('website');
+  });
+
+  test('a website-form submission whose "how found AAC" answer names a channel promotes to that segment', () => {
+    expect(acquisitionFor(firstTouch('Website form: google-search — Kitchen remodel', 'organic'))).toBe('google');
+    expect(acquisitionFor(firstTouch('Website form: Referred by a friend — Kitchen remodel', 'organic'))).toBe(
+      'referral',
+    );
+  });
 });
 
 describe('funnelRadialModel — outside → in', () => {

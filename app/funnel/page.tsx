@@ -17,7 +17,9 @@ import { gatherCommsFeed } from '@/lib/comms-feed';
 import type { CommsItem } from '@/lib/comms';
 import { FunnelRadialLazy, FunnelSpaceLazy } from '@/components/FunnelGraphsLazy';
 import AlloSyncButton from '@/components/AlloSyncButton';
+import WebsiteSyncButton from '@/components/WebsiteSyncButton';
 import { alloConfigured } from '@/lib/connectors/allo';
+import { parseInboxConfigs } from '@/lib/connectors/email';
 import { runtimeEnv } from '@/lib/creds';
 import { Badge, SectionHead } from '@/components/terminal';
 import {
@@ -325,6 +327,7 @@ export default async function FunnelPage({
         <h1 className="text-[25px] font-bold uppercase leading-[1.1] tracking-[0.06em]">Funnel</h1>
         <div className="flex shrink-0 items-center gap-2">
           <AlloSyncButton configured={alloConfigured(runtimeEnv())} />
+          <WebsiteSyncButton configured={parseInboxConfigs(runtimeEnv()).length > 0} />
           {journeys.length === 0 && (
             <Badge tone="warn" ghost>
               no leads recorded yet

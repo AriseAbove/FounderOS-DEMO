@@ -58,9 +58,15 @@ const MATCHERS: { id: FunnelAcquisition; re: RegExp }[] = [
 export function acquisitionFor(j: HasTouches): FunnelAcquisition {
   const entry = j.touches[0];
   if (!entry) return 'word_of_mouth';
+  // Keyword match runs first even for a structurally-known source — a
+  // website-form submission whose "how found AAC" answer says "Google" or
+  // "Referred by a friend" (lib/funnel-website.ts folds that answer into
+  // the label) is more specifically Google/Referral than generically
+  // Website; the label carries that nuance, the bare source field doesn't.
   for (const m of MATCHERS) if (m.re.test(entry.label)) return m.id;
   if (entry.channel === 'call' || entry.channel === 'sms') return 'phone';
   if (entry.channel === 'ads') return 'social'; // paid traffic = the social machine
+  if (entry.channel === 'organic') return 'website'; // real website-form submission, no keyword hit
   return 'word_of_mouth';
 }
 

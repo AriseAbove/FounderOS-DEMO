@@ -4,10 +4,10 @@ import { describe, expect, test } from 'vitest';
 import { DEFAULT_THEME, THEMES, THEME_META, THEME_STORAGE_KEY, THEME_INIT_SCRIPT, isTheme, nextTheme, resolveInitialTheme } from '@/lib/theme';
 
 describe('theme registry', () => {
-  test('six pickable themes, mono (Monolith) first as the default identity', () => {
-    expect(DEFAULT_THEME).toBe('mono');
+  test('seven pickable themes, copper first as the default identity', () => {
+    expect(DEFAULT_THEME).toBe('copper');
     expect(THEMES[0]).toBe(DEFAULT_THEME);
-    expect(THEMES).toEqual(['mono', 'mono-light', 'dark', 'light', 'midnight', 'ember']);
+    expect(THEMES).toEqual(['copper', 'mono', 'mono-light', 'dark', 'light', 'midnight', 'ember']);
     expect(new Set(THEMES).size).toBe(THEMES.length);
     expect(THEME_STORAGE_KEY).toBe('os-theme');
   });
@@ -29,11 +29,12 @@ describe('theme registry', () => {
     expect(isTheme(null)).toBe(false);
   });
 
-  test('resolveInitialTheme honors any valid stored value, else falls back to mono', () => {
+  test('resolveInitialTheme honors any valid stored value, else falls back to copper', () => {
     expect(resolveInitialTheme('ember')).toBe('ember');
     expect(resolveInitialTheme('dark')).toBe('dark');
-    expect(resolveInitialTheme(null)).toBe('mono');
-    expect(resolveInitialTheme('garbage')).toBe('mono');
+    expect(resolveInitialTheme('mono')).toBe('mono');
+    expect(resolveInitialTheme(null)).toBe('copper');
+    expect(resolveInitialTheme('garbage')).toBe('copper');
   });
 
   test('nextTheme cycles the whole ring', () => {
@@ -47,16 +48,17 @@ describe('theme registry', () => {
     expect(t).toBe(THEMES[0]); // full circle
   });
 
-  test('the pre-paint init script accepts every registered theme id and falls back to mono', () => {
+  test('the pre-paint init script accepts every registered theme id and falls back to copper', () => {
     for (const t of THEMES) expect(THEME_INIT_SCRIPT).toContain(t);
     expect(THEME_INIT_SCRIPT).toContain(THEME_STORAGE_KEY);
-    expect(THEME_INIT_SCRIPT).toContain(`t="mono"`);
+    expect(THEME_INIT_SCRIPT).toContain(`t="copper"`);
     expect(THEME_INIT_SCRIPT).not.toContain(`t="dark"`);
   });
 
-  test('globals.css groups the bare :root with mono, so no-JS loads default to Monolith', () => {
+  test('globals.css groups the bare :root with copper, so no-JS loads default to Copper', () => {
     const css = readFileSync(join(process.cwd(), 'app/globals.css'), 'utf8');
-    expect(css).toMatch(/:root,\s*\n:root\[data-theme='mono'\]/);
+    expect(css).toMatch(/:root,\s*\n:root\[data-theme='copper'\]/);
+    expect(css).not.toMatch(/:root,\s*\n:root\[data-theme='mono'\]/);
     expect(css).not.toMatch(/:root,\s*\n:root\[data-theme='dark'\]/);
   });
 

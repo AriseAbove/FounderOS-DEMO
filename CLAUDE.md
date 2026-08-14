@@ -108,8 +108,10 @@ the pages still load by direct URL and render honest empty states.
 - Zod-validate anything that crosses the DB or API boundary.
 - HONESTY: no invented numbers anywhere. Empty states say why they're empty
   and what connects them. A connector is "connected" only when it truly is.
-- THEME: **Monolith Signal (`mono`) is the default** (`DEFAULT_THEME` in
-  `lib/theme.ts`; bare `:root` in `app/globals.css` carries the mono tokens).
+- THEME: **Copper is the default** as of 2026-08-14 (`DEFAULT_THEME` in
+  `lib/theme.ts`; bare `:root` in `app/globals.css` carries the copper
+  tokens) — Sean's call, off the prior monochrome default. Monolith Signal
+  (`mono`) remains a fully selectable theme, just no longer bare-root-anchored.
   Tokens live in `tailwind.config.ts` (`os.*`) AND as raw CSS vars in
   `app/globals.css` — keep the two in sync. JetBrains Mono everywhere; square
   corners; hairline borders; color = status only in mono.
@@ -123,6 +125,12 @@ the pages still load by direct URL and render honest empty states.
   in production — an ephemeral filesystem silently drops the DB (including
   stored OAuth tokens) on every redeploy. Point `FOUNDER_OS_DB` at a path
   inside the mounted volume.
+- `rebuild/arise-above` is the repo's **default branch** (switched from the
+  stale `main` on 2026-08-14) — this matters beyond habit: GitHub Actions
+  only picks up `on: schedule` and `on: workflow_dispatch` triggers from
+  whichever branch is default, so the Chief of Staff cron workflow was
+  invisible to GitHub until this switch, independent of its secrets being
+  set correctly. `main` still exists but is 15 commits behind and unused.
 
 ## Multi-agent etiquette
 

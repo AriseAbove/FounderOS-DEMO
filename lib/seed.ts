@@ -348,7 +348,7 @@ const roadmap: RoadmapItem[] = [
   { id: 'rm-chief-of-staff', title: 'Chief of Staff: proactive signals', quarter: '2026-Q3', status: 'now', departmentId: 'dept-tech', description: 'Fully built, nothing left to code. Waiting on you: pull tonight\'s bundle in Terminal, then set NTFY_TOPIC + CRON_SECRET on Railway and the matching GitHub Actions secrets — the hourly push goes live the moment those land.' },
   { id: 'rm-sops', title: 'Agent SOPs, surfaced', quarter: '2026-Q3', status: 'done', departmentId: 'dept-tech', description: 'Every agent and person\'s written Standard Operating Procedure gets its own readable page (/sops) instead of being buried in the knowledge graph — the checklist each worker actually follows, in one place.' },
   { id: 'rm-apps-funnel', title: 'Define the Apps funnel', quarter: '2026-Q4', status: 'now', departmentId: 'dept-sales', description: 'Nothing to build until you decide: what are Arise Above Apps\' real pipeline stages? Tell Sean/the agent the stages and this ships the same day — it reuses the AAC stages as a placeholder only because no one has defined the real ones yet.' },
-  { id: 'rm-crm', title: 'Evaluate CRM sync', quarter: '2026-Q4', status: 'now', departmentId: 'dept-sales', description: 'Waiting on your call: keep Allo\'s built-in CRM as the source of truth, or sync to HubSpot? Say the word and it\'s built the same day — not scheduled for later, just not decided yet.' },
+  { id: 'rm-crm', title: 'CRM: Allo stays source of truth', quarter: '2026-Q4', status: 'done', departmentId: 'dept-sales', description: 'Decided: the Allo CRM stays the source of truth for leads — no HubSpot sync. Every inbound call already flows into /funnel via Allo Pulse; nothing further to build here.' },
 ];
 
 // Honest zeros — these flip to live numbers as connectors come online.
@@ -450,7 +450,7 @@ const skills: Omit<Skill, 'markdown'>[] = [
 
 /** Bump when the seed content changes shape — existing DBs re-seed once to
  *  pick up the new baseline (and purge retired rows). */
-export const SEED_VERSION = '2026-08-14-live-status-audit';
+export const SEED_VERSION = '2026-08-14-crm-decided';
 
 export function seedDatabase(db: FounderDb): void {
   // The whole reseed runs as ONE SQLite transaction, not ~100 separate

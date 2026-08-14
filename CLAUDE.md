@@ -82,6 +82,15 @@ pre-wired to any one machine.
   markdown store provider (point `BRAIN_STORE` at a folder — real grep search,
   folder overview; `lib/brain-dump.ts` captures write real files there) and a
   stub for tests. A vector provider slots in behind the same interface.
+  `brainStorePath()` falls back to the bundled `knowledge/brain-store/` in the
+  repo when no `BRAIN_STORE`/`GBRAIN_STORE` override is set — real markdown
+  generated from the honest seed data (agents, SOPs, tools, people, pillars)
+  via `npm run brain:docs` (`scripts/generate-brain-docs.ts`), so Knowledge
+  search and the Data Agent have something real to search on day one with
+  zero required config. Regenerate after a seed change with
+  `BRAIN_DOCS_DIR="$(pwd)/knowledge/brain-store" npm run brain:docs` — it's
+  idempotent and never clobbers a hand-edited file (one without the
+  `generated: founder-os` marker).
 - `lib/agents/runtime.ts` + `real.ts` — the roster: conductor, comms-agent,
   gmail-worker, calendar-worker, data-agent, quickbooks-pulse, allo-pulse. Every seeded
   agent row maps 1:1 to a `RuntimeAgent` with a real `run()` (enforced by

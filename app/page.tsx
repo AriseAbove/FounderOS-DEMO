@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowUpRight, Zap } from 'lucide-react';
 import { getDb } from '@/lib/data';
 import { allConnectorStatuses } from '@/lib/connectors';
+import { liveAgentStatus } from '@/lib/agents/live-status';
 import { getBrainProvider } from '@/lib/brain';
 import { audienceSeries, PLATFORM_COLORS, PLATFORM_LABELS } from '@/lib/social';
 import { postSeriesFromDays, type PostDay } from '@/lib/posting-activity';
@@ -131,13 +132,21 @@ export default async function HomePage() {
   ]);
   const postDays: PostDay[] = []; // no posting source connected
 
-  const agents = db.agents.all();
+  const seedAgents = db.agents.all();
   const departments = new Map(db.departments.all().map((d) => [d.id, d.name]));
   const recentRuns = db.agentRuns.recent(40);
   // Wider pull just for the runs/day sparkline — 40 may not span a week.
   const runsForSpark = db.agentRuns.recent(400);
   const lastRunByAgent = new Map<string, (typeof recentRuns)[number]>();
   for (const r of recentRuns) if (!lastRunByAgent.has(r.agentId)) lastRunByAgent.set(r.agentId, r);
+
+  // Honest, computed status — never the stale seed value. An agent only
+  // reads "active" once its real dependency (connector, or a successful run
+  // for cross-cutting agents) is actually there. See lib/agents/live-status.ts.
+  const agents = seedAgents.map((a) => ({
+    ...a,
+    status: liveAgentStatus(a.id, connections, lastRunByAgent.get(a.id), a.status),
+  }));
 
   const connected = connections.filter((c) => c.state === 'connected').length;
   const activeAgents = agents.filter((a) => a.status === 'active').length;

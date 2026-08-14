@@ -79,6 +79,19 @@ const agents: Agent[] = [
     parentId: null,
     instance: 'builtin',
   },
+  {
+    id: 'chief-of-staff',
+    departmentId: 'dept-tech',
+    name: 'Chief of Staff',
+    role: 'Proactive Monitor',
+    status: 'planned',
+    tier: 'lead',
+    description: 'Watches the funnel, QuickBooks, and inboxes for hot leads, overdue invoices, and unread work mail; pushes only what is new via ntfy. Activates as each source connects — real even with zero sources configured (reports nothing outstanding, honestly).',
+    model: 'signal engine + ntfy',
+    tools: ['funnel', 'quickbooks', 'imap', 'ntfy'],
+    parentId: null,
+    instance: 'builtin',
+  },
   // ── Communications: one instance, two channel workers feeding /comms ────
   {
     id: 'comms-agent',
@@ -197,6 +210,18 @@ const sopTasks: SopTask[] = [
     ],
   },
   {
+    id: 'sop-chief-of-staff', departmentId: 'dept-tech', assigneeKind: 'agent', assigneeId: 'chief-of-staff',
+    title: 'Watch the playing field, push only what is new',
+    summary: 'Funnel + QuickBooks + inbox signals, deduped, pushed via ntfy.',
+    steps: [
+      'Gather hot/fading leads from the funnel\'s own attention model',
+      'Pull overdue and open QuickBooks invoices where the OAuth grant is connected',
+      'Pull unread work-lane email from the unified comms feed where an inbox is connected',
+      'Drop every signal already pushed on a prior run — dedupe by signal id in seed_meta',
+      'Push only genuinely new high-severity signals to NTFY_TOPIC; report honestly when nothing is outstanding',
+    ],
+  },
+  {
     id: 'sop-comms-agent', departmentId: 'dept-comms', assigneeKind: 'agent', assigneeId: 'comms-agent',
     title: 'Compose the unified comms feed',
     summary: 'Email and calendar, one timeline at /comms.',
@@ -279,6 +304,7 @@ const tools: Tool[] = [
   { id: 'tool-llm', name: 'Claude API', category: 'AI', status: 'available', color: GRAY.light, description: 'LLM lane for agent chat — set ANTHROPIC_API_KEY (stub provider in tests).' },
   { id: 'tool-allo', name: 'Allo (call log)', category: 'Sales', status: 'available', color: GRAY.light, description: 'AI receptionist call log → funnel lead intake — set ALLO_API_KEY (Conversations Read scope).' },
   { id: 'tool-oneup', name: 'OneUp (social publish)', category: 'Marketing', status: 'available', color: GRAY.mid, description: 'Publishes Social-tab posts to real connected accounts — set ONEUP_API_KEY + ONEUP_CATEGORY_ID.' },
+  { id: 'tool-ntfy', name: 'ntfy (push)', category: 'AI', status: 'available', color: GRAY.dim, description: 'Chief of Staff push notifications — set NTFY_TOPIC (optional NTFY_URL for a self-hosted instance).' },
   { id: 'tool-brain-store', name: 'Markdown knowledge store', category: 'Knowledge', status: 'available', color: GRAY.mid, description: 'Point BRAIN_STORE at a folder of markdown — grep search + capture, no external service.' },
   { id: 'tool-railway', name: 'Railway (hosting)', category: 'Infrastructure', status: 'connected', color: GRAY.dim, description: 'Production host; SQLite lives on a mounted volume so redeploys keep data.' },
 ];
@@ -395,7 +421,7 @@ const skills: Omit<Skill, 'markdown'>[] = [
 
 /** Bump when the seed content changes shape — existing DBs re-seed once to
  *  pick up the new baseline (and purge retired rows). */
-export const SEED_VERSION = '2026-08-14-social-pulse';
+export const SEED_VERSION = '2026-08-14-chief-of-staff';
 
 export function seedDatabase(db: FounderDb): void {
   // The whole reseed runs as ONE SQLite transaction, not ~100 separate

@@ -1,0 +1,35 @@
+name: Chief of Staff check
+
+# Runs the Chief of Staff signal sweep on a schedule by calling the deployed
+# app's cron route. This lives in GitHub Actions (not Railway's native Cron
+# Jobs) because the FOUNDER_OS_DB volume can only mount to one Railway
+# service — adding a second scheduler service would mean a second,
+# out-of-sync copy of the database.
+#
+# Repo secrets required (Settings → Secrets and variables → Actions):
+#   ARISE_OS_URL   — e.g. https://your-app.up.railway.app (no trailing slash)
+#   CRON_SECRET    — must match CRON_SECRET in the app's own environment
+
+on:
+  schedule:
+    # Every hour, 8am–6pm Eastern (12:00–22:00 UTC during EDT). Adjust if
+    # the workday hours or timezone change.
+    - cron: '0 12-22 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the Chief of Staff cron route
+        run: |
+          if [ -z "${ARISE_OS_URL}" ] || [ -z "${CRON_SECRET}" ]; then
+            echo "ARISE_OS_URL and/or CRON_SECRET repo secret not set — skipping." >&2
+            exit 1
+          fi
+          curl --fail --show-error --silent \
+            -X POST "${ARISE_OS_URL}/api/cron/chief-of-staff" \
+            -H "Authorization: Bearer ${CRON_SECRET}"
+        env:
+          ARISE_OS_URL: ${{ secrets.ARISE_OS_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}

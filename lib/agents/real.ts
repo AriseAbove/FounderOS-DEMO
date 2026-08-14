@@ -9,6 +9,7 @@ import { oneupConfigured } from '@/lib/connectors/oneup';
 import { publishQueuedSocialPosts } from '@/lib/social-oneup';
 import { runtimeEnv } from '@/lib/creds';
 import { getDb } from '@/lib/data';
+import { gatherSignals, briefingText, newHighSeveritySignals, markNotified, sendNtfyPush } from '@/lib/chief-of-staff';
 import type { LlmToolSpec } from '@/lib/connectors/llm';
 import type { AgentRunResult, RuntimeAgent } from '@/lib/agents/runtime';
 
@@ -105,6 +106,29 @@ async function socialPulseRun(): Promise<AgentRunResult> {
   };
 }
 
+async function chiefOfStaffRun(): Promise<AgentRunResult> {
+  const env = runtimeEnv();
+  const db = getDb();
+  const signals = await gatherSignals(db, env, new Date());
+  const fresh = newHighSeveritySignals(db, signals);
+  let pushNote = '';
+  if (fresh.length > 0) {
+    const push = await sendNtfyPush(env, 'Chief of Staff', fresh.map((s) => s.summary).join('\n'));
+    if (push.sent) {
+      markNotified(db, fresh);
+      pushNote = ` · pushed ${fresh.length} new`;
+    } else {
+      const why = 'reason' in push ? push.reason : `ntfy status ${push.status}`;
+      pushNote = ` · ${fresh.length} new high-severity, push not sent (${why})`;
+    }
+  }
+  return {
+    ok: true,
+    summary: `${briefingText(signals)}${pushNote}`,
+    data: { signals, fresh },
+  };
+}
+
 const label = (r: AgentRunResult) => (r.ok ? 'LIVE' : 'DOWN');
 
 export const realAgents: RuntimeAgent[] = [
@@ -191,6 +215,15 @@ export const realAgents: RuntimeAgent[] = [
         },
       ];
     },
+  },
+
+  {
+    id: 'chief-of-staff',
+    name: 'Chief of Staff',
+    description:
+      'Watches the funnel, QuickBooks, and inboxes for hot leads, overdue invoices, and unread work mail; pushes only genuinely new high-severity signals via ntfy.',
+    departmentId: 'dept-tech',
+    run: chiefOfStaffRun,
   },
 
   // ── Sales: the funnel's front door ───────────────────────────────────

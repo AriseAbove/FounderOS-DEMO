@@ -7,7 +7,8 @@ import {
   splitFunnelJourneys,
   decayFactor,
   DECAY_DAYS,
-  FUNNEL_STAGES,
+  ALL_FUNNEL_STAGES,
+  stagesFor,
   CHANNEL_GLYPHS,
 } from '@/lib/funnel';
 import { funnelSpaceModel, isWon } from '@/lib/funnel';
@@ -36,9 +37,6 @@ export const dynamic = 'force-dynamic';
 const BUSINESS_TABS: { id: FunnelBusiness | 'all'; label: string }[] = [
   { id: 'all', label: 'All clients' },
   { id: 'aac', label: 'AAC' },
-  // PLACEHOLDER: Arise Above Apps' funnel stages are still undefined — the
-  // tab exists so apps-tagged leads have a home, but the stage model below
-  // is AAC's until Apps defines its own.
   { id: 'apps', label: 'Apps' },
 ];
 
@@ -132,7 +130,7 @@ function AttentionRow({
 }) {
   const meta = journeyMeta(journey, now);
   const decay = decayFactor(meta.daysSinceLastTouch, journey.status);
-  const stageLabel = FUNNEL_STAGES.find((s) => s.id === journey.status)?.label ?? journey.status;
+  const stageLabel = ALL_FUNNEL_STAGES.find((s) => s.id === journey.status)?.label ?? journey.status;
   return (
     <Link
       href={href}
@@ -179,7 +177,7 @@ function JourneyTableRows({
   /** undefined = lookup not run (no segment selected) · null = no thread found */
   lastMsg?: CommsItem | null;
 }) {
-  const stageLabel = FUNNEL_STAGES.find((s) => s.id === journey.status)?.label ?? journey.status;
+  const stageLabel = ALL_FUNNEL_STAGES.find((s) => s.id === journey.status)?.label ?? journey.status;
   const won = isWon(journey.status);
   const meta = journeyMeta(journey, now);
   const decay = decayFactor(meta.daysSinceLastTouch, journey.status);
@@ -348,7 +346,7 @@ export default async function FunnelPage({
               <Link
                 key={tab.id}
                 href={href(tab.id === 'all' ? undefined : (tab.id as FunnelBusiness), view)}
-                title={tab.id === 'apps' ? 'Placeholder — Apps funnel stages are not defined yet' : undefined}
+                title={tab.id === 'apps' ? 'Discovered → installed → activated → trial → subscribed → retained' : undefined}
                 className={`rounded-sm-t border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide transition-colors ${
                   active
                     ? 'border-[var(--accent-line)] bg-[var(--accent-soft)] text-os-accent'
@@ -436,7 +434,7 @@ export default async function FunnelPage({
                           </span>
                         </td>
                         <td className="px-3 py-2 font-mono text-[10px] uppercase tracking-wide">
-                          {FUNNEL_STAGES.find((s) => s.id === j.status)?.label ?? j.status}
+                          {ALL_FUNNEL_STAGES.find((s) => s.id === j.status)?.label ?? j.status}
                         </td>
                         <td className="px-3 py-2 font-mono text-[10.5px]">{meta.daysSinceLastTouch}d</td>
                         <td className="px-3 py-2 font-mono text-[10.5px]">{j.likelihood}%</td>
@@ -528,7 +526,9 @@ export default async function FunnelPage({
           >
             All segments
           </Link>
-          {FUNNEL_STAGES.map((s, i) => {
+          {/* Filter chips read the active business's own pipeline — AAC's 8
+              stages, Apps' 6 (or AAC's as the shared backbone on "All"). */}
+          {stagesFor(business).map((s, i) => {
             const active = stage === s.id;
             return (
               <Link

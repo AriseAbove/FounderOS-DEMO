@@ -2,7 +2,13 @@ import { z } from 'zod';
 import { getBrainProvider } from '@/lib/brain';
 import { parseInboxConfigs, unreadCounts } from '@/lib/connectors/email';
 import { calendarStatus, upcomingEvents, caldavAccounts } from '@/lib/connectors/gcal';
-import { quickbooksStatus } from '@/lib/connectors/quickbooks';
+import {
+  quickbooksStatus,
+  monthToDateIncome,
+  monthToDateExpenses,
+  openInvoices,
+  companyName as qboCompanyName,
+} from '@/lib/connectors/quickbooks';
 import { alloConfigured, fetchAlloCalls } from '@/lib/connectors/allo';
 import { importAlloCalls } from '@/lib/funnel-allo';
 import { fetchWebsiteFormLeads } from '@/lib/connectors/website-leads';
@@ -205,6 +211,24 @@ export const realAgents: RuntimeAgent[] = [
         data: { gmail, calendar },
       };
     },
+    chatTools(): LlmToolSpec[] {
+      return [
+        {
+          name: 'getUnreadEmail',
+          description:
+            'Read-only unread-mail counts (and any read error) across the connected IMAP inboxes. Honest "no inboxes configured" when none are set.',
+          parameters: z.object({}),
+          execute: async () => gmailRun(),
+        },
+        {
+          name: 'getUpcomingEvents',
+          description:
+            'Read-only upcoming events across the connected ICS/CalDAV calendars. Honest "no calendars configured" when none are set.',
+          parameters: z.object({}),
+          execute: async () => calendarRun(),
+        },
+      ];
+    },
   },
   { id: 'gmail-worker', name: 'Gmail Worker', description: 'Unread counts and recent mail from up to four IMAP inboxes.', departmentId: 'dept-comms', run: gmailRun },
   { id: 'calendar-worker', name: 'Calendar Worker', description: 'Upcoming events from ICS/CalDAV calendar feeds.', departmentId: 'dept-comms', run: calendarRun },
@@ -261,6 +285,17 @@ export const realAgents: RuntimeAgent[] = [
       'Watches the funnel, QuickBooks, and inboxes for hot leads, overdue invoices, and unread work mail; pushes only genuinely new high-severity signals via ntfy.',
     departmentId: 'dept-tech',
     run: chiefOfStaffRun,
+    chatTools(): LlmToolSpec[] {
+      return [
+        {
+          name: 'getBusinessSignals',
+          description:
+            'Read-only live pull of what needs attention right now: hot/fading leads from the funnel attention model, overdue/open QuickBooks invoices, and unread work-lane email. Any source that is not configured just contributes nothing — never invented.',
+          parameters: z.object({}),
+          execute: async () => gatherSignals(getDb(), runtimeEnv()),
+        },
+      ];
+    },
   },
 
   // ── Sales: the funnel's front door ───────────────────────────────────
@@ -296,5 +331,25 @@ export const realAgents: RuntimeAgent[] = [
     description: 'Reports the QuickBooks connection state; month-to-date income/expenses once connected.',
     departmentId: 'dept-finance',
     run: quickbooksRun,
+    chatTools(): LlmToolSpec[] {
+      return [
+        {
+          name: 'getFinancialSnapshot',
+          description:
+            'Read-only QuickBooks snapshot: company name, month-to-date income (payments received) and expenses (purchases), and open (unpaid) invoices. Null/empty fields mean QuickBooks is not connected or unreachable — never invented.',
+          parameters: z.object({}),
+          execute: async () => {
+            const env = runtimeEnv();
+            const [company, income, expenses, invoices] = await Promise.all([
+              qboCompanyName(env),
+              monthToDateIncome(env),
+              monthToDateExpenses(env),
+              openInvoices(env),
+            ]);
+            return { company, monthToDateIncome: income, monthToDateExpenses: expenses, openInvoices: invoices };
+          },
+        },
+      ];
+    },
   },
 ];

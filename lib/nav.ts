@@ -34,11 +34,13 @@ export const NAV_OPERATE: NavItem[] = [
   { href: '/finances', label: 'Finances', icon: Wallet },
 ];
 
-// Hidden until they clearly apply to this operation: the pages still exist
-// (direct URL works) but stay out of the nav so the chrome reflects what is
-// actually in use. Move an entry back into NAV_OPERATE / NAV_LIBRARY to
-// re-show it.
-export const NAV_HIDDEN: NavItem[] = [
+// Surfaced 2026-08-14 now that OneUp (the social connector) is live — these
+// three were built earlier but held out of the nav until a real social
+// connector existed to back them. NAV_HIDDEN is gone; nothing is hidden
+// pending a decision anymore. If a future page needs the same "built but
+// not yet wired to anything real" treatment, reintroduce a NAV_HIDDEN array
+// rather than deleting its pages.
+export const NAV_MARKETING: NavItem[] = [
   { href: '/social', label: 'Social', icon: Share2 },
   { href: '/content', label: 'Content', icon: Clapperboard },
   { href: '/personas', label: 'Personas', icon: Layers },
@@ -72,6 +74,7 @@ export const NAV_ORDER: string[] = [
   ...NAV_OPERATE,
   ...NAV_AGENTS,
   ...NAV_INTELLIGENCE,
+  ...NAV_MARKETING,
   ...NAV_SYSTEM,
   ...NAV_LIBRARY,
 ].map((n) => n.href);

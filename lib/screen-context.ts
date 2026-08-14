@@ -6,11 +6,11 @@
  * degrade to the route name. Never blocks a chat: resolvers that fail return
  * a plain title line.
  */
-import { NAV_AGENTS, NAV_INTELLIGENCE, NAV_LIBRARY, NAV_OPERATE, NAV_SYSTEM } from '@/lib/nav';
+import { NAV_AGENTS, NAV_INTELLIGENCE, NAV_LIBRARY, NAV_MARKETING, NAV_OPERATE, NAV_SYSTEM } from '@/lib/nav';
 import { getDb } from '@/lib/data';
 import { funnelSummary, isWon, journeyMeta, splitFunnelJourneys, ALL_FUNNEL_STAGES } from '@/lib/funnel';
 
-const ALL_NAV = [...NAV_OPERATE, ...NAV_AGENTS, ...NAV_INTELLIGENCE, ...NAV_SYSTEM, ...NAV_LIBRARY];
+const ALL_NAV = [...NAV_OPERATE, ...NAV_AGENTS, ...NAV_INTELLIGENCE, ...NAV_MARKETING, ...NAV_SYSTEM, ...NAV_LIBRARY];
 
 export function screenTitleFor(path: string): string {
   const clean = path.split('?')[0] || '/';

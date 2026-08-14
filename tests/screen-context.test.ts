@@ -60,3 +60,19 @@ describe('systemPromptFor with screen context', () => {
     expect(systemPromptFor(agent)).toBe(systemPromptFor(agent, undefined));
   });
 });
+
+describe('systemPromptFor is honest about tool availability', () => {
+  test('an agent with no chatTools is never told to "use your tools" — it would fabricate fake tool-call text otherwise', () => {
+    const conductor = realAgents.find((a) => a.id === 'conductor')!;
+    expect(conductor.chatTools).toBeUndefined();
+    const prompt = systemPromptFor(conductor);
+    expect(prompt).not.toContain('use your tools');
+    expect(prompt).toMatch(/no live-data tools|never invent tool calls/);
+  });
+
+  test('an agent with chatTools keeps the use-your-tools instruction', () => {
+    const dataAgent = realAgents.find((a) => a.id === 'data-agent')!;
+    const prompt = systemPromptFor(dataAgent);
+    expect(prompt).toContain('use your tools');
+  });
+});

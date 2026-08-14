@@ -34,4 +34,34 @@ describe('agent chat tools', () => {
     expect(Array.isArray(toolRow.toolCalls[0].result)).toBe(true); // connector actually ran
     expect(res.reply.length).toBeGreaterThan(0);
   });
+
+  test('chief-of-staff exposes a read-only getBusinessSignals tool that actually runs gatherSignals', async () => {
+    const cos = realAgents.find((a) => a.id === 'chief-of-staff')!;
+    expect(cos.chatTools).toBeTypeOf('function');
+    const tools = cos.chatTools!();
+    expect(tools.map((t) => t.name)).toContain('getBusinessSignals');
+    const result = await tools.find((t) => t.name === 'getBusinessSignals')!.execute({});
+    expect(Array.isArray(result)).toBe(true); // no config in test env → empty, but never throws/invents
+  });
+
+  test('comms-agent exposes read-only getUnreadEmail and getUpcomingEvents tools', async () => {
+    const comms = realAgents.find((a) => a.id === 'comms-agent')!;
+    expect(comms.chatTools).toBeTypeOf('function');
+    const tools = comms.chatTools!();
+    expect(tools.map((t) => t.name)).toEqual(expect.arrayContaining(['getUnreadEmail', 'getUpcomingEvents']));
+    const mail = await tools.find((t) => t.name === 'getUnreadEmail')!.execute({});
+    expect(mail).toHaveProperty('ok');
+    const cal = await tools.find((t) => t.name === 'getUpcomingEvents')!.execute({});
+    expect(cal).toHaveProperty('ok');
+  });
+
+  test('quickbooks-pulse exposes a read-only getFinancialSnapshot tool', async () => {
+    const qbo = realAgents.find((a) => a.id === 'quickbooks-pulse')!;
+    expect(qbo.chatTools).toBeTypeOf('function');
+    const tools = qbo.chatTools!();
+    expect(tools.map((t) => t.name)).toContain('getFinancialSnapshot');
+    const result = (await tools.find((t) => t.name === 'getFinancialSnapshot')!.execute({})) as Record<string, unknown>;
+    expect(result).toHaveProperty('monthToDateIncome');
+    expect(result).toHaveProperty('openInvoices');
+  });
 });

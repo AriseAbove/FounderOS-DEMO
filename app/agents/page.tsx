@@ -1,4 +1,6 @@
 import { getDb } from '@/lib/data';
+import { allConnectorStatuses } from '@/lib/connectors';
+import { liveAgentStatus } from '@/lib/agents/live-status';
 import { PageHeader } from '@/components/PageHeader';
 import { AgentChat } from '@/components/AgentChat';
 import { ConductorChat } from '@/components/ConductorChat';
@@ -106,10 +108,17 @@ function AgentRosterCard({
   );
 }
 
-export default function AgentsPage() {
+export default async function AgentsPage() {
   const db = getDb();
+  const connections = await allConnectorStatuses();
   const departments = db.departments.all();
-  const agents = db.agents.all();
+  const seedAgents = db.agents.all();
+  // Honest, computed status — see lib/agents/live-status.ts. Same rule the
+  // home page uses, so the two pages never disagree about who's really live.
+  const agents = seedAgents.map((a) => ({
+    ...a,
+    status: liveAgentStatus(a.id, connections, db.agentRuns.byAgent(a.id)[0], a.status),
+  }));
   const agentsById = new Map(agents.map((a) => [a.id, a]));
   const agentNames = Object.fromEntries(agents.map((a) => [a.id, a.name]));
   const activity = recentActivity(db, 40);

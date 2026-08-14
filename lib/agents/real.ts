@@ -14,6 +14,7 @@ import { getDb } from '@/lib/data';
 import { gatherSignals, briefingText, newHighSeveritySignals, markNotified, sendNtfyPush } from '@/lib/chief-of-staff';
 import type { LlmToolSpec } from '@/lib/connectors/llm';
 import type { AgentRunResult, RuntimeAgent } from '@/lib/agents/runtime';
+import type { FounderDb } from '@/lib/db';
 
 /**
  * The real agent roster. Every run() does actual work against a live system —
@@ -125,20 +126,33 @@ async function socialPulseRun(): Promise<AgentRunResult> {
   };
 }
 
-async function chiefOfStaffRun(): Promise<AgentRunResult> {
-  const env = runtimeEnv();
-  const db = getDb();
-  const signals = await gatherSignals(db, env, new Date());
+/** Testable core: explicit db/env/fetch so a flaky push (DNS blip, ntfy.sh
+ *  outage) can be exercised without touching the module-level singletons.
+ *  A push failure is reported honestly in the summary but never fails the
+ *  whole run — the signals were still gathered correctly, and the dedupe
+ *  gate correctly leaves the signal un-notified so the next run retries it. */
+export async function chiefOfStaffRunWith(
+  db: FounderDb,
+  env: Record<string, string | undefined>,
+  fetchImpl: typeof fetch = fetch,
+  now: Date = new Date(),
+): Promise<AgentRunResult> {
+  const signals = await gatherSignals(db, env, now);
   const fresh = newHighSeveritySignals(db, signals);
   let pushNote = '';
   if (fresh.length > 0) {
-    const push = await sendNtfyPush(env, 'Chief of Staff', fresh.map((s) => s.summary).join('\n'));
-    if (push.sent) {
-      markNotified(db, fresh);
-      pushNote = ` · pushed ${fresh.length} new`;
-    } else {
-      const why = 'reason' in push ? push.reason : `ntfy status ${push.status}`;
-      pushNote = ` · ${fresh.length} new high-severity, push not sent (${why})`;
+    try {
+      const push = await sendNtfyPush(env, 'Chief of Staff', fresh.map((s) => s.summary).join('\n'), fetchImpl);
+      if (push.sent) {
+        markNotified(db, fresh);
+        pushNote = ` · pushed ${fresh.length} new`;
+      } else {
+        const why = 'reason' in push ? push.reason : `ntfy status ${push.status}`;
+        pushNote = ` · ${fresh.length} new high-severity, push not sent (${why})`;
+      }
+    } catch (err) {
+      const why = err instanceof Error ? err.message : String(err);
+      pushNote = ` · ${fresh.length} new high-severity, push failed (${why})`;
     }
   }
   return {
@@ -146,6 +160,10 @@ async function chiefOfStaffRun(): Promise<AgentRunResult> {
     summary: `${briefingText(signals)}${pushNote}`,
     data: { signals, fresh },
   };
+}
+
+async function chiefOfStaffRun(): Promise<AgentRunResult> {
+  return chiefOfStaffRunWith(getDb(), runtimeEnv());
 }
 
 const label = (r: AgentRunResult) => (r.ok ? 'LIVE' : 'DOWN');

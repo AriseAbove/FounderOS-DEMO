@@ -8,6 +8,7 @@ import {
   sendNtfyPush,
   type Signal,
 } from '@/lib/chief-of-staff';
+import { chiefOfStaffRunWith } from '@/lib/agents/real';
 import type { FunnelContact, FunnelTouch } from '@/lib/schemas';
 
 function seedJourney(db: FounderDb, overrides: Partial<FunnelContact> = {}, touchAt = '2026-08-10'): void {
@@ -171,5 +172,58 @@ describe('sendNtfyPush', () => {
     const fetchImpl = async () => new Response(null, { status: 503 });
     const result = await sendNtfyPush({ NTFY_TOPIC: 'x' }, 'T', 'B', fetchImpl as unknown as typeof fetch);
     expect(result).toEqual({ sent: false, status: 503 });
+  });
+});
+
+describe('chiefOfStaffRunWith (the real agent run — push resilience)', () => {
+  // Regression test: on 2026-08-14 the first live cron run had a genuine
+  // overdue-invoice signal to push, and a network-level failure reaching
+  // ntfy.sh (a plain rejected fetch(), not an HTTP error status — sendNtfyPush
+  // only catches the latter) bubbled all the way up and marked the whole
+  // Chief of Staff run FAILED with the cryptic summary "fetch failed", even
+  // though signal-gathering itself worked perfectly. A flaky push should
+  // never take down a run whose real job — surfacing signals — succeeded.
+  test('a network failure while pushing does not fail the whole run', async () => {
+    const db = openDb(':memory:');
+    seedJourney(db, { id: 'hot-1', likelihood: 85 }, '2026-08-13');
+    const throwingFetch = async () => {
+      throw new TypeError('fetch failed');
+    };
+    const result = await chiefOfStaffRunWith(
+      db,
+      { NTFY_TOPIC: 'aac-cos' },
+      throwingFetch as unknown as typeof fetch,
+      new Date('2026-08-14T00:00:00Z'),
+    );
+    expect(result.ok).toBe(true);
+    expect(result.summary).toContain('push failed (fetch failed)');
+    // The signal must stay un-notified so the next run retries the push.
+    expect(newHighSeveritySignals(db, (result.data as { signals: Signal[] }).signals)).toHaveLength(1);
+    db.close();
+  });
+
+  test('a successful push marks the signal notified and reports it', async () => {
+    const db = openDb(':memory:');
+    seedJourney(db, { id: 'hot-2', likelihood: 90 }, '2026-08-13');
+    const fetchImpl = async () => new Response(null, { status: 200 });
+    const result = await chiefOfStaffRunWith(
+      db,
+      { NTFY_TOPIC: 'aac-cos' },
+      fetchImpl as unknown as typeof fetch,
+      new Date('2026-08-14T00:00:00Z'),
+    );
+    expect(result.ok).toBe(true);
+    expect(result.summary).toContain('pushed 1 new');
+    expect(newHighSeveritySignals(db, (result.data as { signals: Signal[] }).signals)).toHaveLength(0);
+    db.close();
+  });
+
+  test('no NTFY_TOPIC configured — honest no-op, run still succeeds', async () => {
+    const db = openDb(':memory:');
+    seedJourney(db, { id: 'hot-3', likelihood: 90 }, '2026-08-13');
+    const result = await chiefOfStaffRunWith(db, {}, fetch, new Date('2026-08-14T00:00:00Z'));
+    expect(result.ok).toBe(true);
+    expect(result.summary).toContain('push not sent (NTFY_TOPIC not set)');
+    db.close();
   });
 });

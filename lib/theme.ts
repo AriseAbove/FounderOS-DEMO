@@ -6,14 +6,16 @@
  * whole UI with no per-component work — each theme is a token block in
  * app/globals.css.
  */
-export const THEMES = ['mono', 'mono-light', 'dark', 'light', 'midnight', 'ember'] as const;
+export const THEMES = ['copper', 'mono', 'mono-light', 'dark', 'light', 'midnight', 'ember'] as const;
 export type Theme = (typeof THEMES)[number];
 
-/** What every fresh load gets until the user picks something else. */
-export const DEFAULT_THEME: Theme = 'mono';
+/** What every fresh load gets until the user picks something else. Sean's
+ * call (2026-08-14): swapped off the monochrome default for real color. */
+export const DEFAULT_THEME: Theme = 'copper';
 
 /** Picker metadata: display name, one-line feel, [bg, accent, text] swatch. */
 export const THEME_META: Record<Theme, { name: string; blurb: string; swatch: [string, string, string] }> = {
+  copper: { name: 'Copper', blurb: 'warm copper + patina teal on espresso dark', swatch: ['#150f0c', '#c8783f', '#5fae8f'] },
   dark: { name: 'Terminal', blurb: 'phosphor green on near-black', swatch: ['#050807', '#3df08c', '#e4efe6'] },
   light: { name: 'Clay', blurb: 'warm paper with clay orange', swatch: ['#ece3d2', '#c96442', '#2b2722'] },
   midnight: { name: 'Midnight', blurb: 'deep navy, signal blue', swatch: ['#070d1f', '#5ec9f8', '#e8ecf9'] },

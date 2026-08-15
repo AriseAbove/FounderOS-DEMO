@@ -108,6 +108,18 @@ pre-wired to any one machine.
   invoices) now carry real `chatTools()` so chat can actually pull live data
   instead of only being able to describe what it would do.
 - `/integrations` is the live Connections board (`GET /api/connections`).
+- `app/api/voice/queue` (`lib/db.ts`'s `voiceQueue` repo, `voice_queue` table)
+  — the relay behind Zoey, Sean's local voice loop
+  (`~/.cowork_speaker/speaker_daemon.py`, see project memory's
+  `project_cowork_speaker_voice_system.md`). Any Claude session POSTs a
+  short reply; the daemon polls GET over the network and marks it
+  consumed atomically (FIFO, no double-speak), so voice output no longer
+  needs a fresh `device_request_folder_access` grant to
+  `~/.cowork_speaker` every new cloud session — that per-session
+  re-approval was exactly what Sean was trying to get away from. Gated by
+  `VOICE_RELAY_SECRET`, same pattern as the Chief of Staff cron's
+  `CRON_SECRET`. Consumed rows older than 24h are swept on every `popNext`
+  so the table stays small.
 - Credentials go in `.env.local` (gitignored). NEVER commit keys.
 
 ## Views

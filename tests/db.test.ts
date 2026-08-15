@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'vitest';
-import { openDb, type FounderDb } from '@/lib/db';
+import { openDb, BUSY_TIMEOUT_MS, type FounderDb } from '@/lib/db';
 
 let db: FounderDb;
 
@@ -8,6 +8,19 @@ afterEach(() => {
 });
 
 describe('openDb', () => {
+  // Regression guard for the Railway build failure on the "Docs: document
+  // the honest-tools chatTools fix" commit: `SqliteError: database is
+  // locked` (SQLITE_BUSY) thrown right on openDb's own pragma call, because
+  // a build-time static-generation connection raced the live production
+  // process on the same mounted volume and the old 5s busy_timeout wasn't
+  // enough to outlast it. This doesn't reproduce the race itself (that
+  // needs two real processes on one on-disk file) — it just pins the
+  // generous timeout so nobody quietly shrinks it back toward the old
+  // failure threshold.
+  test('busy_timeout is generous enough to outlast real production write contention, not the SQLite default of 0', () => {
+    expect(BUSY_TIMEOUT_MS).toBeGreaterThanOrEqual(15_000);
+  });
+
   test('creates an empty database with all tables queryable', () => {
     db = openDb(':memory:');
     expect(db.departments.all()).toEqual([]);

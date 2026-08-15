@@ -95,6 +95,18 @@ pre-wired to any one machine.
   gmail-worker, calendar-worker, data-agent, quickbooks-pulse, allo-pulse. Every seeded
   agent row maps 1:1 to a `RuntimeAgent` with a real `run()` (enforced by
   seed tests). Runs persist to `agent_runs`.
+- `lib/agents/chat.ts`'s `systemPromptFor` only tells an agent to "use your
+  tools" when `agent.chatTools()` actually returns tools — otherwise it tells
+  the model plainly that it has no live-data tools wired in and to never
+  invent a tool call. Before this fix, every tool-less agent (all but
+  data-agent) was told to "use your tools" anyway, and under the real Gateway
+  provider the model would hallucinate fake tool-call syntax into its reply
+  text trying to comply. `chief-of-staff` (`getBusinessSignals` → reuses
+  `gatherSignals`), `comms-agent` (`getUnreadEmail`/`getUpcomingEvents` →
+  reuse `gmailRun`/`calendarRun`), and `quickbooks-pulse`
+  (`getFinancialSnapshot` → company name + MTD income/expenses + open
+  invoices) now carry real `chatTools()` so chat can actually pull live data
+  instead of only being able to describe what it would do.
 - `/integrations` is the live Connections board (`GET /api/connections`).
 - Credentials go in `.env.local` (gitignored). NEVER commit keys.
 

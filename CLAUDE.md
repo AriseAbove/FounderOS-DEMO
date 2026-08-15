@@ -120,6 +120,19 @@ pre-wired to any one machine.
   `VOICE_RELAY_SECRET`, same pattern as the Chief of Staff cron's
   `CRON_SECRET`. Consumed rows older than 24h are swept on every `popNext`
   so the table stays small.
+- `middleware.ts` — the app-wide login wall, added 2026-08-15 after a
+  security review found that of the ~40 routes under `app/api`, only the
+  cron and voice-relay routes checked anything at all; every other page
+  and route (finances, funnel/CRM, comms including SENDING real email,
+  `/api/keys`, `/api/connections/connect`) was reachable by anyone with
+  the URL. It's a single HTTP Basic Auth gate in front of the whole app,
+  gated by `APP_BASIC_AUTH_USER`/`APP_BASIC_AUTH_PASS` (see
+  `.env.example`) — honest-by-default like every connector here: fails
+  OPEN (no protection) until both are set, never silently claims a
+  password wall that isn't configured. The cron and voice-relay routes
+  are exempted (`BYPASS_PREFIXES`) since their callers are machines
+  authenticating with their own bearer secret, not a browser that can do
+  an interactive Basic Auth challenge. Tests in `tests/middleware.test.ts`.
 - Credentials go in `.env.local` (gitignored). NEVER commit keys.
 
 ## Views

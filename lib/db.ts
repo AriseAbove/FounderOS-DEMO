@@ -318,6 +318,12 @@ CREATE TABLE IF NOT EXISTS quickbooks_auth (
   refresh_token_expires_at INTEGER NOT NULL,
   updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS voice_queue (
+  id TEXT PRIMARY KEY,
+  text TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  consumed_at TEXT
+);
 `;
 
 /** Runs a schema-altering statement that only needs to succeed once across
@@ -1216,6 +1222,41 @@ export function openDb(path: string) {
     },
   };
 
+  /** The voice-relay queue behind Zoey's speaker daemon (Sean's local
+   *  ~/.cowork_speaker/speaker_daemon.py). Any session — cloud or on-device
+   *  — enqueues a short reply here; the daemon polls it over the network
+   *  instead of needing a fresh device-folder grant every new session. See
+   *  project_cowork_speaker_voice_system.md in project memory. */
+  const voiceQueue = {
+    enqueue(item: { id: string; text: string; createdAt: string }): void {
+      db.prepare('INSERT INTO voice_queue (id, text, created_at) VALUES (?, ?, ?)').run(
+        item.id,
+        item.text,
+        item.createdAt,
+      );
+    },
+    /** Atomically pops the oldest unconsumed item (FIFO by created_at, id as
+     *  a stable tiebreak) and marks it consumed, so a daemon retry or a
+     *  second poller never speaks the same line twice. Also sweeps consumed
+     *  rows older than 24h so the table never grows unbounded — this is a
+     *  low-volume personal relay, not an audit log. Returns null when empty. */
+    popNext(now: string): { id: string; text: string; createdAt: string } | null {
+      return db.transaction(() => {
+        const row = db
+          .prepare(
+            'SELECT id, text, created_at as createdAt FROM voice_queue WHERE consumed_at IS NULL ORDER BY created_at ASC, id ASC LIMIT 1',
+          )
+          .get() as { id: string; text: string; createdAt: string } | undefined;
+        if (row) {
+          db.prepare('UPDATE voice_queue SET consumed_at = ? WHERE id = ?').run(now, row.id);
+        }
+        const cutoff = new Date(new Date(now).getTime() - 24 * 60 * 60 * 1000).toISOString();
+        db.prepare('DELETE FROM voice_queue WHERE consumed_at IS NOT NULL AND consumed_at < ?').run(cutoff);
+        return row ?? null;
+      })();
+    },
+  };
+
   const funnelClear = {
     /** Drop every funnel row — used by the seed to purge retired demo journeys. */
     clearAll(): void {
@@ -1283,6 +1324,7 @@ export function openDb(path: string) {
     socialPosts,
     funnel: { ...funnel, ...funnelClear },
     seedMeta,
+    voiceQueue,
     people,
     sopTasks,
     workflows,

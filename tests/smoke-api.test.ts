@@ -73,10 +73,15 @@ describe('platform smoke — every GET API route answers 200 with JSON', () => {
     // a slug on disk), so it is not a 200-required smoke route. The QuickBooks
     // OAuth connect/callback routes are redirects by design (302 to Intuit, or
     // back into the app) — not JSON APIs, so the 200+JSON contract doesn't apply.
+    // voice/queue is gated by VOICE_RELAY_SECRET the same way the Chief of
+    // Staff cron route is gated by CRON_SECRET — an unauthenticated GET
+    // should honestly 401/501, not 200, so it's covered by its own
+    // tests/voice-queue-route.test.ts instead of this open-smoke contract.
     const IGNORE = new Set([
       'skills/[slug]',
       'connections/quickbooks/connect',
       'connections/quickbooks/callback',
+      'voice/queue',
     ]);
     const discovered = discoverGetRoutes(path.join(process.cwd(), 'app', 'api')).filter((r) => !IGNORE.has(r)).sort();
     const covered = ROUTES.map((r) => r.route).sort();

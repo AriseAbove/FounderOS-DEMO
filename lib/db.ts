@@ -414,13 +414,30 @@ function rowToAgent(row: AgentRow): Agent {
   });
 }
 
+/** Exported so tests can assert on it directly (openDb doesn't expose the
+ *  raw Database connection, and a fresh connection can't read back another
+ *  connection's pragma setting from the file). See the comment at its call
+ *  site in openDb for why this needs to be generous, not the SQLite
+ *  default of 0. */
+export const BUSY_TIMEOUT_MS = 20000;
+
 export function openDb(path: string) {
   const db = new Database(path);
   // WAL allows concurrent readers, but a second concurrent writer (e.g. two
   // Next.js static-generation workers opening the same on-disk file at
-  // build time) still hits SQLITE_BUSY without this — wait instead of
-  // failing the build immediately.
-  db.pragma('busy_timeout = 5000');
+  // build time, or a build racing the live production process on the same
+  // mounted volume) still hits SQLITE_BUSY without this — wait instead of
+  // failing the build immediately. Bumped 5000 → 20000 after Railway build
+  // failure on the "Docs: document the honest-tools chatTools fix" commit:
+  // it threw `SqliteError: database is locked` (SQLITE_BUSY) right on this
+  // very pragma call, before any seeding/migration code ran — the 5s budget
+  // wasn't enough to outlast a live production write held open at the same
+  // moment. This is the third known instance of build-time SSG contending
+  // with the shared on-disk file (see db-migration-race.test.ts and
+  // db-reseed-race.test.ts for the earlier two); a bigger timeout is the
+  // same "wait it out" fix as those, just applied to the pragma itself
+  // rather than a migration or a reseed.
+  db.pragma(`busy_timeout = ${BUSY_TIMEOUT_MS}`);
   db.pragma('journal_mode = WAL');
   db.exec(DDL);
   migrateAgentsTable(db);

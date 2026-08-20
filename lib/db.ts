@@ -288,6 +288,11 @@ CREATE TABLE IF NOT EXISTS funnel_touches (
   source TEXT NOT NULL,
   at TEXT NOT NULL
 );
+-- 2026-08-20: funnel.journeys() batch-fetches every contact's touches by
+-- contact_id (see below) instead of one query per contact; this index is what
+-- makes that batch fetch (and the old per-row lookup before it) an index seek
+-- instead of a full table scan. Found by today's 3-agent system audit.
+CREATE INDEX IF NOT EXISTS idx_funnel_touches_contact ON funnel_touches (contact_id);
 CREATE TABLE IF NOT EXISTS workflows (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -1200,7 +1205,21 @@ export function openDb(path: string) {
           ? db.prepare('SELECT * FROM funnel_contacts WHERE business = ? ORDER BY created_at DESC, id').all(business)
           : db.prepare('SELECT * FROM funnel_contacts ORDER BY created_at DESC, id').all()
       ) as any[];
-      const touchStmt = db.prepare('SELECT * FROM funnel_touches WHERE contact_id = ? ORDER BY seq');
+      // 2026-08-20: was one SELECT per contact (N+1) even with the index above;
+      // batch-fetch every touch for this page in one query and group in JS.
+      // Found by today's 3-agent system audit.
+      const touchesByContact = new Map<string, any[]>();
+      if (rows.length > 0) {
+        const placeholders = rows.map(() => '?').join(',');
+        const allTouches = db
+          .prepare(`SELECT * FROM funnel_touches WHERE contact_id IN (${placeholders}) ORDER BY contact_id, seq`)
+          .all(...rows.map((r) => r.id)) as any[];
+        for (const t of allTouches) {
+          const bucket = touchesByContact.get(t.contact_id);
+          if (bucket) bucket.push(t);
+          else touchesByContact.set(t.contact_id, [t]);
+        }
+      }
       return rows.map((r) =>
         FunnelJourneySchema.parse({
           id: r.id,
@@ -1218,7 +1237,7 @@ export function openDb(path: string) {
           role: r.role,
           linkedin: r.linkedin,
           createdAt: r.created_at,
-          touches: touchStmt.all(r.id).map(rowToFunnelTouch),
+          touches: (touchesByContact.get(r.id) ?? []).map(rowToFunnelTouch),
         }),
       );
     },

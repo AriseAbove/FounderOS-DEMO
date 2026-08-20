@@ -22,6 +22,7 @@ import {
   BarChart3,
   LayoutGrid,
   Layers,
+  Activity,
 } from 'lucide-react';
 
 export type NavItem = { href: string; label: string; icon: typeof Home };
@@ -55,8 +56,12 @@ export const NAV_AGENTS: NavItem[] = [
   { href: '/org', label: 'Org Chart', icon: Network },
 ];
 
-// The knowledge layer the agents draw on.
-export const NAV_INTELLIGENCE: NavItem[] = [{ href: '/brain', label: 'Knowledge', icon: Brain }];
+// The knowledge layer the agents draw on, plus the AAC Brain's own
+// operational health (a different system — see app/aac-brain/page.tsx).
+export const NAV_INTELLIGENCE: NavItem[] = [
+  { href: '/brain', label: 'Knowledge', icon: Brain },
+  { href: '/aac-brain', label: 'AAC Brain', icon: Activity },
+];
 
 export const NAV_SYSTEM: NavItem[] = [
   { href: '/integrations', label: 'Connections', icon: Plug },

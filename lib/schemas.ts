@@ -86,6 +86,29 @@ export const QuickBooksAuthSchema = z.object({
 });
 export type QuickBooksAuth = z.infer<typeof QuickBooksAuthSchema>;
 
+// AAC Brain health snapshot — one row, keyed 'aac_brain'. Pushed by
+// ~/.aac_brain/stateio.py's heartbeat() on Sean's Mac (the same automation
+// system that drafts lead follow-ups, ASC responses, etc.) via
+// POST /api/aac-brain. This is a different system from this repo's own
+// `/brain` knowledge layer — see app/aac-brain/page.tsx's header comment.
+export const BrainHealthTopFailureSchema = z.object({
+  worker: z.string().min(1),
+  count: z.number().int().nonnegative(),
+  lastFailureAt: z.string().nullable(),
+});
+export const BrainHealthSchema = z.object({
+  id: z.literal('aac_brain'),
+  pendingActions: z.number().int().nonnegative(),
+  failingWorkers: z.number().int().nonnegative(),
+  totalWorkers: z.number().int().nonnegative(),
+  topFailures: z.array(BrainHealthTopFailureSchema),
+  lastDailySummaryDate: z.string().nullable(),
+  reportedAt: z.string(), // ISO — when the Mac gathered the snapshot
+  receivedAt: z.string(), // ISO — when this server ingested it
+});
+export type BrainHealthTopFailure = z.infer<typeof BrainHealthTopFailureSchema>;
+export type BrainHealth = z.infer<typeof BrainHealthSchema>;
+
 export const RoadmapItemSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),

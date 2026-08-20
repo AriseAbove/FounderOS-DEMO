@@ -31,6 +31,7 @@ import {
   SkillSchema,
   ToolSchema,
   QuickBooksAuthSchema,
+  BrainHealthSchema,
   type Agent,
   type AgentCron,
   type AgentMessage,
@@ -64,6 +65,7 @@ import {
   type Skill,
   type Tool,
   type QuickBooksAuth,
+  type BrainHealth,
 } from '@/lib/schemas';
 
 const DDL = `
@@ -323,6 +325,16 @@ CREATE TABLE IF NOT EXISTS voice_queue (
   text TEXT NOT NULL,
   created_at TEXT NOT NULL,
   consumed_at TEXT
+);
+CREATE TABLE IF NOT EXISTS brain_health (
+  id TEXT PRIMARY KEY,
+  pending_actions INTEGER NOT NULL,
+  failing_workers INTEGER NOT NULL,
+  total_workers INTEGER NOT NULL,
+  top_failures TEXT NOT NULL DEFAULT '[]',
+  last_daily_summary_date TEXT,
+  reported_at TEXT NOT NULL,
+  received_at TEXT NOT NULL
 );
 `;
 
@@ -1304,6 +1316,65 @@ export function openDb(path: string) {
     },
   };
 
+  /** Health of the AAC Brain — Sean's separate Mac-based automation system
+      (~/.aac_brain: worker failure tracking, the Phase 9 action-drafting
+      queue). Pushed here by stateio.py's heartbeat(), gated by
+      AAC_BRAIN_SECRET (app/api/aac-brain/route.ts). Single latest-snapshot
+      row, upserted on every push — no fabricated trend line, matches the
+      rest of this repo's honest-status convention. */
+  const brainHealth = {
+    latest(): BrainHealth | null {
+      const row = db.prepare('SELECT * FROM brain_health WHERE id = ?').get('aac_brain') as
+        | {
+            id: string;
+            pending_actions: number;
+            failing_workers: number;
+            total_workers: number;
+            top_failures: string;
+            last_daily_summary_date: string | null;
+            reported_at: string;
+            received_at: string;
+          }
+        | undefined;
+      if (!row) return null;
+      return BrainHealthSchema.parse({
+        id: row.id,
+        pendingActions: row.pending_actions,
+        failingWorkers: row.failing_workers,
+        totalWorkers: row.total_workers,
+        topFailures: JSON.parse(row.top_failures),
+        lastDailySummaryDate: row.last_daily_summary_date,
+        reportedAt: row.reported_at,
+        receivedAt: row.received_at,
+      });
+    },
+    upsert(snapshot: BrainHealth): void {
+      BrainHealthSchema.parse(snapshot);
+      db.prepare(
+        `INSERT INTO brain_health
+           (id, pending_actions, failing_workers, total_workers, top_failures, last_daily_summary_date, reported_at, received_at)
+         VALUES (@id, @pendingActions, @failingWorkers, @totalWorkers, @topFailures, @lastDailySummaryDate, @reportedAt, @receivedAt)
+         ON CONFLICT(id) DO UPDATE SET
+           pending_actions = excluded.pending_actions,
+           failing_workers = excluded.failing_workers,
+           total_workers = excluded.total_workers,
+           top_failures = excluded.top_failures,
+           last_daily_summary_date = excluded.last_daily_summary_date,
+           reported_at = excluded.reported_at,
+           received_at = excluded.received_at`,
+      ).run({
+        id: snapshot.id,
+        pendingActions: snapshot.pendingActions,
+        failingWorkers: snapshot.failingWorkers,
+        totalWorkers: snapshot.totalWorkers,
+        topFailures: JSON.stringify(snapshot.topFailures),
+        lastDailySummaryDate: snapshot.lastDailySummaryDate,
+        reportedAt: snapshot.reportedAt,
+        receivedAt: snapshot.receivedAt,
+      });
+    },
+  };
+
   return {
     departments,
     agents,
@@ -1330,6 +1401,7 @@ export function openDb(path: string) {
     workflows,
     skills,
     quickbooksAuth,
+    brainHealth,
     /** Runs `fn` inside a single SQLite transaction. Used to wrap the whole
         reseed (lib/seed.ts's seedDatabase) as one atomic write instead of
         dozens of separate auto-committed statements — see

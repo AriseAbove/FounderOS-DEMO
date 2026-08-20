@@ -1,11 +1,19 @@
 import { NextResponse } from 'next/server';
-import path from 'node:path';
 import { z } from 'zod';
 import { KEY_SLOTS, listKeyStatuses, upsertEnvLocal } from '@/lib/keys';
+import { envLocalPath } from '@/lib/creds';
 
 export const dynamic = 'force-dynamic';
 
-const ENV_LOCAL = path.join(process.cwd(), '.env.local');
+// 2026-08-20: was a hardcoded process.cwd()/.env.local here, independent of
+// lib/creds.ts's envLocalPath() (which honors the FOUNDER_OS_ENV_LOCAL override
+// used to point at Railway's mounted volume). That meant this route could never
+// be redirected off the container's ephemeral filesystem even after the env var
+// was set -- keys saved here would silently vanish on every redeploy. Found by
+// today's 3-agent system audit; still needs FOUNDER_OS_ENV_LOCAL actually set on
+// Railway (pointing inside the mounted volume, alongside FOUNDER_OS_DB) for this
+// fix to take effect in production.
+const ENV_LOCAL = envLocalPath();
 
 export async function GET() {
   // masked statuses only — raw values never cross this boundary

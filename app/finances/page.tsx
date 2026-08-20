@@ -58,9 +58,12 @@ export default async function FinancesPage() {
   let ledgerMonth: string | null = null;
   try {
     const ledger = openLedger();
-    ledgerSpend = ledger.monthly();
-    ledgerMonth = ledger.latestMonth();
-    ledger.close();
+    try {
+      ledgerSpend = ledger.monthly();
+      ledgerMonth = ledger.latestMonth();
+    } finally {
+      ledger.close();
+    }
   } catch {
     ledgerSpend = [];
   }
@@ -69,8 +72,11 @@ export default async function FinancesPage() {
   let bankSeries: ReturnType<typeof businessSeries> = [];
   try {
     const bank = openBankStore();
-    bankSeries = businessSeries(bank.all());
-    bank.close();
+    try {
+      bankSeries = businessSeries(bank.all());
+    } finally {
+      bank.close();
+    }
   } catch {
     bankSeries = [];
   }

@@ -1,0 +1,8 @@
+# Railway build config. Nixpacks auto-detects Node from package.json, but does not
+# install system (apt) packages a Node app might shell out to. Added 2026-08-20:
+# app/api/finances/bank-statement/route.ts shells out to `pdftotext` (poppler) to
+# extract text from uploaded bank-statement PDFs -- without this, the route only
+# has macOS Homebrew fallback paths and 500s with "pdftotext not installed" on
+# Railway's Linux container. See /home/claude/arise-os CLAUDE.md changelog.
+[phases.setup]
+aptPkgs = ["poppler-utils"]

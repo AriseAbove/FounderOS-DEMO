@@ -64,6 +64,41 @@ function HealthMeter({ value }: { value: number | null }) {
   );
 }
 
+/** AAC Brain status card — a separate system (Sean's Mac, ~/.aac_brain)
+    pushing its own health, not one of this repo's own connectors/agents, so
+    it gets its own card rather than a 5th slot in the frozen Pulse row. */
+function BrainHealthTile({
+  snapshot,
+  stale,
+}: {
+  snapshot: { pendingActions: number; failingWorkers: number; totalWorkers: number; reportedAt: string } | null;
+  stale: boolean;
+}) {
+  const state = !snapshot ? 'not_configured' : stale ? 'warn' : snapshot.failingWorkers > 0 ? 'warn' : 'ok';
+  return (
+    <Link
+      href="/aac-brain"
+      className="hoverable group flex items-center justify-between gap-4 rounded-lg-t border border-os-border bg-os-surface px-[18px] py-3.5"
+    >
+      <div className="flex items-center gap-3">
+        <Dot state={state} pulse={state === 'ok'} />
+        <div>
+          <div className="font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-os-dim">AAC Brain</div>
+          <div className="font-mono text-[12px] text-os-muted">
+            {snapshot
+              ? `${snapshot.pendingActions} pending action${snapshot.pendingActions === 1 ? '' : 's'} · ${snapshot.failingWorkers}/${snapshot.totalWorkers} workers failing${stale ? ' · stale' : ''}`
+              : 'never reported — set AAC_BRAIN_SECRET to connect'}
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 font-mono text-[10.5px] text-os-dim">
+        {snapshot && relativeTime(snapshot.reportedAt)}
+        <ArrowUpRight className="h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
+      </div>
+    </Link>
+  );
+}
+
 function greeting(): string {
   const hour = new Date().getHours();
   if (hour < 5) return 'Late night';
@@ -178,6 +213,14 @@ export default async function HomePage() {
     color: PLATFORM_COLORS[s.key as SocialPlatform],
   }));
 
+  // The AAC Brain is a separate system (Sean's Mac, ~/.aac_brain) that
+  // pushes its own health here — see app/aac-brain/page.tsx's header
+  // comment for why it's distinct from this repo's /brain knowledge layer.
+  const brainHealth = db.brainHealth.latest();
+  const brainHealthStale = brainHealth
+    ? Date.now() - new Date(brainHealth.reportedAt).getTime() > 12 * 60 * 60 * 1000
+    : false;
+
   const roadmapItems = db.roadmap.all();
   const buildPlan = roadmapProgress(roadmapItems);
   const waitingOnYou = splitRoadmap(roadmapItems).waiting.slice(0, 5);
@@ -245,6 +288,11 @@ export default async function HomePage() {
           valueClass="text-os-accent"
           foot={<HealthMeter value={health ?? null} />}
         />
+      </section>
+
+      {/* AAC Brain — a separate Mac-based automation system, own status card */}
+      <section className="mb-[18px]">
+        <BrainHealthTile snapshot={brainHealth} stale={brainHealthStale} />
       </section>
 
       {/* Live ticker */}

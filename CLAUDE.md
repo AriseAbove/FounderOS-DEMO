@@ -120,6 +120,20 @@ pre-wired to any one machine.
   `VOICE_RELAY_SECRET`, same pattern as the Chief of Staff cron's
   `CRON_SECRET`. Consumed rows older than 24h are swept on every `popNext`
   so the table stays small.
+- `app/api/aac-brain` (`lib/db.ts`'s `brainHealth` repo, `brain_health`
+  table) — the health relay for the AAC Brain, Sean's SEPARATE Mac-based
+  automation system (`~/.aac_brain`: lead-followup/ASC-response drafting,
+  the Phase 9 action queue, worker-failure tracking). Not the same thing as
+  this repo's own `/brain` knowledge layer above — the names collide, the
+  concepts don't (see `app/aac-brain/page.tsx`'s header comment). Data
+  arrives by push, not pull: `~/.aac_brain/stateio.py`'s `heartbeat()` POSTs
+  a snapshot here every time it already pings its Healthchecks canary
+  (`brain_health_push.py` on the Mac gathers `worker_failures.json` +
+  `ACTION_QUEUE.json` + `.last_daily_summary`). Gated by `AAC_BRAIN_SECRET`,
+  same pattern as `VOICE_RELAY_SECRET`. The dashboard tile (`app/page.tsx`)
+  and `/aac-brain` detail page both read `getDb().brainHealth.latest()`
+  directly — single latest-snapshot row, upserted per push, no fabricated
+  trend line. 2026-08-20.
 - `middleware.ts` — the app-wide login wall, added 2026-08-15 after a
   security review found that of the ~40 routes under `app/api`, only the
   cron and voice-relay routes checked anything at all; every other page
@@ -141,7 +155,8 @@ pre-wired to any one machine.
 AAC pipeline (flow + radial views) · `/finances` QuickBooks + statement
 uploads · `/agents` roster with Run buttons · `/org` hierarchy board with the
 business lens (markup frozen — do not restructure) · `/brain` knowledge layer ·
-`/roadmap` the real rebuild roadmap · `/analytics` real connector numbers ·
+`/aac-brain` the AAC Brain's own operational health (Sean's Mac automation —
+distinct from `/brain` above) · `/roadmap` the real rebuild roadmap · `/analytics` real connector numbers ·
 `/reference` reference model · `/integrations` connections board ·
 `/workflows` `/tasks` `/skills` supporting views. `/social`, `/content`,
 `/personas` surfaced into their own "Marketing" nav group (`NAV_MARKETING` in

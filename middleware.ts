@@ -14,18 +14,18 @@ import type { NextRequest } from 'next/server';
 // of the entire app, so "the URL is public" stops being "the data is
 // public."
 //
-// The two routes above keep their own bearer-token auth instead of this
+// The routes above keep their own bearer-token auth instead of this
 // Basic Auth wall, because their callers are machines (GitHub Actions'
-// scheduled cron, and Sean's Mac speaker daemon polling over HTTPS) that
-// can't do an interactive Basic Auth challenge — they send
-// `Authorization: Bearer <secret>` directly, which this middleware would
-// otherwise reject as "not Basic".
+// scheduled cron, Sean's Mac speaker daemon, and Sean's Mac AAC Brain
+// heartbeat, all polling/posting over HTTPS) that can't do an interactive
+// Basic Auth challenge — they send `Authorization: Bearer <secret>`
+// directly, which this middleware would otherwise reject as "not Basic".
 //
 // Honest-by-default here too: if APP_BASIC_AUTH_USER/PASS aren't set, this
 // fails OPEN (matches every other connector's ConnectorStatus pattern in
 // this repo — never silently claim protection that isn't configured yet).
 // Once both are set, every other route requires them.
-const BYPASS_PREFIXES = ['/api/cron/chief-of-staff', '/api/voice/queue'];
+const BYPASS_PREFIXES = ['/api/cron/chief-of-staff', '/api/voice/queue', '/api/aac-brain'];
 
 export function middleware(req: NextRequest): NextResponse {
   const { pathname } = req.nextUrl;

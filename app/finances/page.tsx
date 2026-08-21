@@ -7,6 +7,7 @@ import {
   companyName as qboCompanyName,
 } from '@/lib/connectors/quickbooks';
 import { getDb } from '@/lib/data';
+import { runtimeEnv } from '@/lib/creds';
 import { net, resolveExpenseCategories } from '@/lib/finances';
 import { openLedger } from '@/lib/ledger';
 import { openBankStore } from '@/lib/bank';
@@ -35,7 +36,23 @@ export default async function FinancesPage() {
   // QuickBooks — AAC's real books. Client keys configured is not the same as
   // authorized: only an authorized grant (stored via the OAuth callback)
   // pulls real numbers, so an unauthorized-but-keyed app still reads pending.
-  const qboKeyed = qboConfigured(process.env);
+  //
+  // Every QBO call below MUST be handed `env` (process.env + a fresh
+  // .env.local overlay, from lib/creds.ts's runtimeEnv()) — never bare
+  // process.env, and never the connector functions' own `= process.env`
+  // default. .env.local is where the /integrations connect/rotate flow (and
+  // production's FOUNDER_OS_ENV_LOCAL-backed volume file) actually writes
+  // rotated QuickBooks credentials; every other real QBO consumer
+  // (lib/connectors/index.ts's quickbooksStatus, lib/agents/real.ts's
+  // quickbooks-pulse agent and Chief of Staff) already passes runtimeEnv()
+  // for exactly this reason. Before this fix this page called every one of
+  // these with bare process.env (or no argument at all, defaulting to bare
+  // process.env inside the connector module), so /finances could show
+  // "RECONNECT NEEDED" while /api/connections and every other QBO consumer
+  // on the same request correctly reported connected (2026-08-21 fix; see
+  // CLAUDE.md and the regression test in tests/finances-page.test.ts).
+  const env = runtimeEnv();
+  const qboKeyed = qboConfigured(env);
   const qboAuthorized = qboKeyed && getDb().quickbooksAuth.get() !== null;
   let qboName: string | null = null;
   let qboIncome: number | null = null;
@@ -43,10 +60,10 @@ export default async function FinancesPage() {
   let qboExpenseCategories: Awaited<ReturnType<typeof qboMonthToDateExpensesByCategory>> = null;
   if (qboAuthorized) {
     [qboName, qboIncome, qboAr, qboExpenseCategories] = await Promise.all([
-      qboCompanyName().catch(() => null),
-      qboMonthToDateIncome().catch(() => null),
-      qboOpenInvoices().catch(() => null),
-      qboMonthToDateExpensesByCategory().catch(() => null),
+      qboCompanyName(env).catch(() => null),
+      qboMonthToDateIncome(env).catch(() => null),
+      qboOpenInvoices(env).catch(() => null),
+      qboMonthToDateExpensesByCategory(env).catch(() => null),
     ]);
   }
   const qboConnected = qboAuthorized && qboName !== null;

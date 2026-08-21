@@ -71,6 +71,25 @@ volume** — the container filesystem is ephemeral and silently drops the DB
 (including stored OAuth tokens) on every redeploy. Mount a volume (e.g.
 `/data`) and set `FOUNDER_OS_DB=/data/founder-os.db`.
 
+Two more files carry the same ephemeral-filesystem risk and need the same
+mounted-volume treatment — both already read their env var override the
+moment it's set, nothing else to wire up:
+
+- **`LEDGER_DB`** — the separate statement-ledger store (`lib/ledger.ts`)
+  holding every row imported from a `/finances` bank/CC statement upload.
+  Unset, it defaults to `./data/ledger.db` on the container's ephemeral
+  disk — a real production data-loss risk, since that's uploaded financial
+  data with no other copy. Set `LEDGER_DB=/data/ledger.db`.
+- **`FOUNDER_OS_ENV_LOCAL`** — the path to the `.env.local` credential
+  overlay (`lib/creds.ts`) that `/integrations`' connect flow and QuickBooks
+  token rotation write to live. Unset, it defaults to `./.env.local` next to
+  the app code — also on ephemeral disk, so a rotated QuickBooks token or a
+  freshly-pasted API key would silently vanish on the next redeploy. Set
+  `FOUNDER_OS_ENV_LOCAL=/data/.env.local`.
+
+All three (`FOUNDER_OS_DB`, `LEDGER_DB`, `FOUNDER_OS_ENV_LOCAL`) can point at
+the same mounted volume, in different files.
+
 ## Notes
 
 - The funnel has two real pipelines, not one: AAC's sales pipeline (inquiry →

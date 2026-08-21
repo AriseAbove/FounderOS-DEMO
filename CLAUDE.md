@@ -750,6 +750,166 @@ pre-wired to any one machine.
      page. Tests: `tests/agent-run-button.test.ts`,
      `tests/conductor-broadcast-warning.test.ts`,
      `tests/task-board-honesty.test.ts`.
+- **Two undocumented Railway data-loss risks closed, plus ntfy config made
+  visible on `/integrations` (2026-08-21 fix).** A production review of
+  Railway's ephemeral-container-filesystem risk — the same class of bug
+  `FOUNDER_OS_DB` was fixed for — found two more files with the exact same
+  exposure, neither one documented anywhere a Railway operator would look.
+  (1) `lib/ledger.ts`'s statement ledger (`data/ledger.db` by default) holds
+  every row imported from a `/finances` bank/CC statement upload — real
+  financial data with no second copy anywhere. The code already read
+  `process.env.LEDGER_DB` correctly (`const DEFAULT_PATH = process.env.
+  LEDGER_DB ?? path.join(process.cwd(), 'data', 'ledger.db')`, same shape as
+  `lib/data.ts`'s `FOUNDER_OS_DB` line), but `.env.example` and `README.md`
+  never mentioned `LEDGER_DB` at all — so nothing prompted whoever manages
+  Railway's env vars to actually point it at the mounted volume, and every
+  uploaded statement would silently vanish on the next redeploy. (2)
+  `lib/creds.ts`'s `.env.local` overlay — where `/integrations`' connect
+  flow and QuickBooks token rotation actually write live credentials
+  (`envLocalPath()`) — already supported a `FOUNDER_OS_ENV_LOCAL` override
+  for exactly this reason (tests already exercised it), but that env var was
+  likewise absent from `.env.example` and `README.md`, so a freshly-rotated
+  QuickBooks refresh token or a just-pasted API key written through
+  `/integrations` in production would be wiped the moment the container
+  redeployed. Both were real fixes waiting on documentation, not code —
+  fixed by adding both to `.env.example` in the same style as the existing
+  `FOUNDER_OS_DB` entry (including the "point at the Railway mounted volume
+  in production" comment) and adding a "Deploying to Railway" paragraph to
+  `README.md` naming both vars, what each protects, and their default
+  (unset) fallback path. Regression test added in `tests/ledger.test.ts`
+  (`vi.resetModules()` + a fresh dynamic import, since `DEFAULT_PATH` is
+  computed once at module load — unlike `FOUNDER_OS_DB`'s lazy per-call read
+  in `getDb()`) pins that `openLedger()` with no argument actually honors
+  `LEDGER_DB` when set, so this can't silently regress back to only working
+  by coincidence of import order. Separately: `lib/keys.ts`'s `KEY_SLOTS` —
+  the list that drives which credentials are visible/editable on
+  `/integrations` — was missing `NTFY_TOPIC` and `NTFY_URL` entirely, even
+  though `.env.example` already documented both as real Chief-of-Staff push
+  config (`lib/chief-of-staff.ts`'s `sendNtfyPush` reads them) and every
+  other real credential (QuickBooks, Allo, the knowledge store) had a slot.
+  Practical effect: Sean had no way to see whether his ntfy topic was set or
+  change it himself from the dashboard — only someone SSHed into Railway's
+  env vars could. Fixed by adding both as plain string slots (same pattern
+  as `ALLO_API_KEY` — no OAuth flow involved), under a new "Chief of Staff"
+  group, with hints pointing at `sendNtfyPush` and noting `NTFY_URL` is
+  optional (defaults to `https://ntfy.sh`, only needed when self-hosting).
+- **`/workflows` seeded with AAC's first six real processes (2026-08-21).**
+  `lib/seed.ts`'s `workflows` array had shipped empty since the original
+  purge (the previous build's invented "revenue machine" numbers were ripped
+  out entirely rather than backfilled) — `/workflows` rendered nothing but
+  its honest empty-state explainer. It now carries six of Sean's actual,
+  documented AAC processes, mapped step by step: the FHA 203(k) draw request
+  (milestone → HUD consultant inspection → lender release in 3–5 business
+  days → pay subs, with the "subs never get ahead of draws" rule carried in
+  the subtitle), the standard 14-week full-renovation trade sequence (demo
+  through final punch, all 14 weeks present, including the real countertop
+  measure → 7–10 day lead time → install gap as its own edge label), the
+  permit application process (confirm-required → submit via the correct
+  jurisdiction's system, with Detroit ProjectDox's 3–6 week wait and the
+  faster suburban jurisdictions' real ranges attached — never start
+  permitted work before approval, no exceptions), the post-walkthrough
+  review-request follow-up (fires within 48 hours, personalized, with a
+  direct Google review link), the Day-1 project kickoff checklist (30%
+  deposit through the filed contract), and the lead follow-up cadence (24
+  business hour callback through the 3/7/14-day touches to a 21-day stale
+  archive). Every step's real detail — title, owner, sequence, jurisdiction
+  wait times, lead times — came straight from the documented process; none
+  of it was invented. What the `WorkflowSchema` requires but nothing in
+  those docs specifies — `revenueUsd`, each step's `hoursPerWeek`, `leakUsd`,
+  and `automation` — stays an honest `0`/`null` across all six rather than a
+  plausible-sounding guess, matching this repo's standing HONESTY rule
+  (empty/zero over invented). Two new tool ids needed real brand entries to
+  render on the map: `quickbooks`, `phone`, and `projectdox` (HUD's Detroit
+  permitting portal) had no simple-icons match, so they're intentional
+  lettermark tiles now (`lib/brand-logos.tsx`'s `LETTERMARK`); the review
+  step's `google-reviews` tool reuses the existing `googlebusiness`
+  lettermark rather than inventing a new one. All four are wired through
+  `lib/workflow-tool-brands.ts`'s `TOOL_BRANDS`, enforced by the existing
+  `tests/workflow-tool-brands.test.ts` (that test already loops over every
+  tool id any seeded workflow actually uses — no change needed there beyond
+  the new brand entries resolving). `SEED_VERSION` bumped to
+  `2026-08-21-aac-workflows` so a database seeded before this ships picks
+  the six processes up on next touch. New tests in
+  `tests/workflow-seed.test.ts` pin the six real workflows by id, assert the
+  documented detail (jurisdiction wait times, the countertop lead time, the
+  24h/3d/7d/14d/21d follow-up cadence, all 14 renovation weeks) survived
+  intact, assert no dollar/hours figure was invented anywhere in the seed,
+  and cover the same re-seed idempotency/purge contract `tests/seed.test.ts`
+  already holds departments and agents to.
+- **The business lens didn't reach `/finances`, `/funnel`, or `/workflows`
+  (2026-08-21 fix).** An audit confirmed `/org` and `app/layout.tsx` both
+  read the Topbar's shared AAC/Apps/Combined cookie
+  (`lib/business-filter.ts`'s `resolveBusinessFilter` +
+  `lib/business-filter-server.ts`'s `readBusinessFilterCookie`) correctly —
+  but three other business-relevant pages each had their own disconnected
+  story:
+  1. **`/funnel` had its own `?business=` query param with no cookie
+     fallback at all** — a completely separate, parallel toggle from the
+     Topbar. With no `?business=` in the URL the page always hardcoded the
+     "All clients" tab, so switching the Topbar's AAC/Apps/Combined selector
+     while already sitting on `/funnel` did nothing observable; only a
+     direct link carrying `?business=aac`/`apps` ever changed what
+     rendered. Fixed by falling back to the shared cookie exactly when the
+     query param is genuinely absent (`businessParam === undefined`) —
+     an explicit `?business=` (even a bogus one) still wins outright, so
+     every existing bookmark/deep-link keeps working unchanged, and the
+     "All clients" default is preserved whenever the cookie itself reads
+     `'all'`.
+  2. **`/finances` never read the cookie at all.** QuickBooks' MTD income/
+     expenses/net/open-invoices, the AR-aging + invoice-chase section, and
+     the uploaded-statement ledger fallback rendered identically regardless
+     of which business was selected — even though every one of those
+     sources is genuinely AAC-only (QuickBooks is AAC's real, confirmed
+     books; `lib/businesses.ts`'s Apps `focus` list already says plainly
+     "no dedicated crew yet," and the ledger has no per-business column of
+     its own — see `lib/ledger.ts`). The page now computes
+     `showAacBooks = businessFilter !== 'apps'` from the shared cookie (same
+     `?business=` override + cookie-fallback pattern as `/org`) and gates
+     the live QuickBooks fetch, the AR-aging section, and the uploaded-
+     ledger read behind it — Combined and AAC both render exactly the real
+     numbers they did before this fix; Apps now renders an honest "nothing
+     connected for this business yet" notice in place of the QuickBooks
+     summary and the expense-category chart, instead of quietly showing
+     AAC's real books under an Apps label. The statement-upload form is
+     hidden under the Apps filter too, specifically so a statement never
+     lands in the one shared ledger table mislabeled as Apps' spend. The
+     pre-existing per-business bank-income chart further down the page
+     (Vantage / General Operations — the literal account name on each
+     uploaded bank statement) is a different, older "business" concept than
+     the AAC/Apps taxonomy and stays unscoped by this filter on purpose:
+     nothing in the codebase maps a bank account name to `aac`/`apps`, and
+     inventing that mapping would violate HONESTY.
+  3. **`/workflows` had no business dimension in its schema at all** — a
+     `Workflow` couldn't be tagged AAC, Apps, or shared, so the page had
+     nothing to scope against the Topbar even in principle (invisible today
+     only because `lib/seed.ts`'s `workflows` array has shipped empty since
+     the original purge — no invented workflow ever backfilled the gap).
+     `WorkflowBusinessSchema` (`lib/schemas.ts`) adds `'aac' | 'apps' |
+     'shared'` and `WorkflowSchema` now requires it — 'shared' exists
+     because a workflow, unlike a funnel journey, can genuinely be a
+     cross-cutting process serving both businesses at once. `lib/db.ts`'s
+     `workflows` table gained a `business TEXT NOT NULL DEFAULT 'shared'`
+     column (`migrateWorkflowsTable`, same `safeAlter` pattern as every
+     other retrofit column here) — a pre-fix on-disk row with no recorded
+     business either way backfills to `'shared'`, the one value that never
+     hides a real existing workflow from any filter. `lib/workflow-stats.ts`
+     gained the pure `workflowsForBusiness()` (mirrors `stagesFor()` in
+     `lib/funnel.ts` — a small testable function the page reads rather than
+     inlining the filter), and `app/workflows/page.tsx` now resolves the
+     same cookie-or-query-param business filter and passes the scoped list
+     to `WorkflowMap`. `WorkflowMap.tsx` shows a small AAC/Apps/shared dot on
+     each workflow's selector button and, when the filter narrows the list
+     to zero while real workflows exist for the other business, says so
+     honestly ("no workflows tagged for this business") instead of
+     rendering the original "nothing mapped yet, ever" empty state.
+  Every page still defaults to Combined (both businesses) exactly as
+  before this fix; only the AAC-only and Apps-only selections are newly
+  scoped. Tests: `tests/funnel-page.test.ts`, `tests/finances-page.test.ts`,
+  `tests/schemas.test.ts` (`WorkflowBusinessSchema`/`WorkflowSchema`),
+  `tests/db.test.ts` (workflows round-trip + the pre-fix-schema migration
+  path), `tests/workflow-stats.test.ts` (`workflowsForBusiness`), and
+  `tests/smoke.test.ts` (both pages now render under an explicit
+  `?business=` prop the same way `/org`/`/funnel` already did).
 - Credentials go in `.env.local` (gitignored). NEVER commit keys.
 
 ## Views

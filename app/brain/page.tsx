@@ -127,6 +127,7 @@ export default async function BrainPage() {
   const { store, doctor } = overview;
   const db = getDb();
   const knowledgeGraph = buildKnowledgeGraph(db.agents.all(), db.departments.all(), db.people.all(), db.sopTasks.all());
+  const realPeopleCount = knowledgeGraph.nodes.filter((n) => n.kind === 'person').length;
   const maxFiles = Math.max(1, ...store.folders.map((f) => f.files));
   const clusters = foldersToClusters(store.folders);
   const storeShort = store.path ? store.path.replace(process.env.HOME ?? '', '~') : 'BRAIN_STORE not set';
@@ -145,7 +146,10 @@ export default async function BrainPage() {
   const layers: { name: string; sub: string; val: string; state: string }[] = [
     {
       name: 'Markdown store',
-      sub: `${storeShort} · source of truth on disk`,
+      sub:
+        store.totalFiles > 0
+          ? `${storeShort} · ${store.generatedFiles} system-generated, ${store.handWrittenFiles} hand-written`
+          : `${storeShort} · source of truth on disk`,
       val: store.totalFiles > 0 ? `${store.totalFiles} pages` : 'not configured',
       state: store.totalFiles > 0 ? 'connected' : 'available',
     },
@@ -171,6 +175,14 @@ export default async function BrainPage() {
 
       <section className="mt-5">
         <SectionHead label="Knowledge graph" count={`${knowledgeGraph.nodes.length} nodes`} />
+        <p className="mb-3 max-w-[760px] text-[11px] leading-relaxed text-os-dim">
+          This graph is the operating model describing itself — teams, SOP tasks, the AI agents and tools
+          that run them — not a set of notes. {realPeopleCount > 0
+            ? `${realPeopleCount} of these nodes are real people beyond the operator at the core.`
+            : 'None of these nodes are real people yet (no one is seeded in the people roster) — every worker shown today is an AI agent.'}{' '}
+          Actual captured knowledge — hand-written notes vs. this OS&apos;s own auto-generated reference
+          docs — is broken out honestly in the pipeline below.
+        </p>
         <BrainGraphView
           graph={knowledgeGraph}
           agents={db.agents.all()}
@@ -272,6 +284,19 @@ export default async function BrainPage() {
               the source of truth. Point <code className="font-mono text-[11px]">BRAIN_STORE</code> at any folder of
               markdown and it appears here.
             </div>
+            {store.totalFiles > 0 && (
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10.5px]">
+                <span className="flex items-center gap-1.5 text-os-dim">
+                  <span className="h-1.5 w-1.5 rounded-full bg-os-dim" />
+                  {store.generatedFiles} system-generated (from{' '}
+                  <code className="font-mono text-[10px]">npm run brain:docs</code>)
+                </span>
+                <span className="flex items-center gap-1.5 text-os-accent">
+                  <span className="h-1.5 w-1.5 rounded-full bg-os-accent" />
+                  {store.handWrittenFiles} hand-written note{store.handWrittenFiles === 1 ? '' : 's'}
+                </span>
+              </div>
+            )}
             <ul className="mt-3 space-y-1.5">
               {store.folders.map((folder) => (
                 <li key={folder.name} className="flex items-center gap-2">

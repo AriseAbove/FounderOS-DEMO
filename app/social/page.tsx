@@ -8,11 +8,14 @@ import {
   buildSocialDashboard,
   dmGrowth,
   dmThreads,
+  publishedPostDays,
+  recentLivePosts,
   socialSourceBadge,
   totalDms,
   PLATFORM_LABELS,
 } from '@/lib/social';
 import { oneupStatus } from '@/lib/connectors/oneup';
+import { fetchOneUpFailedPosts } from '@/lib/social-oneup';
 import { runtimeEnv } from '@/lib/creds';
 import type { SocialPlatform } from '@/lib/schemas';
 import { PageHeader } from '@/components/PageHeader';
@@ -76,23 +79,33 @@ export default async function SocialPage() {
   const db = getDb();
   // Honest badge: reads the real OneUp connector state (same check
   // /integrations and Home use via allConnectorStatuses()) so this page can
-  // never claim "no posting source" once ONEUP_API_KEY is actually set. The
-  // follower/reach/post figures below are still DB-only — no OneUp account
-  // or post-history sync is wired yet, so they stay honestly empty even once
-  // connected; the badge below says so explicitly instead of overclaiming.
+  // never claim "no posting source" once ONEUP_API_KEY is actually set.
   const oneup = await oneupStatus(runtimeEnv());
   const badge = socialSourceBadge(oneup);
   const dash = buildSocialDashboard(db);
   const posts = db.socialPosts.all();
-  const livePosts: { platform: string; publishedAt: string; caption: string; status: string; url: string | null }[] = [];
-  const recentLive = false;
+  // Real published-post rows (lib/social.ts) — before 2026-08-21 these were
+  // hardcoded to [] / false regardless of real data, so the moment Social
+  // Pulse actually published something /content correctly counted it while
+  // this page kept claiming no post history had ever synced. See
+  // lib/social.ts's recentLivePosts/publishedPostDays header comment.
+  const livePosts = recentLivePosts(posts);
+  const recentLive = livePosts.length > 0;
+  const failedLocalPosts = posts.filter((p) => p.status === 'failed');
+  // Real fail_reason detail straight from OneUp's own /getfailedposts feed —
+  // the only place that survives once the triggering agent run finishes
+  // (AgentRunSchema doesn't persist the run's per-post `data`, only its
+  // summary string). Never throws: an unreachable/erroring check surfaces as
+  // an honest inline message instead of hiding the section. See
+  // lib/social-oneup.ts's fetchOneUpFailedPosts.
+  const failedRemote = oneup.state === 'connected' ? await fetchOneUpFailedPosts(runtimeEnv()) : null;
 
   const total = audienceTotal(db);
   const queued = posts.filter((p) => p.status === 'queued').length;
   const dmInbox = dmThreads(db); // DM inbox — empty until a DM source is wired
 
   const audiencePoints = audienceSeries(db).all.points;
-  const postDays: import("@/lib/posting-activity").PostDay[] = [];
+  const postDays = publishedPostDays(posts);
   const today = new Date().toISOString().slice(0, 10);
 
   return (
@@ -208,6 +221,53 @@ export default async function SocialPage() {
           </p>
         )}
       </section>
+
+      {/* Failed — a post that didn't go out used to vanish once
+          status flipped to 'failed', with no trace beyond a truncated
+          one-line summary on /agents. Two real sources, never a guess:
+          our own queue's 'failed' rows, and OneUp's own /getfailedposts
+          feed (real fail_reason — see lib/social-oneup.ts's
+          fetchOneUpFailedPosts). Renders only when there's something to
+          show or a real check failed — no empty section clutter. */}
+      {(failedLocalPosts.length > 0 || (failedRemote && (!failedRemote.ok || failedRemote.posts.length > 0))) && (
+        <section className="mb-6">
+          <SectionHead
+            label="Failed"
+            count={`${failedLocalPosts.length + (failedRemote?.ok ? failedRemote.posts.length : 0)}`}
+          />
+          <div className="flex flex-col gap-2">
+            {failedLocalPosts.map((p) => (
+              <div key={p.id} className="rounded-lg-t border border-os-err/40 bg-os-surface px-3.5 py-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate font-mono text-[10px] uppercase tracking-[0.1em] text-os-err">
+                    {p.platforms.map(platformLabel).join(', ')}
+                  </span>
+                  <Badge tone="err">failed to publish</Badge>
+                </div>
+                <p className="mt-1.5 line-clamp-2 text-[12px] text-os-text">{p.caption}</p>
+              </div>
+            ))}
+            {failedRemote?.ok &&
+              failedRemote.posts.map((fp, i) => (
+                <div key={`oneup-${fp.postId || i}`} className="rounded-lg-t border border-os-err/40 bg-os-surface px-3.5 py-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate font-mono text-[10px] uppercase tracking-[0.1em] text-os-err">
+                      {fp.socialNetworkUsername ?? 'OneUp'}
+                    </span>
+                    <Badge tone="err">rejected by OneUp</Badge>
+                  </div>
+                  <p className="mt-1.5 line-clamp-2 text-[12px] text-os-text">{fp.content}</p>
+                  {fp.failReason && <p className="mt-1 font-mono text-[10.5px] text-os-dim">{fp.failReason}</p>}
+                </div>
+              ))}
+            {failedRemote && !failedRemote.ok && (
+              <p className="font-mono text-[10.5px] text-os-dim">
+                Couldn&apos;t check OneUp for failed posts: {failedRemote.error}
+              </p>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Publish — compose a post that queues for the Social agent */}
       <section className="mt-10">

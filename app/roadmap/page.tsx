@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { getDb } from '@/lib/data';
 import { splitRoadmap, roadmapProgress } from '@/lib/roadmap';
 import { PageHeader } from '@/components/PageHeader';
@@ -25,11 +26,25 @@ export default function RoadmapPage() {
 
   return (
     <div>
-      <PageHeader eyebrow="build plan" title="Roadmap" />
+      <PageHeader eyebrow="rebuild roadmap" title="Roadmap" />
 
+      {/* Scope, stated plainly: this is the rebuild milestone checklist (Phase
+          0 through the Apps-funnel decision), a fixed list Sean and agents
+          curate by hand — not a live readout of connector/credential health,
+          which changes day to day and lives on /integrations instead. Before
+          this line existed, "12/12 · 100% shipped · Nothing waiting on you"
+          read as a claim about the whole app (nothing needs Sean anywhere),
+          when it only ever covered this specific, already-finished checklist
+          — a real connector sitting "not configured" on /integrations right
+          now doesn't contradict a 100% *here*. */}
       <p className="-mt-3 mb-8 max-w-[64ch] text-[12.5px] leading-relaxed text-os-muted [text-wrap:pretty]">
-        No quarters, no queue — every line below is either shipped or blocked on one specific thing only Sean can
-        do: a credential, an OAuth grant, or a decision. Nothing here is agent time being held back.
+        No quarters, no queue — every rebuild milestone below is either shipped or was blocked on one specific
+        thing only Sean could do: a credential, an OAuth grant, or a decision. This tracks the rebuild plan itself,
+        not live connector or credential status — that changes day to day and lives on{' '}
+        <Link href="/integrations" className="text-os-accent underline-offset-2 hover:underline">
+          /integrations
+        </Link>{' '}
+        instead.
       </p>
 
       {/* High-level functionality phases */}
@@ -57,10 +72,15 @@ export default function RoadmapPage() {
 
       {/* Waiting on you — the whole open list, one flat priority order, no scheduling */}
       <section className="mb-9">
-        <SectionHead label="Waiting on you" count={waiting.length} />
+        <SectionHead label="Waiting on you (rebuild plan)" count={waiting.length} />
         {waiting.length === 0 ? (
           <div className="rounded-lg-t border border-os-border bg-os-surface px-[18px] py-6 text-center font-mono text-[11px] text-os-dim">
-            Nothing waiting — everything buildable is built and live.
+            Nothing waiting on the rebuild plan — every milestone here is built and live. That's not the same as
+            "nothing needs you anywhere" — check{' '}
+            <Link href="/integrations" className="text-os-accent underline-offset-2 hover:underline">
+              /integrations
+            </Link>{' '}
+            for any connector still not configured.
           </div>
         ) : (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -91,7 +111,10 @@ export default function RoadmapPage() {
 
       {/* Shipped — collapsed, dimmed, no schedule metadata */}
       <section>
-        <SectionHead label="Live" count={`${shipped.length}/${progress.total} · ${progress.percentDone}% shipped`} />
+        <SectionHead
+          label="Rebuild milestones shipped"
+          count={`${shipped.length}/${progress.total} · ${progress.percentDone}% shipped`}
+        />
         <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
           {shipped.map((item) => {
             const dept = item.departmentId ? departments.get(item.departmentId) : null;

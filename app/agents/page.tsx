@@ -7,6 +7,7 @@ import { ConductorChat } from '@/components/ConductorChat';
 import { AgentActivityFeed } from '@/components/AgentActivityFeed';
 import { AgentWorkPanel } from '@/components/AgentWorkPanel';
 import { recentActivity } from '@/lib/agents/activity';
+import { countRanWithin, DAY_MS } from '@/lib/analytics';
 import { SparkIcon } from '@/components/SparkIcon';
 import { Badge, Dot, Label, SectionHead } from '@/components/terminal';
 import { lifeAreaForDepartment } from '@/lib/life-map';
@@ -93,8 +94,17 @@ function AgentRosterCard({
         </div>
         {lastRun && (
           <div className="flex items-baseline gap-1.5 font-mono text-[10px] leading-snug text-os-dim">
-            <span className={`font-bold ${lastRun.ok ? 'text-os-ok' : 'text-os-err'}`}>
-              {lastRun.ok ? 'OK' : 'FAIL'}
+            {/* Three honest outcomes, not two: a run whose real job succeeded
+                but whose push genuinely failed (ok:true, pushFailed:true —
+                e.g. Chief of Staff's ntfy push) must never read as plain OK.
+                See lib/analytics.ts's runOutcomeCounts for the same split on
+                /analytics. */}
+            <span
+              className={`font-bold ${
+                !lastRun.ok ? 'text-os-err' : lastRun.pushFailed ? 'text-os-warn' : 'text-os-ok'
+              }`}
+            >
+              {!lastRun.ok ? 'FAIL' : lastRun.pushFailed ? 'PUSH FAILED' : 'OK'}
             </span>
             <span className="truncate" title={lastRun.summary}>
               last check: {lastRun.summary.slice(0, 56)}
@@ -126,6 +136,16 @@ export default async function AgentsPage() {
   const allTasks = db.agentTasks.all();
   const allCrons = db.agentCrons.all();
   const openTasks = allTasks.filter((t) => t.status !== 'done').length;
+  const configuredAgents = agents.filter((a) => a.status === 'active' || a.status === 'idle').length;
+  // Honest counterpart to "configured": a connector being wired up only says
+  // an agent is *able* to run, not that it has actually fired lately. See
+  // lib/analytics.ts's countRanWithin and CLAUDE.md's 2026-08-21 agent-cron
+  // entry — the whole roster just got a real schedule, but most of it still
+  // shows zero run history until those schedules actually fire.
+  const ranRecently = countRanWithin(
+    agents.map((a) => db.agentRuns.byAgent(a.id)[0]),
+    DAY_MS,
+  );
 
   return (
     <div>
@@ -138,10 +158,16 @@ export default async function AgentsPage() {
         <ConductorChat agentNames={agentNames} />
       </div>
 
-      <div className="mb-6 grid grid-cols-5 gap-3 max-[1100px]:grid-cols-2">
+      <div className="mb-6 grid grid-cols-6 gap-3 max-[1100px]:grid-cols-3">
         {[
           ['Total', agents.length],
-          ['Active', agents.filter((a) => a.status === 'active').length],
+          // "Configured" (was "Active") — honest about what this counts: a
+          // real dependency (connector, or chief-of-staff's own last run) is
+          // wired up. It does NOT mean the agent has actually run recently —
+          // see "Ran (24h)" for that, the fact a production review found
+          // missing (10/10 read "live" while 8 of 10 had never once run).
+          ['Configured', configuredAgents],
+          ['Ran (24h)', ranRecently],
           ['Open tasks', openTasks],
           ['Cron jobs', allCrons.length],
           ['Runs', totalRuns],

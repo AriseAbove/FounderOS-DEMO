@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ArrowUpRight, Clapperboard, Wrench } from 'lucide-react';
 import { getDb } from '@/lib/data';
-import { contentAgents } from '@/lib/content';
+import { contentAgents, contentPipelineStatus } from '@/lib/content';
 import { allConnectorStatuses } from '@/lib/connectors';
 import { liveAgentStatus } from '@/lib/agents/live-status';
 import { PageHeader } from '@/components/PageHeader';
@@ -60,6 +60,13 @@ export default async function ContentPage() {
   const lead = crew[0] ?? null;
   const workers = lead ? crew.slice(1) : crew;
 
+  // Honest pipeline status — same OneUp connector /social and /integrations
+  // read, plus the real published-post count (never hardcoded). See
+  // lib/content.ts's contentPipelineStatus for the three real states.
+  const oneup = connections.find((c) => c.id === 'oneup') ?? { state: 'not_configured' as const };
+  const publishedPosts = db.socialPosts.all().filter((p) => p.status === 'published');
+  const pipeline = contentPipelineStatus(oneup, publishedPosts);
+
 
   return (
     <div>
@@ -91,12 +98,20 @@ export default async function ContentPage() {
         )}
       </section>
 
-      {/* Publishing pipeline — honest empty until a posting source connects */}
+      {/* Publishing pipeline — real OneUp connector state, not a guess. Three
+          honest states: not connected / connected but nothing synced yet /
+          connected with real published posts. */}
       <section className="mt-8">
-        <SectionHead label="Content pipeline" count="no source connected" />
-        <p className="rounded-lg-t border border-dashed border-os-border bg-os-surface px-4 py-5 text-center font-mono text-[11.5px] text-os-dim">
-          No posting source is connected — published content and cadence land here when one is.
-        </p>
+        <SectionHead label="Content pipeline" count={pipeline.countLabel} />
+        {pipeline.connectedWithData ? (
+          <p className="rounded-lg-t border border-os-border bg-os-surface px-4 py-5 text-center font-mono text-[11.5px] text-os-muted">
+            {pipeline.bodyText}
+          </p>
+        ) : (
+          <p className="rounded-lg-t border border-dashed border-os-border bg-os-surface px-4 py-5 text-center font-mono text-[11.5px] text-os-dim">
+            {pipeline.bodyText}
+          </p>
+        )}
       </section>
     </div>
   );

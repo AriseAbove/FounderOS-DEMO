@@ -23,6 +23,8 @@ import StageAdvanceControl from '@/components/StageAdvanceControl';
 import { alloConfigured } from '@/lib/connectors/allo';
 import { parseInboxConfigs } from '@/lib/connectors/email';
 import { runtimeEnv } from '@/lib/creds';
+import { resolveBusinessFilter } from '@/lib/business-filter';
+import { readBusinessFilterCookie } from '@/lib/business-filter-server';
 import { Badge, SectionHead } from '@/components/terminal';
 import {
   FunnelStageSchema,
@@ -272,8 +274,22 @@ export default async function FunnelPage({
 }: {
   searchParams?: { business?: string; view?: string; stage?: string; layout?: string; lead?: string };
 }) {
-  const parsed = FunnelBusinessSchema.safeParse(searchParams?.business);
-  const business = parsed.success ? parsed.data : undefined;
+  // The business tabs used to be their own disconnected toggle — no fallback
+  // to the Topbar's cookie at all, so switching AAC/Apps/Combined while
+  // already on /funnel with no ?business= param did nothing. Fixed:
+  // ?business= still wins when present (bookmarking/deep-linking a specific
+  // view keeps working exactly as before), but with no param present at all
+  // the page now defaults to the shared cookie's current selection instead
+  // of hardcoding "All clients" (lib/business-filter.ts, same mechanism
+  // /org already reads).
+  const businessParam = searchParams?.business;
+  const parsedBusiness = FunnelBusinessSchema.safeParse(businessParam);
+  const cookieFilter = resolveBusinessFilter(readBusinessFilterCookie());
+  const business = parsedBusiness.success
+    ? parsedBusiness.data
+    : businessParam === undefined && cookieFilter !== 'all'
+      ? cookieFilter
+      : undefined;
   const view = searchParams?.view === 'archive' ? 'archive' : 'live';
   const stageParsed = FunnelStageSchema.safeParse(searchParams?.stage);
   const stage = stageParsed.success ? stageParsed.data : undefined;

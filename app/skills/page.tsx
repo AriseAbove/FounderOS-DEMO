@@ -1,13 +1,14 @@
 import { getDb } from '@/lib/data';
+import { allConnectorStatuses } from '@/lib/connectors';
 import { PageHeader } from '@/components/PageHeader';
 import { SkillsGrid, type SkillCard } from '@/components/SkillsGrid';
-import { readUserSkills } from '@/lib/skills-catalog';
+import { readUserSkills, liveSkillStatus } from '@/lib/skills-catalog';
 
 export const dynamic = 'force-dynamic';
 
 const truncate = (t: string, n = 110) => (t.length > n ? `${t.slice(0, n).replace(/\s+\S*$/, '')}…` : t);
 
-export default function SkillsPage() {
+export default async function SkillsPage() {
   const real = readUserSkills();
 
   let cards: SkillCard[];
@@ -28,6 +29,12 @@ export default function SkillsPage() {
     // Fallback: the seeded catalog (docs carried inline).
     const db = getDb();
     const agentNames = Object.fromEntries(db.agents.all().map((a) => [a.id, a.name]));
+    // "Books pulse" used to carry a hardcoded 'live' status regardless of
+    // whether QuickBooks was actually connected — see lib/skills-catalog.ts's
+    // liveSkillStatus() for the honest, computed replacement (every other
+    // seeded skill keeps its authored status untouched).
+    const connections = await allConnectorStatuses();
+    const quickbooks = connections.find((c) => c.id === 'quickbooks');
     cards = db.skills.all().map((s) => ({
       id: s.id,
       name: s.name,
@@ -35,7 +42,7 @@ export default function SkillsPage() {
       description: truncate(s.description),
       meta: s.ownerAgentId ? (agentNames[s.ownerAgentId] ?? s.ownerAgentId) : 'unassigned',
       filePath: `skills/${s.id}/SKILL.md`,
-      status: s.status,
+      status: liveSkillStatus(s.id, quickbooks, s.status),
       markdown: s.markdown,
     }));
     sourceNote = 'Seeded catalog — no ~/.claude/skills found on this machine.';

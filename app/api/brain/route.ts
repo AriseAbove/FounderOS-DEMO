@@ -3,7 +3,9 @@ import { getBrainProvider } from '@/lib/brain';
 
 export const dynamic = 'force-dynamic';
 
-/** No query → provider status. `?q=` → hybrid search (gbrain with local fallback). */
+/** No query → provider status. `?q=` → search through whatever provider is
+ *  registered — today that's always the local markdown-grep provider (see
+ *  lib/brain.ts); no hybrid/vector backend exists in this codebase yet. */
 // Next requires the first param type be exactly `Request | NextRequest` — an
 // optional/defaulted param widens it to `Request | undefined` and fails the build.
 export async function GET(request: Request) {

@@ -70,8 +70,14 @@ export const NAV_SYSTEM: NavItem[] = [
   { href: '/reference', label: 'Reference Model', icon: LayoutGrid },
 ];
 
-// At the very bottom: reserved for library-style views (persona templates
-// moved to NAV_HIDDEN in the Phase 2 purge).
+// At the very bottom: reserved for library-style "variant" views — configured
+// alternate takes on this OS (e.g. a real second persona, once one exists).
+// Empty today: the persona template library that used to live here was
+// invented demo content and was retired outright (see lib/seed.ts), not
+// hidden — Personas itself now lives in NAV_MARKETING with an honest empty
+// state. Sidebar's NavGroup renders no heading at all while this stays
+// empty, so an empty NAV_LIBRARY is not dead weight in the UI; add an entry
+// here only when there's a real variant view to point at.
 export const NAV_LIBRARY: NavItem[] = [];
 
 /** Visible top-to-bottom order across all groups. */

@@ -11,6 +11,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { GENERATED_MARKER } from '@/lib/brain-docs';
 
 export type BrainStatus = {
   connected: boolean;
@@ -31,6 +32,12 @@ export type BrainOverview = {
     path: string;
     totalFiles: number;
     folders: { name: string; files: number }[];
+    // Distinguishes the OS's own auto-generated reference docs (agents,
+    // SOPs, tools, pillars — regenerated from the seed by `npm run
+    // brain:docs`, carrying GENERATED_MARKER) from real hand-written notes
+    // a person actually typed, so "N pages" never reads as "N notes I wrote".
+    generatedFiles: number;
+    handWrittenFiles: number;
   };
   doctor: {
     connected: boolean;
@@ -97,6 +104,26 @@ export function readStoreNotes(storePath: string | null = brainStorePath()): { p
   return notes.sort((a, b) => a.path.localeCompare(b.path));
 }
 
+/** Real per-file check, not a fabricated split: a file counts as generated
+ *  only if it still carries GENERATED_MARKER in its frontmatter — the exact
+ *  marker `scripts/generate-brain-docs.ts` writes and refuses to overwrite
+ *  once removed. Anything else (including an unreadable file) counts as
+ *  hand-written, the honest default when we can't prove otherwise. */
+function storeOrigin(storePath: string): { generated: number; handWritten: number } {
+  let generated = 0;
+  let handWritten = 0;
+  for (const file of walkMarkdown(storePath)) {
+    try {
+      const content = fs.readFileSync(file, 'utf8');
+      if (content.includes(GENERATED_MARKER)) generated += 1;
+      else handWritten += 1;
+    } catch {
+      handWritten += 1;
+    }
+  }
+  return { generated, handWritten };
+}
+
 function storeFolders(storePath: string): { name: string; files: number }[] {
   const counts = new Map<string, number>();
   for (const file of walkMarkdown(storePath)) {
@@ -133,7 +160,13 @@ function localSearch(storePath: string, query: string, limit = 8): BrainSearchRe
   return results;
 }
 
-const EMPTY_STORE = { path: '', totalFiles: 0, folders: [] as { name: string; files: number }[] };
+const EMPTY_STORE = {
+  path: '',
+  totalFiles: 0,
+  folders: [] as { name: string; files: number }[],
+  generatedFiles: 0,
+  handWrittenFiles: 0,
+};
 
 const NOT_CONFIGURED =
   'No knowledge store configured — point BRAIN_STORE at a folder of markdown files in .env.local.';
@@ -168,8 +201,9 @@ function createLocalStoreProvider(): BrainProvider {
       }
       const folders = storeFolders(storePath);
       const totalFiles = folders.reduce((sum, f) => sum + f.files, 0);
+      const { generated, handWritten } = storeOrigin(storePath);
       return {
-        store: { path: storePath, totalFiles, folders },
+        store: { path: storePath, totalFiles, folders, generatedFiles: generated, handWrittenFiles: handWritten },
         doctor: {
           connected: totalFiles > 0,
           status: totalFiles > 0 ? 'ok' : 'empty',

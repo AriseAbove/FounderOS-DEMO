@@ -147,7 +147,8 @@ CREATE TABLE IF NOT EXISTS agent_runs (
   started_at TEXT NOT NULL,
   finished_at TEXT NOT NULL,
   ok INTEGER NOT NULL,
-  summary TEXT NOT NULL DEFAULT ''
+  summary TEXT NOT NULL DEFAULT '',
+  push_failed INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS agent_messages (
   id TEXT PRIMARY KEY,
@@ -286,7 +287,8 @@ CREATE TABLE IF NOT EXISTS funnel_touches (
   channel TEXT NOT NULL,
   label TEXT NOT NULL,
   source TEXT NOT NULL,
-  at TEXT NOT NULL
+  at TEXT NOT NULL,
+  duration_seconds INTEGER
 );
 -- 2026-08-20: funnel.journeys() batch-fetches every contact's touches by
 -- contact_id (see below) instead of one query per contact; this index is what
@@ -398,6 +400,17 @@ function migrateFunnelContactsTable(db: InstanceType<typeof Database>): void {
   }
 }
 
+/** Databases created before lib/funnel-score.ts lack the column that lets a
+ *  lead's score actually differentiate on call quality — see that module's
+ *  header comment for why. Existing rows read back NULL (no duration on
+ *  record), which lib/funnel-score.ts treats as "unknown," not "short." */
+function migrateFunnelTouchesTable(db: InstanceType<typeof Database>): void {
+  const columns = new Set(
+    (db.pragma('table_info(funnel_touches)') as { name: string }[]).map((c) => c.name),
+  );
+  if (!columns.has('duration_seconds')) safeAlter(db, 'ALTER TABLE funnel_touches ADD COLUMN duration_seconds INTEGER');
+}
+
 // Skills gained a `markdown` (SKILL.md) column after first ship. Add it, and
 // clear the stale rows so the re-seed backfills each skill's doc.
 function migrateSkillsTable(db: InstanceType<typeof Database>): void {
@@ -417,6 +430,17 @@ function migrateBrainHealthTable(db: InstanceType<typeof Database>): void {
   if (columns.size > 0 && !columns.has('connector_health')) {
     safeAlter(db, "ALTER TABLE brain_health ADD COLUMN connector_health TEXT NOT NULL DEFAULT '[]'");
   }
+}
+
+// Runs recorded before 2026-08-21 lack push_failed — the column that keeps a
+// genuinely failed Chief of Staff ntfy push from being reported as full
+// success (see lib/analytics.ts's runOutcomeCounts). DEFAULT 0 backfills
+// every existing row as "no push failure recorded" — honest, since those
+// runs' own `ok`/`summary` are untouched and still readable for the real
+// history of what happened.
+function migrateAgentRunsTable(db: InstanceType<typeof Database>): void {
+  const columns = new Set((db.pragma('table_info(agent_runs)') as { name: string }[]).map((c) => c.name));
+  if (!columns.has('push_failed')) safeAlter(db, 'ALTER TABLE agent_runs ADD COLUMN push_failed INTEGER NOT NULL DEFAULT 0');
 }
 
 type AgentRow = {
@@ -477,8 +501,10 @@ export function openDb(path: string) {
   db.exec(DDL);
   migrateAgentsTable(db);
   migrateFunnelContactsTable(db);
+  migrateFunnelTouchesTable(db);
   migrateSkillsTable(db);
   migrateBrainHealthTable(db);
+  migrateAgentRunsTable(db);
 
   /** Shared purge guard: drop every row whose id is not in the seed's list
       (empty list = drop all — avoids invalid `NOT IN ()` SQL). */
@@ -694,6 +720,7 @@ export function openDb(path: string) {
       finishedAt: r.finished_at,
       ok: Boolean(r.ok),
       summary: r.summary,
+      pushFailed: Boolean(r.push_failed),
     });
 
   const agentRuns = {
@@ -711,8 +738,8 @@ export function openDb(path: string) {
     },
     insert(run: AgentRun): void {
       db.prepare(
-        'INSERT OR REPLACE INTO agent_runs (id, agent_id, started_at, finished_at, ok, summary) VALUES (?, ?, ?, ?, ?, ?)',
-      ).run(run.id, run.agentId, run.startedAt, run.finishedAt, run.ok ? 1 : 0, run.summary);
+        'INSERT OR REPLACE INTO agent_runs (id, agent_id, started_at, finished_at, ok, summary, push_failed) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      ).run(run.id, run.agentId, run.startedAt, run.finishedAt, run.ok ? 1 : 0, run.summary, run.pushFailed ? 1 : 0);
     },
   };
 
@@ -1196,6 +1223,7 @@ export function openDb(path: string) {
       label: r.label,
       source: r.source,
       at: r.at,
+      durationSeconds: r.duration_seconds ?? null,
     });
 
   const funnel = {
@@ -1208,8 +1236,8 @@ export function openDb(path: string) {
     insertTouch(t: FunnelTouch): void {
       FunnelTouchSchema.parse(t);
       db.prepare(
-        'INSERT OR REPLACE INTO funnel_touches (id, contact_id, seq, stage, channel, label, source, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      ).run(t.id, t.contactId, t.seq, t.stage, t.channel, t.label, t.source, t.at);
+        'INSERT OR REPLACE INTO funnel_touches (id, contact_id, seq, stage, channel, label, source, at, duration_seconds) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      ).run(t.id, t.contactId, t.seq, t.stage, t.channel, t.label, t.source, t.at, t.durationSeconds);
     },
     /** Contacts with their touches in journey order, newest contact first. */
     journeys(business?: FunnelBusiness): FunnelJourney[] {

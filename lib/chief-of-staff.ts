@@ -17,6 +17,13 @@
  *    lib/seed.ts already uses for SEED_VERSION (see lib/db.ts's seedMeta).
  *  - sendNtfyPush: a tiny, honest ntfy.sh client (self-hostable via
  *    NTFY_URL) — no-ops with a stated reason when NTFY_TOPIC isn't set.
+ *  - describeFetchError: Node's fetch throws a generic `TypeError: fetch
+ *    failed` for every network-level failure (DNS, connection refused, TLS,
+ *    timeout) and buries the actually-diagnosable reason on `err.cause`.
+ *    Every 2026-08 production cron run that failed to push showed only
+ *    "push failed (fetch failed)" in its log — honest that it failed, but
+ *    not describable, which is exactly what the honest-status principle
+ *    forbids. This walks the cause chain so the real reason is visible.
  */
 import type { FounderDb } from '@/lib/db';
 import { attentionQueue } from '@/lib/funnel';
@@ -155,9 +162,17 @@ export type NtfyResult =
   | { sent: false; reason: string }
   | { sent: false; status: number };
 
+/** How long a push attempt gets before it's aborted and reported as a
+ *  failure. Without this, a connection that hangs instead of erroring
+ *  immediately (a common failure mode for network-level blocks) would stall
+ *  the whole hourly cron run rather than failing fast and loud. */
+const NTFY_TIMEOUT_MS = 10_000;
+
 /** Post a push notification to ntfy.sh (or a self-hosted instance via
  *  NTFY_URL). Honest no-op — never a silent failure — when NTFY_TOPIC isn't
- *  configured. */
+ *  configured. The topic is URL-encoded so a stray character (whitespace,
+ *  slash, a trailing newline from a pasted env var) can't produce a
+ *  malformed request path. */
 export async function sendNtfyPush(
   env: Env,
   title: string,
@@ -167,11 +182,40 @@ export async function sendNtfyPush(
   const topic = env.NTFY_TOPIC;
   if (!topic) return { sent: false, reason: 'NTFY_TOPIC not set' };
   const base = env.NTFY_URL ?? 'https://ntfy.sh';
-  const res = await fetchImpl(`${base}/${topic}`, {
+  const res = await fetchImpl(`${base}/${encodeURIComponent(topic)}`, {
     method: 'POST',
     headers: { Title: title },
     body,
+    signal: AbortSignal.timeout(NTFY_TIMEOUT_MS),
   });
   if (!res.ok) return { sent: false, status: res.status };
   return { sent: true, status: res.status };
+}
+
+/** Turns a caught fetch error into a describable string instead of the bare
+ *  "fetch failed" TypeError message — walks `cause` (an Error, a plain
+ *  Node system-error-shaped object, or anything else) so the actual reason
+ *  (DNS failure, connection refused, TLS error, our own timeout abort) is
+ *  visible wherever the message ends up (run summary, Analytics, /agents). */
+export function describeFetchError(err: unknown): string {
+  if (!(err instanceof Error)) return String(err);
+  const parts = [err.message];
+  let cause: unknown = err.cause;
+  let depth = 0;
+  while (cause !== undefined && cause !== null && depth < 3) {
+    if (cause instanceof Error) {
+      const code = (cause as NodeJS.ErrnoException).code;
+      parts.push(code ? `${cause.message} (${code})` : cause.message);
+      cause = cause.cause;
+    } else if (typeof cause === 'object') {
+      const c = cause as { code?: string; message?: string };
+      parts.push(c.message ?? c.code ?? JSON.stringify(cause));
+      cause = undefined;
+    } else {
+      parts.push(String(cause));
+      cause = undefined;
+    }
+    depth++;
+  }
+  return parts.join(' — ');
 }

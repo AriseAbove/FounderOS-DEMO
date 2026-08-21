@@ -38,6 +38,12 @@ export const INTEGRATIONS: Integration[] = [
   { slug: 'zendesk', name: 'Zendesk', tagline: 'Tickets & support', category: 'CRM & Sales' },
   { slug: 'intercom', name: 'Intercom', tagline: 'Chat & lifecycle', category: 'CRM & Sales' },
   { slug: 'gohighlevel', name: 'GoHighLevel', tagline: 'Pipeline & contacts', category: 'CRM & Sales' },
+  // Real: lib/connectors/allo.ts pulls the (248) 717-1417 call log (Zoey, the
+  // AI receptionist) into the AAC pipeline once ALLO_API_KEY is set — the
+  // catalog tile was missing entirely before this fix, so a truly-connected
+  // Allo connector could never show as "connected" on this board even though
+  // /api/connections (and the Home page's 7/7 tally) already counted it.
+  { slug: 'allo', name: 'Allo', tagline: 'AI receptionist & call log', category: 'CRM & Sales', connectorId: 'allo' },
 
   // Developer
   { slug: 'github', name: 'GitHub', tagline: 'Repos, issues & PRs', category: 'Developer', popular: true },
@@ -81,10 +87,21 @@ export const INTEGRATIONS: Integration[] = [
   { slug: 'box', name: 'Box', tagline: 'Content cloud', category: 'Storage' },
   { slug: 'onedrive', name: 'OneDrive', tagline: 'Microsoft files', category: 'Storage' },
   { slug: 'obsidian', name: 'Obsidian', tagline: 'Markdown vault', category: 'Storage' },
+  // Real: lib/brain.ts's local-store provider — grep search over the
+  // brain-store markdown folder. Ships connected by default (the bundled
+  // knowledge/brain-store/ folder), same as the "brain" row in
+  // allConnectorStatuses(); this tile was missing before this fix, which is
+  // why /integrations could never show more than 4 connected tools even
+  // when 7 of 7 real connectors (incl. this one) were live.
+  { slug: 'brainstore', name: 'Knowledge Store', tagline: 'Local markdown brain store', category: 'Storage', connectorId: 'brain', envKeys: [] },
 
   // AI & Automation
   { slug: 'openai', name: 'OpenAI', tagline: 'GPT models & embeddings', category: 'AI & Automation' },
-  { slug: 'anthropic', name: 'Anthropic', tagline: 'Claude models', category: 'AI & Automation', popular: true },
+  // Real: lib/connectors/llm.ts drives agent & Conductor chat through the
+  // Vercel AI Gateway (default model anthropic/claude-sonnet-5) once
+  // AI_GATEWAY_API_KEY is set. Same fix as allo/brainstore above — this tile
+  // had no connectorId, so it could never reflect the real "llm" connector.
+  { slug: 'anthropic', name: 'Anthropic', tagline: 'Claude models', category: 'AI & Automation', popular: true, connectorId: 'llm', envKeys: ['AI_GATEWAY_API_KEY'] },
   { slug: 'zapier', name: 'Zapier', tagline: 'Automate anything', category: 'AI & Automation' },
   { slug: 'make', name: 'Make', tagline: 'Visual workflows', category: 'AI & Automation' },
   { slug: 'n8n', name: 'n8n', tagline: 'Self-hosted automation', category: 'AI & Automation' },

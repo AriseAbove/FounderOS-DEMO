@@ -1,5 +1,6 @@
 import type { FounderDb } from '@/lib/db';
 import { growthOver, growthAllTime, windowDelta, mergeSeriesSum, type GrowthPoint } from '@/lib/growth';
+import type { ConnectorStatus } from '@/lib/connectors/types';
 import {
   SocialDashboardSchema,
   SocialPlatformDetailSchema,
@@ -377,4 +378,46 @@ export function dmThreads(db: FounderDb, platform: SocialPlatform = 'instagram')
   }
   threads.sort((a, b) => (a.last.ts < b.last.ts ? 1 : a.last.ts > b.last.ts ? -1 : 0));
   return threads;
+}
+
+/**
+ * The /social header badge — reads the real OneUp connector state so this
+ * page can never disagree with /integrations about whether a posting source
+ * is connected. Before this, /social hardcoded "no posting source connected"
+ * regardless of ONEUP_API_KEY, which went stale the moment OneUp was
+ * actually configured (2026-08-14). "Connected" here still doesn't claim
+ * synced audience/post data exists — that's a separate, honestly-empty state
+ * (no OneUp account/post sync is wired yet) surfaced in the copy, not papered
+ * over.
+ */
+export type SocialSourceBadge = {
+  label: string;
+  tone: 'ok' | 'warn' | 'err';
+  ghost: boolean;
+  emptyPostsDetail: string;
+};
+
+export function socialSourceBadge(oneup: Pick<ConnectorStatus, 'state'>): SocialSourceBadge {
+  if (oneup.state === 'connected') {
+    return {
+      label: 'OneUp connected · no synced data yet',
+      tone: 'ok',
+      ghost: false,
+      emptyPostsDetail: 'OneUp is connected, but no post history has synced into this dashboard yet — run Social Pulse from /agents.',
+    };
+  }
+  if (oneup.state === 'error') {
+    return {
+      label: 'OneUp error — see /integrations',
+      tone: 'err',
+      ghost: false,
+      emptyPostsDetail: 'OneUp is configured but the last status check failed — see /integrations for details.',
+    };
+  }
+  return {
+    label: 'no posting source connected',
+    tone: 'warn',
+    ghost: true,
+    emptyPostsDetail: 'No published posts on record — connect a posting source to fill this in.',
+  };
 }

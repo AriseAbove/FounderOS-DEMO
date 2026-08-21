@@ -1,6 +1,7 @@
 import type { FounderDb } from '@/lib/db';
 import type { AlloCall } from '@/lib/connectors/allo';
 import type { FunnelContact, FunnelTouch } from '@/lib/schemas';
+import { scoreFromTouches } from '@/lib/funnel-score';
 
 /**
  * Allo call log → AAC pipeline. Every legitimate inbound call to
@@ -106,11 +107,32 @@ export function importAlloCalls(db: FounderDb, calls: AlloCall[], now: Date): Al
       label: call.summary ? call.summary.slice(0, 120) : 'Inbound call (no summary)',
       source: 'allo',
       at,
+      durationSeconds: call.durationSeconds, // real signal for lib/funnel-score.ts
     };
     db.funnel.insertTouch(touch);
     seenTouchIds.add(touch.id);
     entry.touchCount += 1;
     result.newTouches += 1;
+  }
+
+  // Recompute every AAC lead's score (relationship + likelihood) from its
+  // full touch history — not just contacts touched by this batch. Two
+  // reasons this has to be a full sweep, not just the calls processed
+  // above: (1) durationSeconds is a new field (see lib/schemas.ts) — a lead
+  // imported before this shipped needs re-scoring even on a sync with zero
+  // new calls for it, and (2) a repeat-caller pattern only becomes visible
+  // once enough of a number's calls have landed, which may span several
+  // syncs. Cheap at today's scale (low hundreds of leads); idempotent — a
+  // no-op sync just re-verifies scores that already match. This never
+  // touches `status` (see the "never advances or regresses" rule above) —
+  // only relationship/likelihood, which were never a human decision the way
+  // stage is.
+  for (const j of db.funnel.journeys('aac')) {
+    const score = scoreFromTouches(j.touches);
+    if (score.relationship !== j.relationship || score.likelihood !== j.likelihood) {
+      const { touches: _touches, ...contact } = j;
+      db.funnel.insertContact({ ...contact, ...score });
+    }
   }
 
   return result;

@@ -40,3 +40,39 @@ export function runsWithin(runs: Runlike[], endDate: string, days: number): numb
   const cutoff = dateRange(endDate, days)[0];
   return runs.filter((r) => r.startedAt.slice(0, 10) >= cutoff).length;
 }
+
+type RunOutcomeLike = { ok: boolean; pushFailed?: boolean };
+
+export type RunOutcomeCounts = {
+  /** The run did its job AND every downstream notification it attempted
+   *  actually went through. Only this bucket counts as fully "OK". */
+  succeeded: number;
+  /** The run itself completed (ok: true) but a push/notification it
+   *  attempted genuinely failed — a real problem worth seeing, distinct from
+   *  the run's own job succeeding or failing. Never rolled into `succeeded`. */
+  pushFailed: number;
+  /** The run itself did not complete. */
+  failed: number;
+  total: number;
+};
+
+/**
+ * Buckets the run log into three honest outcomes instead of the two-way
+ * ok/fail split that used to let a genuinely failing side-effect (e.g. the
+ * Chief of Staff's ntfy push) hide inside "Succeeded" just because the run's
+ * own job — gathering signals — completed fine. `ok` (did the run's job
+ * succeed) and `pushFailed` (did a notification it tried to send fail) are
+ * legitimately different signals; see lib/agents/real.ts's
+ * chiefOfStaffRunWith and the regression this guards in tests/analytics.test.ts.
+ */
+export function runOutcomeCounts(runs: RunOutcomeLike[]): RunOutcomeCounts {
+  let succeeded = 0;
+  let pushFailed = 0;
+  let failed = 0;
+  for (const r of runs) {
+    if (!r.ok) failed++;
+    else if (r.pushFailed) pushFailed++;
+    else succeeded++;
+  }
+  return { succeeded, pushFailed, failed, total: runs.length };
+}

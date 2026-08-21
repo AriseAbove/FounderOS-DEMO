@@ -184,6 +184,10 @@ export const AgentRunSchema = z.object({
   finishedAt: z.string().min(1),
   ok: z.boolean(),
   summary: z.string(),
+  // Distinct from `ok`: the run itself completed its job, but a downstream
+  // notification it attempted (e.g. the Chief of Staff's ntfy push) genuinely
+  // failed. Never rolled into `ok` — see lib/analytics.ts's runOutcomeCounts.
+  pushFailed: z.boolean().default(false),
 });
 
 export const BroadcastReplySchema = z.object({
@@ -233,6 +237,11 @@ export const BrainOverviewSchema = z.object({
     path: z.string(),
     totalFiles: z.number().int().nonnegative(),
     folders: z.array(z.object({ name: z.string().min(1), files: z.number().int().positive() })),
+    // Real per-file split: generated (carries GENERATED_MARKER, from
+    // `npm run brain:docs`) vs hand-written (a person actually typed it) —
+    // so "N pages" never misrepresents itself as "N notes I wrote".
+    generatedFiles: z.number().int().nonnegative(),
+    handWrittenFiles: z.number().int().nonnegative(),
   }),
   doctor: z.object({
     connected: z.boolean(),
@@ -591,6 +600,11 @@ export const FunnelTouchSchema = z.object({
   label: z.string().min(1), // e.g. "Allo call: kitchen remodel inquiry"
   source: FunnelSourceSchema,
   at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'at must look like 2026-06-13'),
+  // Call duration in seconds, when the source reports it (Allo does) —
+  // real signal for lib/funnel-score.ts to tell a real conversation apart
+  // from an instant hang-up/wrong number. Null for non-call channels and
+  // for any touch imported before this field existed.
+  durationSeconds: z.number().int().nonnegative().nullable().default(null),
 });
 
 export const FunnelJourneySchema = FunnelContactSchema.extend({

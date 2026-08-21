@@ -112,6 +112,7 @@ export function importWebsiteFormLeads(db: FounderDb, leads: WebsiteFormLead[], 
       label: label.slice(0, 120),
       source: 'website',
       at,
+      durationSeconds: null, // no call signal for a form submission
     };
     db.funnel.insertTouch(touch);
     seenTouchIds.add(touch.id);

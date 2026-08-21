@@ -13,7 +13,20 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { User, Bot, Clock, Zap, Wrench, Plus, RotateCcw, ChevronRight, TriangleAlert } from 'lucide-react';
 import { workflowStats } from '@/lib/workflow-stats';
 import { toolBrand } from '@/lib/workflow-tool-brands';
-import type { Workflow, WorkflowStep } from '@/lib/schemas';
+import type { Workflow, WorkflowBusiness, WorkflowStep } from '@/lib/schemas';
+
+// Same AAC/Apps brand colors used on /org and /funnel — 'shared' gets a
+// neutral dot since it isn't either business specifically.
+const BUSINESS_DOT: Record<WorkflowBusiness, string> = {
+  aac: '#191265',
+  apps: '#C9A84C',
+  shared: 'var(--text-3)',
+};
+const BUSINESS_LABEL: Record<WorkflowBusiness, string> = {
+  aac: 'Arise Above Construction',
+  apps: 'App Portfolio',
+  shared: 'Shared across both businesses',
+};
 
 /** Compact money: $14k, $120k, $233k, $850. */
 function usd(n: number): string {
@@ -147,11 +160,16 @@ function Stat({ label, value, sub, tone }: { label: string; value: string; sub?:
 export function WorkflowMap({
   workflows,
   toolLogos = {},
+  hiddenByBusinessFilter = 0,
 }: {
   workflows: Workflow[];
   /** tool id -> pre-rendered BrandLogo (built server-side so simple-icons
    *  never ships to the client). */
   toolLogos?: Record<string, ReactNode>;
+  /** How many real workflows the page's business filter excluded — lets the
+   *  empty state say "none for this business" instead of "none mapped at
+   *  all" when the seed genuinely has rows, just not for the selected lens. */
+  hiddenByBusinessFilter?: number;
 }) {
   const [selectedId, setSelectedId] = useState(workflows[0]?.id ?? '');
   const [extraByWf, setExtraByWf] = useState<Record<string, number>>({});
@@ -161,6 +179,18 @@ export function WorkflowMap({
   const extra = extraByWf[selectedId] ?? 0;
 
   if (!current || !stats) {
+    if (hiddenByBusinessFilter > 0) {
+      return (
+        <section className="rounded-lg-t border border-os-border bg-os-surface p-5">
+          <p className="font-mono text-[12px] leading-relaxed text-os-muted">
+            No workflows tagged for this business. {hiddenByBusinessFilter} mapped{' '}
+            {hiddenByBusinessFilter === 1 ? 'workflow' : 'workflows'} exist for the other business (or are
+            business-specific rather than <span className="text-os-text">shared</span>) — switch the Topbar to
+            Combined to see everything mapped so far.
+          </p>
+        </section>
+      );
+    }
     return (
       <section className="rounded-lg-t border border-os-border bg-os-surface p-5">
         <p className="font-mono text-[12px] leading-relaxed text-os-muted">
@@ -173,7 +203,9 @@ export function WorkflowMap({
           previous build shipped invented revenue-machine numbers here, and this OS never backfills a
           placeholder in their place. A real AAC process gets added to{' '}
           <code className="text-os-accent">lib/seed.ts</code>&apos;s <code className="text-os-accent">workflows</code>{' '}
-          list deliberately, one at a time, once it&apos;s actually mapped.
+          list deliberately, one at a time, once it&apos;s actually mapped — tagged{' '}
+          <code className="text-os-accent">aac</code>, <code className="text-os-accent">apps</code>, or{' '}
+          <code className="text-os-accent">shared</code> so this page's business filter knows where it belongs.
         </p>
       </section>
     );
@@ -192,10 +224,12 @@ export function WorkflowMap({
             <button
               key={w.id}
               onClick={() => setSelectedId(w.id)}
-              className={`rounded-md border px-3 py-1.5 font-mono text-[11px] transition-colors ${
+              title={BUSINESS_LABEL[w.business]}
+              className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 font-mono text-[11px] transition-colors ${
                 on ? 'border-os-accent text-os-accent' : 'border-os-border text-os-dim hover:text-os-muted'
               }`}
             >
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: BUSINESS_DOT[w.business] }} />
               {w.name}
             </button>
           );

@@ -173,10 +173,15 @@ describe('parseOpenInvoices', () => {
 describe('parseProfitAndLossExpenseCategories', () => {
   // Real shape of a QBO Reports API ProfitAndLoss response
   // (GET /v3/company/{realmId}/reports/ProfitAndLoss): a Rows.Row array of
-  // Section rows (Income, Expenses, …), each with its own nested Rows.Row of
-  // per-account Data rows and a Summary total. Only the "Expenses" section
-  // matters for the finances page's category chart — Income/COGS/NetIncome
-  // rows must be ignored, not folded in.
+  // Section rows (Income, COGS, Expenses, …), each with its own nested
+  // Rows.Row of per-account Data rows and a Summary total. Both the "COGS"
+  // and "Expenses" sections are real money spent this period and must count
+  // toward the chart — a construction company's job/material costs commonly
+  // post to Cost of Goods Sold, not Expenses (2026-08-21 fix: this used to
+  // read the "Expenses" section only, so a real COGS-coded Purchase
+  // transaction counted toward the finances page's raw MTD-expenses total
+  // but silently vanished from the category chart — see CLAUDE.md's dated
+  // entry). Income/NetIncome rows must still be ignored, not folded in.
   const fullReport = {
     Header: {
       ReportName: 'ProfitAndLoss',
@@ -200,6 +205,15 @@ describe('parseProfitAndLossExpenseCategories', () => {
             Row: [{ type: 'Data', ColData: [{ value: 'Design income', id: '79' }, { value: '3357.00' }] }],
           },
           Summary: { ColData: [{ value: 'Total Income' }, { value: '3357.00' }] },
+        },
+        {
+          type: 'Section',
+          group: 'COGS',
+          Header: { ColData: [{ value: 'Cost of Goods Sold' }, { value: '' }] },
+          Rows: {
+            Row: [{ type: 'Data', ColData: [{ value: 'Job Materials', id: '91' }, { value: '244.00' }] }],
+          },
+          Summary: { ColData: [{ value: 'Total COGS' }, { value: '244.00' }] },
         },
         {
           type: 'Section',
@@ -235,15 +249,16 @@ describe('parseProfitAndLossExpenseCategories', () => {
     },
   };
 
-  test('extracts leaf expense categories from the Expenses section only, recursing into sub-account sections, largest first', () => {
+  test('extracts leaf categories from both COGS and Expenses sections, recursing into sub-account sections, largest first', () => {
     expect(parseProfitAndLossExpenseCategories(fullReport)).toEqual([
       { category: 'Materials', total: 380 },
+      { category: 'Job Materials', total: 244 },
       { category: 'Permits', total: 25 },
       { category: 'Advertising', total: 22.5 },
     ]);
   });
 
-  test('ignores Income/COGS/NetIncome sections — never folds revenue into the expense chart', () => {
+  test('ignores Income/NetIncome sections — never folds revenue into the expense chart', () => {
     const categories = parseProfitAndLossExpenseCategories(fullReport).map((c) => c.category);
     expect(categories).not.toContain('Design income');
     expect(categories).not.toContain('Net Income');
@@ -326,5 +341,82 @@ describe('parseProfitAndLossExpenseCategories', () => {
       },
     };
     expect(parseProfitAndLossExpenseCategories(raw)).toEqual([{ category: 'Fuel', total: 125 }]);
+  });
+
+  test('a report with only a COGS section (no Expenses section at all) still yields its categories', () => {
+    const cogsOnly = {
+      Rows: {
+        Row: [
+          {
+            type: 'Section',
+            group: 'COGS',
+            Header: { ColData: [{ value: 'Cost of Goods Sold' }] },
+            Rows: {
+              Row: [{ type: 'Data', ColData: [{ value: 'Subcontractors' }, { value: '244.00' }] }],
+            },
+            Summary: { ColData: [{ value: 'Total COGS' }, { value: '244.00' }] },
+          },
+        ],
+      },
+    };
+    expect(parseProfitAndLossExpenseCategories(cogsOnly)).toEqual([{ category: 'Subcontractors', total: 244 }]);
+  });
+});
+
+// ── Regression: 2026-08-21 finances-page contradiction ──────────────────────
+//
+// A live QA review found /finances disagreeing with itself about August
+// 2026's expenses: the MTD summary cards (fed by monthToDateExpenses, a raw
+// sum of QBO Purchase transactions) said $244, while the "Monthly expenses ·
+// by category" chart (fed by monthToDateExpensesByCategory ->
+// parseProfitAndLossExpenseCategories, reading QuickBooks' ProfitAndLoss
+// report) said $0 for the exact same QuickBooks connection and month.
+//
+// Root cause: the two calls query genuinely different things, but the page
+// presented both as unqualified "expenses". monthToDateExpenses sums every
+// Purchase transaction regardless of which P&L account it posts to.
+// parseProfitAndLossExpenseCategories previously read only the report's
+// "Expenses" (operating expenses) section — but a construction company's
+// real job/material costs routinely post to a Cost of Goods Sold account,
+// which the parser silently dropped. A $244 Purchase transaction coded to
+// COGS (materials bought for a job) therefore counted toward the MTD total
+// but contributed nothing to the category chart, even though it is the same
+// real spend. This test reproduces that exact scenario with the two raw QBO
+// response shapes and asserts the totals must agree — it fails against the
+// pre-fix parser (244 vs 0) and passes once COGS is included.
+describe('MTD expenses vs category-chart total (regression)', () => {
+  test('a Purchase transaction coded to a COGS account counts the same toward the raw MTD sum and the category chart', () => {
+    // What monthToDateExpenses's `SELECT ... FROM Purchase` query returns.
+    const purchaseQueryRaw = {
+      QueryResponse: {
+        Purchase: [{ Id: '901', TotalAmt: 244, TxnDate: '2026-08-05' }],
+      },
+    };
+    // What the ProfitAndLoss report returns for that same real transaction —
+    // coded to a Cost of Goods Sold account (typical for job materials).
+    const profitAndLossRaw = {
+      Rows: {
+        Row: [
+          {
+            type: 'Section',
+            group: 'COGS',
+            Header: { ColData: [{ value: 'Cost of Goods Sold' }, { value: '' }] },
+            Rows: {
+              Row: [{ type: 'Data', ColData: [{ value: 'Job Materials' }, { value: '244.00' }] }],
+            },
+            Summary: { ColData: [{ value: 'Total COGS' }, { value: '244.00' }] },
+          },
+        ],
+      },
+    };
+
+    const rawMtdTotal = sumQboAmounts(parseQboQueryRows(purchaseQueryRaw, 'Purchase'));
+    const categoryChartTotal = parseProfitAndLossExpenseCategories(profitAndLossRaw).reduce(
+      (sum, c) => sum + c.total,
+      0,
+    );
+
+    expect(rawMtdTotal).toBe(244);
+    expect(categoryChartTotal).toBe(rawMtdTotal);
   });
 });

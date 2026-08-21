@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { getBrainProvider, brainStorePath } from '@/lib/brain';
+import { getBrainProvider, brainStorePath, summarizeDoctor } from '@/lib/brain';
 import { GENERATED_MARKER } from '@/lib/brain-docs';
 
 afterEach(() => {
@@ -80,5 +80,63 @@ describe('G Brain adapter', () => {
     expect(overview.store.totalFiles).toBeGreaterThan(0);
     expect(overview.store.handWrittenFiles).toBe(0);
     expect(overview.store.generatedFiles).toBe(overview.store.totalFiles);
+  });
+
+  // 2026-08-21 fix: the page rendered "ZEROENTROPY · EMBEDDINGS" and
+  // "SUPABASE · N PAGES · PAUSED" chips even though neither provider is
+  // wired anywhere in this codebase (no SDK, no env var, no client). This
+  // field is the one honest place that fact can live, so every "hybrid
+  // search verified" / "supabase reachable" claim on the page can derive
+  // from it instead of hardcoding a brand name that was never actually
+  // integrated.
+  test('overview().doctor.vector is false for the local-store provider — no vector backend is wired', async () => {
+    delete process.env.BRAIN_STORE;
+    delete process.env.GBRAIN_STORE;
+    const overview = await getBrainProvider().overview();
+    expect(overview.doctor.vector).toBe(false);
+  });
+
+  test('overview().doctor.vector is false for the stub provider too', async () => {
+    process.env.BRAIN_PROVIDER = 'stub';
+    const overview = await getBrainProvider().overview();
+    expect(overview.doctor.vector).toBe(false);
+  });
+});
+
+describe('summarizeDoctor — the one source of truth for "is the doctor ok" text', () => {
+  test('offline when the store itself is unreachable', () => {
+    expect(summarizeDoctor({ connected: false, healthScore: null, checks: [] })).toEqual({
+      state: 'offline',
+      label: 'offline',
+    });
+  });
+
+  // The exact contradiction a live QA pass found: "—/100" (no computed
+  // score) rendered right next to "ok" / "all green". Connected + zero
+  // checks + a null score must NEVER summarize as "ok".
+  test('connected, no checks yet, null health score → "not yet scored", never "ok"', () => {
+    const summary = summarizeDoctor({ connected: true, healthScore: null, checks: [] });
+    expect(summary.state).toBe('not_scored');
+    expect(summary.label).not.toMatch(/^ok$/i);
+    expect(summary.label).not.toMatch(/all green/i);
+  });
+
+  test('connected with a real failing check → warnings, regardless of health score', () => {
+    const summary = summarizeDoctor({
+      connected: true,
+      healthScore: null,
+      checks: [{ name: 'store', status: 'warn', message: 'slow' }],
+    });
+    expect(summary.state).toBe('warnings');
+    expect(summary.label).toBe('1 warning');
+  });
+
+  test('connected, checks all green, AND a real score → ok / all green', () => {
+    const summary = summarizeDoctor({
+      connected: true,
+      healthScore: 92,
+      checks: [{ name: 'store', status: 'ok', message: 'fine' }],
+    });
+    expect(summary).toEqual({ state: 'ok', label: 'all green' });
   });
 });

@@ -47,12 +47,39 @@ describe('stateOfWorld — honest attention-first status line', () => {
     health: 95,
     brainConnected: true,
     failedRuns: 0,
+    // Matches activeAgents on purpose: every configured agent has actually
+    // run in the last 24h, so this fixture stays genuinely nominal.
+    ranRecently: 5,
   };
 
-  it('leads with "All nominal" when nothing needs attention', () => {
+  it('leads with "All nominal" when nothing needs attention, including that every configured agent has actually run', () => {
     const segs = stateOfWorld(base);
     expect(segs[0]).toEqual({ text: 'All nominal', tone: 'ok' });
-    expect(segs.at(-1)).toEqual({ text: '5/8 agents live', tone: 'ok' });
+    expect(segs.at(-1)).toEqual({ text: '5/8 configured · 5 ran in 24h', tone: 'ok' });
+  });
+
+  // Regression: a production review found the home page and /agents both
+  // said "10/10 agents live" from the connector-configured check alone,
+  // while 8 of the 10 real agents had never once executed a run — the
+  // GitHub Actions schedule had only just been wired (see CLAUDE.md's
+  // 2026-08-21 "agent cron" entry). "Configured" (able to run) and "ran
+  // recently" (actually did) are different facts and must not collapse into
+  // one falsely-reassuring "agents live" number, and a roster that is mostly
+  // configured-but-never-run must not be reported as "All nominal".
+  it('does not claim "All nominal" when agents are configured but have not actually run recently', () => {
+    const segs = stateOfWorld({ ...base, activeAgents: 10, totalAgents: 10, ranRecently: 2 });
+    expect(segs.some((s) => s.text === 'All nominal')).toBe(false);
+    expect(segs.at(-1)).toEqual({ text: '10/10 configured · 2 ran in 24h', tone: 'warn' });
+  });
+
+  it('reads "ok" tone once every configured agent has actually run recently, even with a smaller roster', () => {
+    const segs = stateOfWorld({ ...base, activeAgents: 2, totalAgents: 10, ranRecently: 2 });
+    expect(segs.at(-1)).toEqual({ text: '2/10 configured · 2 ran in 24h', tone: 'ok' });
+  });
+
+  it('reads "dim" tone when nothing is configured at all', () => {
+    const segs = stateOfWorld({ ...base, activeAgents: 0, totalAgents: 10, ranRecently: 0 });
+    expect(segs.at(-1)).toEqual({ text: '0/10 configured · 0 ran in 24h', tone: 'dim' });
   });
 
   it('surfaces failed runs first, in error tone', () => {

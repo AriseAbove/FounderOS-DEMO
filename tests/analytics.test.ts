@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { agentRunVolume, runsWithin, runOutcomeCounts } from '@/lib/analytics';
+import { agentRunVolume, runsWithin, runOutcomeCounts, ranWithin, countRanWithin, DAY_MS } from '@/lib/analytics';
 
 const runs = [
   { startedAt: '2026-06-13T11:22:53.404Z' },
@@ -76,5 +76,43 @@ describe('runOutcomeCounts', () => {
 
   test('empty log is all zeros', () => {
     expect(runOutcomeCounts([])).toEqual({ succeeded: 0, pushFailed: 0, failed: 0, total: 0 });
+  });
+});
+
+describe('ranWithin / countRanWithin — "actually ran recently" vs merely configured', () => {
+  // Regression: a production review found the home page and /agents both
+  // claimed "10/10 agents live" from liveAgentStatus's connector-configured
+  // check alone, while 8 of the 10 real agents had never once executed a run
+  // (the GitHub Actions schedule was only just wired — see CLAUDE.md's
+  // 2026-08-21 "agent cron" entry and roadmap item rm-agent-cron). Configured
+  // and actually-running are different facts; this is the honest measure of
+  // the second one.
+  const NOW = Date.parse('2026-08-21T12:00:00Z');
+
+  test('never having run at all is not "ran within" any window', () => {
+    expect(ranWithin(undefined, DAY_MS, NOW)).toBe(false);
+  });
+
+  test('a run inside the trailing window counts; just outside it does not', () => {
+    expect(ranWithin({ startedAt: '2026-08-21T00:00:01Z' }, DAY_MS, NOW)).toBe(true);
+    expect(ranWithin({ startedAt: '2026-08-20T11:59:59Z' }, DAY_MS, NOW)).toBe(false);
+  });
+
+  test('an unparseable startedAt is never counted as recent', () => {
+    expect(ranWithin({ startedAt: 'not-a-date' }, DAY_MS, NOW)).toBe(false);
+  });
+
+  test('countRanWithin only counts agents whose most recent run falls in the window', () => {
+    const lastRuns = [
+      { startedAt: '2026-08-21T10:00:00Z' }, // ran this hour
+      undefined, // never run
+      { startedAt: '2026-07-01T00:00:00Z' }, // stale, last ran weeks ago
+    ];
+    expect(countRanWithin(lastRuns, DAY_MS, NOW)).toBe(1);
+  });
+
+  test('all configured and all recently run — the honest count matches the configured count', () => {
+    const lastRuns = [{ startedAt: '2026-08-21T11:00:00Z' }, { startedAt: '2026-08-21T09:00:00Z' }];
+    expect(countRanWithin(lastRuns, DAY_MS, NOW)).toBe(2);
   });
 });

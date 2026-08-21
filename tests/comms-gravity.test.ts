@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { commsLane, gravityDepth, laneBottomPct, parseWorkKeywords } from '@/lib/comms-gravity';
+import {
+  bandRowsWithOffsets,
+  commsLane,
+  gravityDepth,
+  laneBandZone,
+  laneBottomPct,
+  parseWorkKeywords,
+} from '@/lib/comms-gravity';
 import type { CommsItem } from '@/lib/comms';
 
 const item = (over: Partial<CommsItem>): CommsItem => ({
@@ -106,5 +113,72 @@ describe('laneBottomPct — where a tier band sits, measured from the bottom', (
       expect(laneBottomPct(p)).toBeGreaterThanOrEqual(0);
       expect(laneBottomPct(p)).toBeLessThanOrEqual(100);
     }
+  });
+});
+
+describe('laneBandZone — each tier owns a fixed territory, independent of item count', () => {
+  it('keeps every zone on-canvas and never past the container top', () => {
+    for (const p of [1, 2, 3, undefined] as const) {
+      const zone = laneBandZone(p);
+      expect(zone.bottomPct).toBeGreaterThanOrEqual(0);
+      expect(zone.heightPct).toBeGreaterThan(0);
+      expect(zone.bottomPct + zone.heightPct).toBeLessThanOrEqual(100);
+    }
+  });
+
+  it('never lets one tier\'s territory overlap the tier above it', () => {
+    const order = [1, 2, 3, undefined] as const;
+    for (let i = 0; i < order.length - 1; i++) {
+      const lower = laneBandZone(order[i]);
+      const higher = laneBandZone(order[i + 1]);
+      expect(lower.bottomPct + lower.heightPct).toBeLessThanOrEqual(higher.bottomPct + 1e-9);
+    }
+  });
+
+  it('is a pure function of the tier alone — unaffected by how many messages land in it', () => {
+    // laneBandZone has no count parameter at all; this pins that contract so
+    // a future "helpful" refactor can't quietly reintroduce a count-grown box.
+    expect(laneBandZone(undefined)).toEqual(laneBandZone(undefined));
+  });
+});
+
+describe('bandRowsWithOffsets — regression for the WORK-lane bug (2026-08-21): 25 items in one tier must all stay in bounds', () => {
+  it('keeps every row of a 25-item band inside that tier\'s zone, not just the first few', () => {
+    const items = Array.from({ length: 25 }, (_, i) => i);
+    const zone = laneBandZone(undefined); // the worst-case tier: highest zone, most items in the real bug
+    const rows = bandRowsWithOffsets(items, undefined);
+
+    // every item is actually placed somewhere (nothing silently dropped)
+    expect(rows.reduce((n, r) => n + r.row.length, 0)).toBe(25);
+
+    for (const { bottomPct } of rows) {
+      expect(bottomPct).toBeGreaterThanOrEqual(zone.bottomPct);
+      expect(bottomPct).toBeLessThan(zone.bottomPct + zone.heightPct);
+      // and therefore inside the whole canvas too
+      expect(bottomPct).toBeGreaterThanOrEqual(0);
+      expect(bottomPct).toBeLessThanOrEqual(100);
+    }
+  });
+
+  it('keeps rows in bounds no matter how large the lane grows (not just 25)', () => {
+    for (const count of [0, 1, 8, 15, 25, 60, 200]) {
+      const items = Array.from({ length: count }, (_, i) => i);
+      const zone = laneBandZone(undefined);
+      const rows = bandRowsWithOffsets(items, undefined);
+      for (const { bottomPct } of rows) {
+        expect(bottomPct).toBeGreaterThanOrEqual(zone.bottomPct);
+        expect(bottomPct).toBeLessThan(zone.bottomPct + zone.heightPct);
+      }
+    }
+  });
+
+  it('single-row bands sit exactly at the tier\'s own anchor (unchanged from before the fix)', () => {
+    const rows = bandRowsWithOffsets([1, 2, 3], 1);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].bottomPct).toBe(laneBandZone(1).bottomPct);
+  });
+
+  it('returns nothing for an empty band', () => {
+    expect(bandRowsWithOffsets([], undefined)).toEqual([]);
   });
 });

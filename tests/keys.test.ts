@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { KEY_SLOTS, listKeyStatuses, maskSecret, upsertEnvLocal } from '@/lib/keys';
+import { caldavAccounts } from '@/lib/connectors/gcal';
 
 describe('maskSecret', () => {
   test('shows only the tail, never short secrets', () => {
@@ -16,12 +17,27 @@ describe('KEY_SLOTS', () => {
   test('covers the canonical connector slots with groups', () => {
     const vars = KEY_SLOTS.map((s) => s.envVar);
     expect(vars).toEqual(
-      expect.arrayContaining(['INBOX_1_PASS', 'CAL_1_USER', 'QUICKBOOKS_CLIENT_ID', 'BRAIN_STORE']),
+      expect.arrayContaining(['INBOX_1_PASS', 'QUICKBOOKS_CLIENT_ID', 'BRAIN_STORE']),
     );
     for (const slot of KEY_SLOTS) {
       expect(slot.group.length).toBeGreaterThan(0);
       expect(slot.envVar).toMatch(/^[A-Z][A-Z0-9_]*$/);
     }
+  });
+
+  // Bug: /integrations showed "Google Calendar — CONNECTED" sitting directly
+  // above "CAL_1_USER: not set / CAL_1_PASS: not set" even though the
+  // calendar demonstrably works on /comms. Root cause: lib/connectors/gcal.ts
+  // never reads CAL_1_USER/CAL_1_PASS at all — it authenticates with the same
+  // Google INBOX_*_USER/_PASS app passwords the Email group already shows.
+  // The credential panel was labeling the wrong env vars, not the CONNECTED
+  // badge lying — so those dead slots must not exist (must never resurface
+  // as a "Calendar" group nobody's code actually reads).
+  test('never lists CAL_1_USER/CAL_1_PASS — the real calendar connector reads INBOX_*, not these', () => {
+    const vars = KEY_SLOTS.map((s) => s.envVar);
+    expect(vars).not.toContain('CAL_1_USER');
+    expect(vars).not.toContain('CAL_1_PASS');
+    expect(KEY_SLOTS.some((s) => s.group === 'Calendar')).toBe(false);
   });
 });
 
@@ -34,6 +50,43 @@ describe('listKeyStatuses', () => {
     expect(qbo.masked).toBe('••••9876');
     expect(JSON.stringify(statuses)).not.toContain('qbo-very-secret-9876');
     expect(statuses.find((s) => s.envVar === 'INBOX_1_PASS')!.present).toBe(false);
+  });
+
+  // Bug: /integrations showed "Knowledge Store — CONNECTED" sitting directly
+  // above "BRAIN_STORE: not set" with nothing explaining why — both facts
+  // are individually true (BRAIN_STORE really isn't set; the connector is
+  // really connected via the bundled knowledge/brain-store/ fallback), so
+  // the credential panel needs to say so instead of reading as a lie.
+  test('BRAIN_STORE not set: carries an explanatory note when the bundled fallback store exists', () => {
+    const env = {};
+    const statuses = listKeyStatuses(env);
+    const brainStore = statuses.find((s) => s.envVar === 'BRAIN_STORE')!;
+    expect(brainStore.present).toBe(false);
+    expect(brainStore.note).toMatch(/bundled starter store/i);
+  });
+
+  test('BRAIN_STORE explicitly set: no fallback note (nothing to explain)', () => {
+    const env = { BRAIN_STORE: '/some/real/path' };
+    const statuses = listKeyStatuses(env);
+    const brainStore = statuses.find((s) => s.envVar === 'BRAIN_STORE')!;
+    expect(brainStore.present).toBe(true);
+    expect(brainStore.note).toBeUndefined();
+  });
+});
+
+describe('the credential panel and the real Calendar connector agree on which vars actually power it', () => {
+  test('a real Google inbox app password (INBOX_1_*) is what caldavAccounts() reads AND what the panel displays — the same source, not two guesses', () => {
+    const env = {
+      INBOX_1_HOST: 'imap.gmail.com',
+      INBOX_1_USER: 'sean@ariseaboveconstruction.com',
+      INBOX_1_PASS: 'abcd efgh ijkl mnop',
+    };
+    // The connector genuinely authenticates off these — proves the panel
+    // isn't just displaying decorative vars nothing reads.
+    expect(caldavAccounts(env)).toHaveLength(1);
+    const statuses = listKeyStatuses(env);
+    expect(statuses.find((s) => s.envVar === 'INBOX_1_USER')!.present).toBe(true);
+    expect(statuses.find((s) => s.envVar === 'INBOX_1_PASS')!.present).toBe(true);
   });
 });
 

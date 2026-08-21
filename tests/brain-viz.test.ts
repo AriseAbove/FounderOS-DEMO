@@ -1,5 +1,9 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { foldersToClusters, layoutBrainNodes, polar } from '@/lib/brain-viz';
+
+const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8');
 
 describe('polar', () => {
   test('rounds to hydration-stable precision (server and client stringify identically)', () => {
@@ -79,5 +83,51 @@ describe('layoutBrainNodes', () => {
 
   test('handles an empty cluster list', () => {
     expect(layoutBrainNodes([])).toEqual({ nodes: [], labels: [] });
+  });
+});
+
+// 2026-08-21 fix: BrainViz used to render "ZEROENTROPY · EMBEDDINGS" and
+// "SUPABASE · 1240 PAGES · PAUSED" unconditionally — neither service is
+// wired anywhere in this codebase (no SDK, no env var, no client) and 1240
+// was a hardcoded default, not a real remote count. This directly caused
+// the /brain page's search-provider contradiction: honest body copy said
+// grep-only, these chips said a hybrid vector backend was live and merely
+// paused.
+describe('components/BrainViz.tsx — no fabricated vector-provider claims', () => {
+  const src = read('components/BrainViz.tsx');
+
+  test('no fixed "ZEROENTROPY · EMBEDDINGS" chip rendered unconditionally', () => {
+    expect(src).not.toMatch(/>\s*ZEROENTROPY · EMBEDDINGS\s*</);
+  });
+
+  test('no fixed "SUPABASE · N PAGES · PAUSED" chip, and no fake page-count prop', () => {
+    expect(src).not.toMatch(/SUPABASE · \{/);
+    expect(src).not.toMatch(/supabasePages\??:/); // the removed prop's type declaration
+  });
+
+  test('the two provider-state labels are driven by the real fallbackActive prop, not a hardcoded string', () => {
+    expect(src).toMatch(/fallbackActive: boolean/);
+    expect(src).toMatch(/fallbackActive \? 'EMBEDDINGS · NOT WIRED' : 'EMBEDDINGS · LIVE'/);
+    expect(src).toMatch(/fallbackActive \? 'VECTOR STORE · NOT WIRED' : 'VECTOR STORE · LIVE'/);
+  });
+});
+
+describe('components/BrainQuery.tsx — no fabricated hybrid/zeroentropy claim', () => {
+  const src = read('components/BrainQuery.tsx');
+
+  test('the busy-query line does not claim a zeroentropy backend', () => {
+    expect(src).not.toMatch(/'querying[^']*zeroentropy[^']*'/i);
+  });
+
+  test('the done-query line does not name supabase specifically', () => {
+    expect(src).not.toMatch(/'\s*·\s*local fallback \(supabase paused\)'/i);
+  });
+});
+
+describe('components/PillarRadar.tsx — a null health score is not styled "ok"', () => {
+  test('the center health number only gets the ok/green class when a real score exists', () => {
+    const src = read('components/PillarRadar.tsx');
+    expect(src).not.toMatch(/className="text-2xl font-semibold text-os-ok">\{health/);
+    expect(src).toMatch(/health == null \? 'text-os-dim' : 'text-os-ok'/);
   });
 });

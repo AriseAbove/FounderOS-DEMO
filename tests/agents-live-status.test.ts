@@ -43,6 +43,22 @@ describe('liveAgentStatus (honest, computed — never trusts the static seed val
     expect(liveAgentStatus('chief-of-staff', [], undefined, 'planned')).toBe('planned');
   });
 
+  // Regression: chiefOfStaffRunWith deliberately reports ok:true even when its
+  // ntfy push genuinely fails (the run's real job — gathering signals — still
+  // worked), but before this fix liveAgentStatus only looked at `ok`, so a
+  // Chief of Staff whose push had failed on every one of ~69 straight hourly
+  // runs still read "active" (LIVE, green, pulsing dot) exactly like a fully
+  // healthy run. pushFailed must downgrade the status to something visibly
+  // different from full health, without lying that it's fully "planned"
+  // (down/no-creds) either — it did run, it just couldn't deliver.
+  test('chief-of-staff whose run succeeded but whose push genuinely failed reads "idle", not blanket "active"', () => {
+    expect(liveAgentStatus('chief-of-staff', [], { ok: true, pushFailed: true }, 'planned')).toBe('idle');
+  });
+
+  test('chief-of-staff with a clean, fully-successful run still reads "active"', () => {
+    expect(liveAgentStatus('chief-of-staff', [], { ok: true, pushFailed: false }, 'planned')).toBe('active');
+  });
+
   test('an unknown agent id is left exactly as authored — never guessed', () => {
     expect(liveAgentStatus('some-future-agent', [], undefined, 'planned')).toBe('planned');
     expect(liveAgentStatus('some-future-agent', [], undefined, 'active')).toBe('active');

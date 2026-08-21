@@ -1,6 +1,10 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { buildKnowledgeGraph, graphDeptRank, graphDirectory, toolSlugOf, GRAPH_DEPT_ORDER } from '@/lib/knowledge-graph';
 import type { Agent, Department, Person, SopTask } from '@/lib/schemas';
+
+const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8');
 
 const dept = (id: string, name: string): Department => ({
   id,
@@ -231,6 +235,29 @@ describe('graphDirectory — the scrollable everything-index', () => {
     }
   });
 
+  // 2026-08-21 fix: a live QA pass found "Tools 13" (the graph legend, which
+  // counts NODES — a shared tool gets one node per department) disagreeing
+  // with "TOOLS 10" (this directory, deduped by slug) on the same page. Both
+  // numbers were real and correct for what they each measure; only the bare
+  // "Tools" label made them read as a contradiction. Lock in that the
+  // directory's title says "unique" so it can never silently drift back to
+  // an unqualified "Tools" that collides with the legend's node count.
+  test('the tool group is titled to make clear it is deduped by slug, not a raw node count', () => {
+    const dir = graphDirectory(multiAgents, multiDepts, people, multiTasks, buildKnowledgeGraph(multiAgents, multiDepts, people, multiTasks));
+    const toolGroup = dir.find((g) => g.kind === 'tool')!;
+    expect(toolGroup.title.toLowerCase()).toContain('unique');
+  });
+
+  test('a tool shared across departments is fewer directory rows than graph nodes — the two counts legitimately differ', () => {
+    const graph = buildKnowledgeGraph(multiAgents, multiDepts, people, multiTasks);
+    const dir = graphDirectory(multiAgents, multiDepts, people, multiTasks, graph);
+    const toolNodeCount = graph.nodes.filter((n) => n.kind === 'tool').length;
+    const uniqueToolCount = dir.find((g) => g.kind === 'tool')!.rows.length;
+    // attio is used by both dept-sales and dept-clients in this fixture, so
+    // it gets 2 graph nodes but exactly 1 directory row.
+    expect(toolNodeCount).toBeGreaterThan(uniqueToolCount);
+  });
+
   test('every row carries a resolvable target: node id (or tool slug) + dept name', () => {
     const g = buildKnowledgeGraph(multiAgents, multiDepts, people, multiTasks);
     const ids = new Set(g.nodes.map((n) => n.id));
@@ -263,5 +290,19 @@ describe('graph department order (AC1)', () => {
 
   test('unknown departments rank after the known ones', () => {
     expect(graphDeptRank('dept-mystery')).toBeGreaterThan(graphDeptRank('dept-comms'));
+  });
+});
+
+// 2026-08-21 fix — the other half of the "Tools 13 / TOOLS 10" contradiction:
+// the sidebar legend counts graph NODES (a shared tool = one node per
+// department), the directory above counts unique slugs. Lock in that the
+// legend row for 'tool' no longer renders the bare, ambiguous "Tools" label
+// the directory also used before its own fix (see the "unique" title test
+// above).
+describe('KnowledgeGraph legend — tool row is labeled as a node count', () => {
+  test('the tool legend row does not fall back to the bare CAT label', () => {
+    const src = read('components/KnowledgeGraph.tsx');
+    expect(src).toMatch(/LEGEND_LABEL_OVERRIDE[^;]*tool[^;]*:/);
+    expect(src).toMatch(/LEGEND_LABEL_OVERRIDE\[k\]\s*\?\?\s*cat\.label/);
   });
 });

@@ -34,6 +34,37 @@ describe('recentActivity', () => {
     const events = recentActivity(seed(), 2);
     expect(events.map((e) => e.kind)).toEqual(['broadcast', 'message']);
   });
+
+  // Regression: a run whose push genuinely failed (ok:true, pushFailed:true —
+  // e.g. Chief of Staff's ntfy push) used to reach the /agents activity log
+  // as a plain, unflagged "run" event indistinguishable from a fully healthy
+  // one — only the FAIL badge (ok===false) rendered, and pushFailed was
+  // dropped entirely on the way into ActivityEvent. The feed must carry the
+  // signal through so the UI can flag it honestly instead of silently
+  // reading as OK.
+  test('a pushFailed run carries pushFailed through to its activity event', () => {
+    const db = seed();
+    db.agentRuns.insert({
+      id: 'r-pf',
+      agentId: 'chief-of-staff',
+      startedAt: '2026-06-12T05:00:00Z',
+      finishedAt: '2026-06-12T05:00:01Z',
+      ok: true,
+      summary: '3 new high-severity, push failed (fetch failed)',
+      pushFailed: true,
+    });
+    const events = recentActivity(db, 50);
+    const run = events.find((e) => e.kind === 'run' && e.agentId === 'chief-of-staff');
+    expect(run).toBeDefined();
+    expect(run?.ok).toBe(true);
+    expect(run?.pushFailed).toBe(true);
+  });
+
+  test('a clean run does not carry a stray pushFailed:true', () => {
+    const events = recentActivity(seed(), 50);
+    const run = events.find((e) => e.kind === 'run' && e.agentId === 'data-agent');
+    expect(run?.pushFailed).toBeFalsy();
+  });
 });
 
 describe('GET /api/agents/activity', () => {

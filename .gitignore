@@ -7,6 +7,7 @@ data/*.db-*
 next-env.d.ts
 .DS_Store
 .worktrees/
+.claude/worktrees/
 .playwright-mcp/
 claude code images/
 dir-sidebar.jpeg

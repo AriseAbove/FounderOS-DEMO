@@ -94,7 +94,27 @@ pre-wired to any one machine.
 - `lib/agents/runtime.ts` + `real.ts` — the roster: conductor, comms-agent,
   gmail-worker, calendar-worker, data-agent, quickbooks-pulse, allo-pulse. Every seeded
   agent row maps 1:1 to a `RuntimeAgent` with a real `run()` (enforced by
-  seed tests). Runs persist to `agent_runs`.
+  seed tests). Runs persist to `agent_runs`, including a `pushFailed`
+  column (`ok`/`pushFailed` are deliberately separate signals — a run can do
+  its own job fine while a notification it tried to send genuinely fails;
+  see below and `lib/analytics.ts`'s `runOutcomeCounts`).
+- Chief of Staff / ntfy (2026-08-21 fix): production logged "push failed
+  (fetch failed)" on every single hourly run with no way to tell why — Node's
+  fetch throws a generic `TypeError: fetch failed` for any network-level
+  failure and buries the real reason on `err.cause`. `describeFetchError`
+  (`lib/chief-of-staff.ts`) now walks that cause chain into the summary
+  instead of swallowing it, `sendNtfyPush` URL-encodes `NTFY_TOPIC` and
+  attaches a 10s `AbortSignal` timeout so a hung connection fails fast
+  instead of stalling the cron. Separately, `chiefOfStaffRunWith` always
+  returned `ok: true` even when the push itself failed (intentional — a
+  flaky push must never fail the run whose real job, gathering signals,
+  worked), but Analytics' "Run outcomes" pie read `ok` straight into
+  "Succeeded" with nothing else to go on, so 69 straight failed-push runs
+  showed as ~99% OK. The run now also reports `pushFailed: true` on a
+  genuine failure (not on the honest "NTFY_TOPIC not set" no-op), persisted
+  alongside `ok`, and `/analytics` (`runOutcomeCounts`) buckets outcomes into
+  Succeeded / Push failed / Failed instead of a two-way ok/fail split — a
+  failing push is now visible on its own, not folded into full success.
 - `lib/agents/chat.ts`'s `systemPromptFor` only tells an agent to "use your
   tools" when `agent.chatTools()` actually returns tools — otherwise it tells
   the model plainly that it has no live-data tools wired in and to never
@@ -147,6 +167,27 @@ pre-wired to any one machine.
   are exempted (`BYPASS_PREFIXES`) since their callers are machines
   authenticating with their own bearer secret, not a browser that can do
   an interactive Basic Auth challenge. Tests in `tests/middleware.test.ts`.
+- **OneUp status reconciliation (2026-08-21).** A dashboard review found
+  `/social`, `/content`, and the publish queue all disagreeing with
+  `/integrations` about whether OneUp was connected: `/integrations`
+  (`allConnectorStatuses()` → `oneupStatus()`, honest env-var-present check)
+  correctly said connected, but `/social` hardcoded "no posting source
+  connected" regardless of real state, and `/content` rendered
+  `db.agents.all()`'s static seed `status` (`'planned'`) for Social Pulse
+  instead of computing it live like `/agents` and `/` already do via
+  `lib/agents/live-status.ts`'s `liveAgentStatus()` — the fix both pages were
+  missing, not a new status source. `/social`'s badge now reads the real
+  OneUp state (`lib/social.ts`'s `socialSourceBadge()`) — connected still
+  doesn't claim synced audience/post data exists, since no OneUp
+  account/post sync is wired yet (`docs/oneup-integration.md`'s "what's NOT
+  done" #2 — the audience chart still runs on the pre-existing "Zernio
+  config" placeholder path, deliberately left alone). Root cause of "the
+  publish queue never fires": Social Pulse (`social-pulse`) has a real
+  `run()` (`socialPulseRun` in `lib/agents/real.ts`) but, unlike Chief of
+  Staff, has no cron route or GitHub Actions workflow — it only runs when
+  triggered manually from `/agents`. Wiring an actual schedule is scoped to
+  the separate agent-scheduling task; `PostComposer`'s copy now says so
+  honestly instead of implying an automatic "next run."
 - Credentials go in `.env.local` (gitignored). NEVER commit keys.
 
 ## Views

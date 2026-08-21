@@ -6,6 +6,8 @@ import { LIFE_AREAS, lifeAreaForDepartment } from '@/lib/life-map';
 import { getBusiness, businessAgentSet, businessesForAgent } from '@/lib/businesses';
 import { isBusinessFilter, resolveBusinessFilter } from '@/lib/business-filter';
 import { readBusinessFilterCookie } from '@/lib/business-filter-server';
+import { allConnectorStatuses } from '@/lib/connectors';
+import { liveAgentStatus } from '@/lib/agents/live-status';
 import { ConductorCard } from '@/components/ConductorCard';
 import { SparkIcon } from '@/components/SparkIcon';
 import { PageHeader } from '@/components/PageHeader';
@@ -19,6 +21,16 @@ const STATUS_DOT: Record<AgentStatus, string> = {
   training: 'bg-os-muted animate-pulse',
   planned: 'border border-os-dim bg-transparent',
 };
+
+// Labels for the status legend below — same four states STATUS_DOT renders,
+// in the order they're most useful to scan (live first, down last).
+const STATUS_LABEL: Record<AgentStatus, string> = {
+  active: 'Active',
+  idle: 'Idle',
+  training: 'Training',
+  planned: 'Planned',
+};
+const STATUS_ORDER: AgentStatus[] = ['active', 'idle', 'training', 'planned'];
 
 /** Tiny colored dots showing which businesses an agent serves. */
 function BusinessDots({ agentId }: { agentId: string }) {
@@ -84,10 +96,20 @@ function SystemCard({ href, title, caption }: { href: string; title: string; cap
   );
 }
 
-export default function OrgChartPage({ searchParams }: { searchParams?: { business?: string } }) {
+export default async function OrgChartPage({ searchParams }: { searchParams?: { business?: string } }) {
   const db = getDb();
   const departments = db.departments.all();
-  const agents = db.agents.all();
+  // Honest, computed status — same rule Home, /agents, and /content already
+  // apply via lib/agents/live-status.ts's liveAgentStatus(). Before this fix
+  // this page rendered db.agents.all()'s static seed `status` untouched, so
+  // most of the roster (including Chief of Staff, which /agents correctly
+  // shows ACTIVE with real run history) showed as "planned" here regardless
+  // of what was actually connected or had actually run.
+  const connections = await allConnectorStatuses();
+  const agents = db.agents.all().map((a) => ({
+    ...a,
+    status: liveAgentStatus(a.id, connections, db.agentRuns.byAgent(a.id)[0], a.status),
+  }));
   // The business lens: same roster, same DB — the Topbar switcher just
   // changes which crew lights up. A `?business=` link overrides the global
   // cookie for direct linking; otherwise the Topbar's current selection
@@ -146,12 +168,25 @@ export default function OrgChartPage({ searchParams }: { searchParams?: { busine
       )}
 
       {/* Life-area legend: every crew below is tinted by the part of life it serves */}
-      <div className="mb-6 flex flex-wrap items-center gap-4 rounded-lg border border-os-border bg-os-surface px-3 py-2">
+      <div className="mb-3 flex flex-wrap items-center gap-4 rounded-lg border border-os-border bg-os-surface px-3 py-2">
         <span className="text-[9px] uppercase tracking-[0.2em] text-os-dim">Life areas</span>
         {LIFE_AREAS.map((area) => (
           <span key={area.id} className="flex items-center gap-1.5 text-[10px] text-os-muted">
             <span className="h-2 w-2 rounded-full" style={{ background: area.color }} />
             {area.label}
+          </span>
+        ))}
+      </div>
+
+      {/* Status legend: same live-computed dots (lib/agents/live-status.ts)
+          every pill and card below renders — nothing here was explained
+          before this fix. */}
+      <div className="mb-6 flex flex-wrap items-center gap-4 rounded-lg border border-os-border bg-os-surface px-3 py-2">
+        <span className="text-[9px] uppercase tracking-[0.2em] text-os-dim">Status</span>
+        {STATUS_ORDER.map((status) => (
+          <span key={status} className="flex items-center gap-1.5 text-[10px] text-os-muted">
+            <span className={`h-2 w-2 rounded-full ${STATUS_DOT[status]}`} />
+            {STATUS_LABEL[status]}
           </span>
         ))}
       </div>

@@ -6,6 +6,7 @@ import { AgentChat } from '@/components/AgentChat';
 import { ConductorChat } from '@/components/ConductorChat';
 import { AgentActivityFeed } from '@/components/AgentActivityFeed';
 import { AgentWorkPanel } from '@/components/AgentWorkPanel';
+import { AgentRunButton } from '@/components/AgentRunButton';
 import { recentActivity } from '@/lib/agents/activity';
 import { countRanWithin, DAY_MS } from '@/lib/analytics';
 import { SparkIcon } from '@/components/SparkIcon';
@@ -66,7 +67,14 @@ function AgentRosterCard({
           </div>
           <div className="mt-1 truncate font-mono text-[10.5px] text-os-dim">{agent.role}</div>
         </div>
-        <Badge>{agent.tier}</Badge>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <Badge>{agent.tier}</Badge>
+          {/* This roster used to have no way to trigger a run at all — only
+              the home page's (previously dead) pill implied one. Real
+              trigger for POST /api/agents/[id]/run; see
+              components/AgentRunButton.tsx. */}
+          <AgentRunButton agentId={agent.id} status={agent.status} />
+        </div>
       </div>
 
       <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-os-muted [text-wrap:pretty]">{agent.description}</p>

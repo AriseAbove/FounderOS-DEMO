@@ -25,7 +25,14 @@ import type { NextRequest } from 'next/server';
 // fails OPEN (matches every other connector's ConnectorStatus pattern in
 // this repo — never silently claim protection that isn't configured yet).
 // Once both are set, every other route requires them.
-const BYPASS_PREFIXES = ['/api/cron/chief-of-staff', '/api/voice/queue', '/api/aac-brain'];
+//
+// `/api/cron` covers every agent's scheduled route (app/api/cron/[agentId]),
+// not just Chief of Staff (2026-08-21: every real agent got a real GitHub
+// Actions schedule, not only Chief of Staff — see
+// .github/workflows/agent-cron-checks.yml). All of them share the same
+// CRON_SECRET bearer gate the route itself enforces, so this prefix bypass
+// is still just "let the route's own auth run", not a hole.
+const BYPASS_PREFIXES = ['/api/cron', '/api/voice/queue', '/api/aac-brain'];
 
 export function middleware(req: NextRequest): NextResponse {
   const { pathname } = req.nextUrl;

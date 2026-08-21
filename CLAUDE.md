@@ -53,13 +53,38 @@ per journey by its `business` field (`lib/funnel.ts`):
 `stagesFor(business)` returns the right stage set; `ALL_FUNNEL_STAGES` is the
 safe flat lookup for label rendering regardless of business (ids never
 collide). `isWon`/`journeyMeta`/`funnelSummary`/`funnelSpaceModel` all work
-across both pipelines. The two funnel canvases (FunnelSpace, FunnelRadial)
-still render hub geometry off the AAC backbone (`FUNNEL_STAGES`, unconditionally)
-— a dedicated Apps canvas view is a scoped follow-up, not yet wired, since
-Apps has zero live journeys today; do not hardcode the AAC stage count
-elsewhere on the assumption it is the only pipeline. Colors are
-`--funnel-s0..s7` per theme in `app/globals.css` (Apps' 6 stages reuse the
-first 6 tokens).
+across both pipelines. Do not hardcode the AAC stage count elsewhere on the
+assumption it is the only pipeline. Colors are `--funnel-s0..s7` per theme in
+`app/globals.css` (Apps' 6 stages reuse the first 6 tokens).
+
+**Apps funnel presence (2026-08-21 fix).** A dashboard review found the
+`rm-apps-funnel` roadmap item's "done" claim overstated what had shipped —
+the stage model was real (above), but `app/funnel/page.tsx` called
+`funnelSummary`/`funnelSpaceModel`/`funnelRadialModel` with no `stages` arg,
+so every one of them silently defaulted back to `AAC_FUNNEL_STAGES` even with
+Apps selected, and `FunnelSpace` imported `FUNNEL_STAGES` (AAC's) at module
+scope for its hub geometry regardless of business. Invisible today only
+because Apps has zero live journeys (`nodes.length === 0` short-circuited
+before any hub rendered) — the bug was real, just unobserved. Fixed: the page
+now threads `stagesFor(business)` through every model call, and
+`FunnelSpace` takes a `stages` prop and renders its **real** hub row (Apps'
+Discovered → Retained, honestly all zero) instead of swapping the canvas for
+a stage-less "No journeys" message. `FunnelRadial` stays AAC-only on purpose
+— its rim is AAC's real lead-source wedges (phone, Google, website, social,
+referral; `lib/funnel-radial.ts`'s `ACQUISITIONS`), and Apps has no
+acquisition-channel data to back an equivalent wedge set, so inventing one
+would violate HONESTY. `/funnel` now forces `layout=flow` and disables the
+radial toggle whenever `business=apps`, with a tooltip explaining why, rather
+than rendering AAC's wedges under an Apps label. `lib/businesses.ts`'s
+`areaAgents` also went from "AAC and Apps are both shared-infra-only, equally
+sparse" to AAC carrying its own real crew — Allo Pulse + Website Pulse
+(sales, both literally described as "the AAC pipeline" in their own seed
+copy), QuickBooks Pulse (finances, the confirmed real books), and Comms
+Agent/Gmail Worker/Calendar Worker (communication, Sean's real connected
+inbox/calendar) — none of it invented, just finally wired from facts already
+documented elsewhere in this file. Apps stays honestly shared-only (no
+app-specific inbox/books/lead source exists yet); its `focus` list now says
+so directly instead of leaving the sparse roster unexplained.
 
 ## Connectors & agents
 
@@ -115,6 +140,34 @@ pre-wired to any one machine.
   alongside `ok`, and `/analytics` (`runOutcomeCounts`) buckets outcomes into
   Succeeded / Push failed / Failed instead of a two-way ok/fail split — a
   failing push is now visible on its own, not folded into full success.
+- **Every real agent now has a real schedule (2026-08-21 fix).** A
+  production review found only Chief of Staff had ever actually run on a
+  schedule — the other 9 agents in `realAgents` had a real `run()` but no
+  trigger, only the manual "Run" button on `/agents`, so production showed
+  zero run history for most of the roster. `app/api/cron/chief-of-staff/
+  route.ts` (single hardcoded agent) is now `app/api/cron/[agentId]/route.ts`
+  — same `CRON_SECRET` bearer gate, same honest 501-when-not-configured
+  behavior, but it validates `agentId` against `realAgents` and 404s on an
+  unknown id instead of only ever running one agent. The URL
+  `/api/cron/chief-of-staff` is unchanged (the dynamic route matches it via
+  `agentId: "chief-of-staff"`), so `.github/workflows/chief-of-staff-check.yml`
+  and its already-configured `ARISE_OS_URL`/`CRON_SECRET` repo secrets needed
+  no changes. `.github/workflows/agent-cron-checks.yml` adds schedules for
+  the rest of the roster, grouped by sensible cadence (see that file's header
+  comment for the full reasoning per agent): gmail-worker/calendar-worker/
+  comms-agent every 30 min business hours, allo-pulse/website-pulse (lead
+  intake — a stale lead is a real cost) every 15 min business hours,
+  data-agent/conductor (cheap pure-DB reads) hourly business hours,
+  quickbooks-pulse twice daily, social-pulse every 4 hours around the clock.
+  `middleware.ts`'s cron bypass prefix widened from `/api/cron/chief-of-staff`
+  to `/api/cron` to cover the new per-agent paths — still just "let the
+  route's own CRON_SECRET check run instead of the Basic Auth wall", not a
+  new hole, since every id under that prefix is still bearer-gated by the
+  route itself. No fake "last run" data was added anywhere — the fix is
+  making runs actually happen, not backfilling history that didn't occur;
+  each agent's real run history starts accumulating from whenever its
+  workflow first fires after this ships. Tests in
+  `tests/cron-agent-route.test.ts`.
 - `lib/agents/chat.ts`'s `systemPromptFor` only tells an agent to "use your
   tools" when `agent.chatTools()` actually returns tools — otherwise it tells
   the model plainly that it has no live-data tools wired in and to never
@@ -234,6 +287,10 @@ still render honest empty states wherever there's genuinely nothing yet.
   whichever branch is default, so the Chief of Staff cron workflow was
   invisible to GitHub until this switch, independent of its secrets being
   set correctly. `main` still exists but is 15 commits behind and unused.
+  Same caveat applies to `.github/workflows/agent-cron-checks.yml` (the
+  schedules for the rest of the agent roster, added 2026-08-21) and to any
+  future scheduled workflow: it only fires once it lives on whichever branch
+  is default at the time, not necessarily the branch it was authored on.
 
 ## Multi-agent etiquette
 

@@ -36,7 +36,7 @@ npm run seed                 # re-seed the baseline (idempotent)
 | --- | --- |
 | `/` | Operator console: pulse row, connections strip, agent list |
 | `/comms` | Unified inbox: IMAP email + CalDAV calendar in one feed |
-| `/funnel` | AAC's real pipeline (inquiry → complete & paid) as a living flow + radial acquisition wheel |
+| `/funnel` | Two real pipelines (AAC's sales funnel, Apps' product funnel) as a living flow + radial acquisition wheel — radial is AAC-only, see Notes |
 | `/finances` | QuickBooks income/expenses/invoices + uploaded statement analysis |
 | `/agents` | The agent roster, each with a real `run()` and last-run state |
 | `/org` | Org hierarchy with the AAC / Apps / Combined business lens |
@@ -73,8 +73,15 @@ volume** — the container filesystem is ephemeral and silently drops the DB
 
 ## Notes
 
-- The funnel's stage model is AAC's real pipeline. Arise Above Apps' funnel
-  stages are still undefined — `apps` journeys ride the AAC stages as a
-  clearly-flagged placeholder.
+- The funnel has two real pipelines, not one: AAC's sales pipeline (inquiry →
+  complete & paid) and Apps' own product/acquisition pipeline (discovered →
+  installed → activated → trial started → subscribed → retained, decided
+  2026-08-14 — Sean builds and publishes the apps himself, so there's no
+  client to walk through or negotiate with). Both live stages on
+  `lib/funnel.ts`'s `FunnelStage` enum and render on `/funnel`'s flow canvas,
+  honestly at zero for Apps today (no Apps journeys yet). The radial
+  (acquisition-wedge) view stays AAC-only — its rim models AAC's real lead
+  sources (phone, Google, website, social, referral), which Apps has no
+  equivalent for yet.
 - Env var names (`FOUNDER_OS_DB`, …) and the DB filename keep their original
   names for deploy compatibility.

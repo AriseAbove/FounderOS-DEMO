@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/data';
 import { runtimeEnv } from '@/lib/creds';
-import { BrainHealthTopFailureSchema } from '@/lib/schemas';
+import { BrainHealthTopFailureSchema, ConnectorHealthSchema } from '@/lib/schemas';
 import { z } from 'zod';
 
 // The health-report relay for the AAC Brain — Sean's separate Mac-based
@@ -31,6 +31,9 @@ const IngestSchema = z.object({
   failingWorkers: z.number().int().nonnegative(),
   totalWorkers: z.number().int().nonnegative(),
   topFailures: z.array(BrainHealthTopFailureSchema).max(20),
+  // Optional/defaulted so an older brain_health_push.py that hasn't picked up
+  // the connector-check fix yet keeps working without a hard schema break.
+  connectors: z.array(ConnectorHealthSchema).max(20).optional().default([]),
   lastDailySummaryDate: z.string().nullable().optional(),
   reportedAt: z.string(),
 });
@@ -70,6 +73,7 @@ export async function POST(req: Request) {
     failingWorkers: snapshot.failingWorkers,
     totalWorkers: snapshot.totalWorkers,
     topFailures: snapshot.topFailures,
+    connectors: snapshot.connectors,
     lastDailySummaryDate: snapshot.lastDailySummaryDate ?? null,
     reportedAt: snapshot.reportedAt,
     receivedAt: new Date().toISOString(),

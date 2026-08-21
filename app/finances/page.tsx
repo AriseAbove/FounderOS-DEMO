@@ -15,6 +15,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { SharePie } from '@/components/SharePie';
 import { StatementUploader } from '@/components/StatementUploader';
 import { BusinessIncomeChart } from '@/components/BusinessIncomeChart';
+import { InvoiceAging } from '@/components/InvoiceAging';
 import { Badge, Label, SectionHead } from '@/components/terminal';
 
 export const dynamic = 'force-dynamic';
@@ -180,21 +181,11 @@ export default async function FinancesPage() {
             )}
           </div>
         )}
-        {qboConnected && qboAr && qboAr.length > 0 && (
-          <ul className="mt-2.5 space-y-1.5">
-            {qboAr.slice(0, 6).map((inv) => (
-              <li
-                key={inv.id}
-                className="hoverable flex items-center gap-3.5 rounded-lg-t border border-os-border bg-os-surface px-4 py-3"
-              >
-                <span className="font-mono text-[13px] font-semibold text-os-warn">{usd(inv.balance)}</span>
-                <span className="min-w-0 flex-1 truncate text-[12.5px] text-os-muted">{inv.customer} · #{inv.docNumber}</span>
-                <span className="shrink-0 font-mono text-[10.5px] text-os-dim">{inv.dueDate ? `due ${inv.dueDate}` : 'no due date'}</span>
-              </li>
-            ))}
-          </ul>
-        )}
       </section>
+
+      {/* Aging + chase — every open invoice, worst-overdue first, with a
+          draft-and-approve reminder email per row. See components/InvoiceAging.tsx. */}
+      {qboConnected && qboAr && <InvoiceAging invoices={qboAr} />}
 
       {/* Summary tiles — slim single-line rows so the page opens condensed */}
       <section className="mb-5 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">

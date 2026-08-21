@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { NAV_OPERATE, NAV_AGENTS, NAV_INTELLIGENCE, NAV_MARKETING, NAV_SYSTEM, NAV_LIBRARY, type NavItem } from '@/lib/nav';
+import { systemsLiveDisplay } from '@/lib/sidebar-status';
 import { OsMark } from '@/components/OsMark';
 
 function NavGroup({ title, items, pathname }: { title: string; items: NavItem[]; pathname: string }) {
@@ -58,6 +59,8 @@ export function Sidebar() {
     };
   }, []);
 
+  const status = systemsLiveDisplay(live);
+
   return (
     <aside className="fixed inset-y-0 left-0 z-20 flex w-[232px] flex-col border-r border-os-border bg-os-bg2">
       <div className="flex items-center gap-[11px] px-[18px] pb-[18px] pt-5">
@@ -79,7 +82,9 @@ export function Sidebar() {
       </nav>
       <div className="flex flex-col gap-2 border-t border-os-border px-[18px] py-3.5">
         <div className="flex items-center gap-2 whitespace-nowrap font-mono text-[10px] text-os-muted">
-          <span className="dot ok pulse" /> {live ? `${live.up}/${live.total}` : '—/—'} systems live
+          {/* Loading must look like loading, never like a live "0/0" reading
+              — see lib/sidebar-status.ts. */}
+          <span className={`dot ${status.loading ? 'off' : 'ok pulse'}`} /> {status.label}
         </div>
         <div className="whitespace-nowrap font-mono text-[10px] text-os-dim">
           arise os · sqlite · real agents

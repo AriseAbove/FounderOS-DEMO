@@ -29,11 +29,14 @@ export function BrainQuery({ fallbackActive }: { fallbackActive: boolean }) {
     }
   }
 
+  // No hybrid/zeroentropy backend exists in this codebase (grep is the only
+  // provider — see lib/brain.ts) — the busy line used to claim one anyway.
+  // 2026-08-21 fix.
   const statusLine =
     state.phase === 'busy'
-      ? 'querying — hybrid (local + zeroentropy)…'
+      ? 'querying — grep over the local store…'
       : state.phase === 'done'
-        ? `${state.hits.length} hits · "${state.query}"${fallbackActive ? ' · local fallback (supabase paused)' : ''}`
+        ? `${state.hits.length} hits · "${state.query}"${fallbackActive ? ' · local grep (no vector provider wired)' : ''}`
         : state.phase === 'error'
           ? `query failed · ${state.message}`
           : 'press ↵ to query the second brain';

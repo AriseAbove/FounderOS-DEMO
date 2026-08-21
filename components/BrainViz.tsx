@@ -4,17 +4,24 @@ import { layoutBrainNodes, polar, type BrainCluster } from '@/lib/brain-viz';
  * The G-Brain knowledge core — three data rings around a health gauge.
  * Pure SVG (animations are CSS in globals.css), so it renders on the server.
  * `compact` hides cluster labels + ring callouts for the Home mini card.
+ *
+ * The outer two rings used to hardcode "ZEROENTROPY · EMBEDDINGS" and
+ * "SUPABASE · 1240 PAGES · PAUSED" unconditionally — neither service is
+ * wired anywhere in this codebase (no SDK dependency, no env var, no client
+ * code touches either), and 1240 was never a real page count, just a
+ * leftover default. `fallbackActive` (real: `!doctor.vector`, see
+ * lib/brain.ts) now drives both labels honestly instead. 2026-08-21 fix.
  */
 export function BrainViz({
   clusters,
   health,
-  supabasePages = 1240,
+  fallbackActive,
   version = 'v0.41',
   compact = false,
 }: {
   clusters: BrainCluster[];
   health: number | null;
-  supabasePages?: number;
+  fallbackActive: boolean;
   version?: string;
   compact?: boolean;
 }) {
@@ -57,7 +64,8 @@ export function BrainViz({
         <path d="M260 260 L260 40 A220 220 0 0 1 369 69 Z" fill="url(#sweepGrad)" />
       </g>
 
-      {/* outer ring — supabase (paused) */}
+      {/* outer ring — remote vector store (purely decorative dots; not a
+          real page count — no remote store is wired) */}
       <g className="brain-ring r3">
         <circle cx="260" cy="260" r="210" fill="none" stroke="var(--border-strong)" strokeDasharray="2 7" strokeWidth="1" />
         {outer.map((p, i) => (
@@ -65,7 +73,7 @@ export function BrainViz({
         ))}
       </g>
 
-      {/* middle ring — zeroentropy embeddings */}
+      {/* middle ring — vector embeddings, not wired today */}
       <g className="brain-ring r2">
         <circle cx="260" cy="260" r="158" fill="none" stroke="var(--border-strong)" strokeWidth="1" opacity="0.8" />
         {Array.from({ length: 8 }, (_, i) => {
@@ -156,10 +164,10 @@ export function BrainViz({
             BRAIN-STORE · {totalPages} PAGES
           </text>
           <text x="260" y="96" textAnchor="middle" fill="var(--brain-2)">
-            ZEROENTROPY · EMBEDDINGS
+            {fallbackActive ? 'EMBEDDINGS · NOT WIRED' : 'EMBEDDINGS · LIVE'}
           </text>
           <text x="260" y="44" textAnchor="middle" fill="var(--text-3)">
-            SUPABASE · {supabasePages} PAGES · PAUSED
+            {fallbackActive ? 'VECTOR STORE · NOT WIRED' : 'VECTOR STORE · LIVE'}
           </text>
         </g>
       )}

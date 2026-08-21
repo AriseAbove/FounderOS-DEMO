@@ -68,6 +68,16 @@ const TIER_OPACITY: Record<KGNodeKind, number> = {
 // legend + hit-test order: the chain as it reads outward from the operator
 const LEGEND_KINDS: KGNodeKind[] = ['self', 'team', 'task', 'person', 'employee', 'tool'];
 
+// The legend counts graph NODES per kind. Every other kind is 1 node per
+// real thing, so CAT[k].label reads fine unqualified — but a tool shared by
+// several departments gets one node PER department (buildKnowledgeGraph's
+// toolNodeId), so this count is legitimately larger than "how many distinct
+// tools exist" (the sidebar directory's deduped-by-slug "Unique tools"
+// count just below it). Both numbers are real; only the label was
+// ambiguous. 2026-08-21 fix — see lib/knowledge-graph.ts's graphDirectory
+// for the directory-side half.
+const LEGEND_LABEL_OVERRIDE: Partial<Record<KGNodeKind, string>> = { tool: 'Tool nodes' };
+
 const nodeColor = (n: KGNode) => n.color ?? CAT[n.kind].color;
 
 // Each segment of the chain gets its own visible colour: operator → department
@@ -2349,7 +2359,7 @@ export function KnowledgeGraph({
                     <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full border" style={{ borderColor: cat.color, color: cat.color }}>
                       <Icon className="h-3 w-3" strokeWidth={2} />
                     </span>
-                    <span className="flex-1 text-[11px] font-semibold">{cat.label}</span>
+                    <span className="flex-1 text-[11px] font-semibold">{LEGEND_LABEL_OVERRIDE[k] ?? cat.label}</span>
                     <span className="font-mono text-[10px] text-os-dim">{count}</span>
                   </div>
                 );

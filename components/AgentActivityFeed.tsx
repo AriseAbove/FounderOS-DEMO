@@ -71,6 +71,11 @@ export function AgentActivityFeed({
               <span className={`w-9 shrink-0 uppercase ${KIND[e.kind].cls}`}>{KIND[e.kind].label}</span>
               <span className="shrink-0 font-semibold text-os-text">{agentNames[e.agentId] ?? e.agentId}</span>
               {e.ok === false && <span className="shrink-0 text-os-err">FAIL</span>}
+              {/* The run's own job succeeded (ok !== false) but a downstream
+                  notification it attempted genuinely failed — must never look
+                  like an unremarkable success, see lib/analytics.ts's
+                  runOutcomeCounts for the same distinction on /analytics. */}
+              {e.ok !== false && e.pushFailed && <span className="shrink-0 text-os-warn">PUSH FAILED</span>}
               <span className="min-w-0 flex-1 truncate text-os-muted" title={e.summary}>
                 {e.summary}
               </span>

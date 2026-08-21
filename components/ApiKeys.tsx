@@ -84,6 +84,11 @@ export function ApiKeys() {
                       {slot.envVar}
                     </span>
                     <span className="font-mono text-os-dim">{slot.present ? slot.masked : 'not set'}</span>
+                    {slot.note && (
+                      <span className="truncate font-mono text-[10px] italic text-os-dim" title={slot.note}>
+                        · {slot.note}
+                      </span>
+                    )}
                     {savedVar === slot.envVar && <Check className="h-3 w-3 text-os-text" />}
                     <button
                       onClick={() => {

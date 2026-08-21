@@ -11,7 +11,7 @@
 import { useMemo, useState } from 'react';
 import { MessageSquare, Mail, Hash, Phone, MessageCircle, Send, Copy, PhoneCall, ExternalLink } from 'lucide-react';
 import { CONTACT_TIERS } from '@/lib/life-map';
-import { commsLane, laneBottomPct, COMMS_LANES, type CommsLane } from '@/lib/comms-gravity';
+import { bandRowsWithOffsets, commsLane, COMMS_LANES, type CommsLane } from '@/lib/comms-gravity';
 import type { CommsItem, CommsSource } from '@/lib/comms';
 import type { ContactTag } from '@/lib/schemas';
 
@@ -208,13 +208,19 @@ export function CommsGravity({
                 {TIER_BANDS.map((tier) => {
                   const band = nodes.filter((n) => n.item.priority === tier);
                   if (band.length === 0) return null;
-                  return (
+                  // Rows (not the whole band) are the positioned unit: each row's
+                  // `bottomPct` divides the tier's fixed territory (laneBandZone)
+                  // evenly across however many rows this band actually needs, so a
+                  // busy tier's rows always stay inside its own bounds instead of
+                  // growing past the container's top edge (see bandRowsWithOffsets).
+                  const rows = bandRowsWithOffsets(band, tier);
+                  return rows.map(({ row, bottomPct }, rowIndex) => (
                     <div
-                      key={String(tier)}
-                      className="absolute inset-x-0 flex flex-wrap items-end justify-center gap-2.5 px-3"
-                      style={{ bottom: `${laneBottomPct(tier)}%` }}
+                      key={`${String(tier)}-row-${rowIndex}`}
+                      className="absolute inset-x-0 flex items-end justify-center gap-2.5 px-3"
+                      style={{ bottom: `${bottomPct}%` }}
                     >
-                      {band.map(({ item, key }) => {
+                      {row.map(({ item, key }) => {
                         const color = tierColor(item.priority);
                         const Icon = SOURCE_ICON[item.source];
                         const isSel = key === selectedKey;
@@ -244,7 +250,7 @@ export function CommsGravity({
                         );
                       })}
                     </div>
-                  );
+                  ));
                 })}
               </div>
             );

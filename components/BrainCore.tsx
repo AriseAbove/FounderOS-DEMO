@@ -52,7 +52,7 @@ export function BrainCore({
   return (
     <>
       <div className="relative">
-        <BrainViz clusters={clusters} health={health} />
+        <BrainViz clusters={clusters} health={health} fallbackActive={fallbackActive} />
         {/* Hotspot over the central health gauge (~50%/50% of the SVG box). */}
         <button
           type="button"
@@ -146,7 +146,13 @@ export function BrainCore({
                   <div className="mt-2.5 flex items-center gap-2.5 rounded-md-t border border-os-border bg-os-surface px-3 py-2.5">
                     <Zap className="h-3.5 w-3.5 shrink-0 text-os-warn" strokeWidth={1.7} />
                     <div className="flex-1 text-[11.5px] text-os-muted">
-                      Supabase free tier is paused — hybrid queries fall back to local grep until revived.
+                      {/* No vector/embeddings provider is wired anywhere in
+                          this codebase yet (no SDK, no env var, nothing) —
+                          not "Supabase, paused". That specific claim never
+                          matched anything the code actually does; naming a
+                          brand implies a real, merely-dormant integration
+                          that doesn't exist. 2026-08-21 fix. */}
+                      No vector/embeddings provider is wired yet — search falls back to local grep.
                     </div>
                     <Link
                       href="/roadmap"

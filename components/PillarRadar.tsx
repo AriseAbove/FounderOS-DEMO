@@ -158,7 +158,14 @@ export function PillarRadar({
           </span>
         ) : (
           <>
-            <span className="text-2xl font-semibold text-os-ok">{health ?? '—'}</span>
+            {/* Styling this os-ok (green) unconditionally used to make a
+                null/uncomputed score ("—") read as "everything's fine" —
+                the exact —/100-next-to-"ok" contradiction a live QA pass
+                flagged. Neutral/dim when there's no real number. 2026-08-21
+                fix. */}
+            <span className={`text-2xl font-semibold ${health == null ? 'text-os-dim' : 'text-os-ok'}`}>
+              {health ?? '—'}
+            </span>
             <span className="text-[11px] text-os-dim">/ 100 health</span>
             {warnings > 0 && (
               <>

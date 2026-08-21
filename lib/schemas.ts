@@ -96,17 +96,32 @@ export const BrainHealthTopFailureSchema = z.object({
   count: z.number().int().nonnegative(),
   lastFailureAt: z.string().nullable(),
 });
+// Live external-connector checks (Allo, Railway/arise-os itself) that
+// world_state_builder.py runs on its normal 6am pass on Sean's Mac — added
+// 2026-08-21 after the Allo v2 endpoint sat 403ing for 8 weeks with the
+// failure logged locally but nothing ever surfacing it here. `ok` is the
+// current state; ok flips back to true (and stays quiet) the moment a
+// connector recovers, same honest-status convention as every other
+// connector in this repo.
+export const ConnectorHealthSchema = z.object({
+  name: z.string().min(1),
+  ok: z.boolean(),
+  lastError: z.string().nullable(),
+  lastCheckedAt: z.string(), // ISO
+});
 export const BrainHealthSchema = z.object({
   id: z.literal('aac_brain'),
   pendingActions: z.number().int().nonnegative(),
   failingWorkers: z.number().int().nonnegative(),
   totalWorkers: z.number().int().nonnegative(),
   topFailures: z.array(BrainHealthTopFailureSchema),
+  connectors: z.array(ConnectorHealthSchema),
   lastDailySummaryDate: z.string().nullable(),
   reportedAt: z.string(), // ISO — when the Mac gathered the snapshot
   receivedAt: z.string(), // ISO — when this server ingested it
 });
 export type BrainHealthTopFailure = z.infer<typeof BrainHealthTopFailureSchema>;
+export type ConnectorHealth = z.infer<typeof ConnectorHealthSchema>;
 export type BrainHealth = z.infer<typeof BrainHealthSchema>;
 
 export const RoadmapItemSchema = z.object({

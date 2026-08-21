@@ -337,6 +337,7 @@ CREATE TABLE IF NOT EXISTS brain_health (
   failing_workers INTEGER NOT NULL,
   total_workers INTEGER NOT NULL,
   top_failures TEXT NOT NULL DEFAULT '[]',
+  connector_health TEXT NOT NULL DEFAULT '[]',
   last_daily_summary_date TEXT,
   reported_at TEXT NOT NULL,
   received_at TEXT NOT NULL
@@ -407,6 +408,17 @@ function migrateSkillsTable(db: InstanceType<typeof Database>): void {
   }
 }
 
+// brain_health gained connector_health (2026-08-21) — live Allo/Railway
+// checks from world_state_builder.py, riding the same heartbeat push as
+// pending_actions/failing_workers. Existing rows default to '[]' (an empty
+// connector list is honest, not fabricated) until the next Mac heartbeat.
+function migrateBrainHealthTable(db: InstanceType<typeof Database>): void {
+  const columns = new Set((db.pragma('table_info(brain_health)') as { name: string }[]).map((c) => c.name));
+  if (columns.size > 0 && !columns.has('connector_health')) {
+    safeAlter(db, "ALTER TABLE brain_health ADD COLUMN connector_health TEXT NOT NULL DEFAULT '[]'");
+  }
+}
+
 type AgentRow = {
   id: string;
   department_id: string;
@@ -466,6 +478,7 @@ export function openDb(path: string) {
   migrateAgentsTable(db);
   migrateFunnelContactsTable(db);
   migrateSkillsTable(db);
+  migrateBrainHealthTable(db);
 
   /** Shared purge guard: drop every row whose id is not in the seed's list
       (empty list = drop all — avoids invalid `NOT IN ()` SQL). */
@@ -1350,6 +1363,7 @@ export function openDb(path: string) {
             failing_workers: number;
             total_workers: number;
             top_failures: string;
+            connector_health: string;
             last_daily_summary_date: string | null;
             reported_at: string;
             received_at: string;
@@ -1362,6 +1376,7 @@ export function openDb(path: string) {
         failingWorkers: row.failing_workers,
         totalWorkers: row.total_workers,
         topFailures: JSON.parse(row.top_failures),
+        connectors: JSON.parse(row.connector_health || '[]'),
         lastDailySummaryDate: row.last_daily_summary_date,
         reportedAt: row.reported_at,
         receivedAt: row.received_at,
@@ -1371,13 +1386,14 @@ export function openDb(path: string) {
       BrainHealthSchema.parse(snapshot);
       db.prepare(
         `INSERT INTO brain_health
-           (id, pending_actions, failing_workers, total_workers, top_failures, last_daily_summary_date, reported_at, received_at)
-         VALUES (@id, @pendingActions, @failingWorkers, @totalWorkers, @topFailures, @lastDailySummaryDate, @reportedAt, @receivedAt)
+           (id, pending_actions, failing_workers, total_workers, top_failures, connector_health, last_daily_summary_date, reported_at, received_at)
+         VALUES (@id, @pendingActions, @failingWorkers, @totalWorkers, @topFailures, @connectorHealth, @lastDailySummaryDate, @reportedAt, @receivedAt)
          ON CONFLICT(id) DO UPDATE SET
            pending_actions = excluded.pending_actions,
            failing_workers = excluded.failing_workers,
            total_workers = excluded.total_workers,
            top_failures = excluded.top_failures,
+           connector_health = excluded.connector_health,
            last_daily_summary_date = excluded.last_daily_summary_date,
            reported_at = excluded.reported_at,
            received_at = excluded.received_at`,
@@ -1387,6 +1403,7 @@ export function openDb(path: string) {
         failingWorkers: snapshot.failingWorkers,
         totalWorkers: snapshot.totalWorkers,
         topFailures: JSON.stringify(snapshot.topFailures),
+        connectorHealth: JSON.stringify(snapshot.connectors),
         lastDailySummaryDate: snapshot.lastDailySummaryDate,
         reportedAt: snapshot.reportedAt,
         receivedAt: snapshot.receivedAt,

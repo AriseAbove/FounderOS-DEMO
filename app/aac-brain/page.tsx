@@ -34,7 +34,14 @@ function relativeTime(iso: string): string {
 export default async function AacBrainPage() {
   const snapshot = getDb().brainHealth.latest();
   const stale = snapshot ? Date.now() - new Date(snapshot.reportedAt).getTime() > STALE_AFTER_MS : false;
-  const state = !snapshot ? 'not_configured' : stale ? 'warn' : snapshot.failingWorkers > 0 ? 'warn' : 'ok';
+  const downConnectors = snapshot ? snapshot.connectors.filter((c) => !c.ok) : [];
+  const state = !snapshot
+    ? 'not_configured'
+    : stale
+      ? 'warn'
+      : snapshot.failingWorkers > 0 || downConnectors.length > 0
+        ? 'warn'
+        : 'ok';
 
   return (
     <div>
@@ -99,6 +106,43 @@ export default async function AacBrainPage() {
               </div>
               <div className="mt-1 font-mono text-[11px] text-os-dim">most recent morning run</div>
             </div>
+          </section>
+
+          <section className="mb-8">
+            {/* Live external-connector checks (Allo, Railway/arise-os) — added 2026-08-21
+                so a broken connector shows up here the same day, not 8 weeks later in an
+                audit. See world_state_builder.py's _note_connector_result(). */}
+            <SectionHead label="Connector health" count={snapshot.connectors.length} />
+            {snapshot.connectors.length === 0 ? (
+              <div className="rounded-lg-t border border-os-border bg-os-surface p-5 font-mono text-[12px] text-os-muted">
+                No connector checks reported yet.
+              </div>
+            ) : (
+              <div className="overflow-hidden rounded-lg-t border border-os-border bg-os-surface">
+                <table className="w-full font-mono text-[12px]">
+                  <thead>
+                    <tr className="border-b border-os-border text-left text-os-dim">
+                      <th className="px-[18px] py-2.5 font-normal uppercase tracking-[0.14em]">Connector</th>
+                      <th className="px-[18px] py-2.5 font-normal uppercase tracking-[0.14em]">Status</th>
+                      <th className="px-[18px] py-2.5 font-normal uppercase tracking-[0.14em]">Last checked</th>
+                      <th className="px-[18px] py-2.5 font-normal uppercase tracking-[0.14em]">Last error</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {snapshot.connectors.map((c) => (
+                      <tr key={c.name} className="border-b border-os-border last:border-0">
+                        <td className="px-[18px] py-2.5">{c.name}</td>
+                        <td className={`px-[18px] py-2.5 ${c.ok ? 'text-os-ok' : 'text-os-warn'}`}>
+                          {c.ok ? 'ok' : 'down'}
+                        </td>
+                        <td className="px-[18px] py-2.5 text-os-dim">{relativeTime(c.lastCheckedAt)}</td>
+                        <td className="px-[18px] py-2.5 text-os-dim">{c.ok ? '—' : c.lastError || 'unknown error'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
 
           <section className="mb-8">

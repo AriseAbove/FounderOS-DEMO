@@ -1,6 +1,7 @@
 import type { FounderDb } from '@/lib/db';
 import { growthOver, growthAllTime, windowDelta, mergeSeriesSum, type GrowthPoint } from '@/lib/growth';
 import type { ConnectorStatus } from '@/lib/connectors/types';
+import type { PostDay } from '@/lib/posting-activity';
 import {
   SocialDashboardSchema,
   SocialPlatformDetailSchema,
@@ -11,6 +12,7 @@ import {
   type SocialGrowth,
   type SocialPlatform,
   type SocialPlatformDetail,
+  type SocialPost,
   type SocialSnapshot,
 } from '@/lib/schemas';
 
@@ -131,6 +133,56 @@ export function dmsByPlatform(db: FounderDb): SocialDm[] {
 /** Total DMs across every platform (seeded dummy until a real source lands). */
 export function totalDms(db: FounderDb): number {
   return dmsByPlatform(db).reduce((sum, d) => sum + d.count, 0);
+}
+
+// ── Published posts (real) ──────────────────────────────────────────────────
+// The honest counterpart to postingCadenceByPlatform's deterministic dummy
+// rhythm below: real rows from db.socialPosts, status 'published' only.
+// Before 2026-08-21, /social hardcoded livePosts=[]/recentLive=false/
+// postDays=[] unconditionally (a stale "no posting source connected"
+// comment left over from before OneUp was ever wired), so the moment Social
+// Pulse actually published something, /content correctly counted it
+// (lib/content.ts's contentPipelineStatus) while /social kept claiming
+// "NONE... no post history has synced" — the exact class of cross-page
+// contradiction the OneUp reconciliation fix above already addressed
+// everywhere else. These two functions are the real read, sharing the same
+// `status === 'published'` filter /content already uses.
+
+export type LivePostRow = { platform: string; publishedAt: string; caption: string; status: string; url: string | null };
+
+/**
+ * One row per (published post × platform) — a post cross-posted to several
+ * platforms shows once per platform, newest first. `publishedAt` is the
+ * post's scheduled time when it had one, else its queued time (OneUp has no
+ * "post immediately" verb — see lib/social-oneup.ts's oneUpScheduleTime —
+ * so an unscheduled post's real publish time is always within about a
+ * minute of createdAt). `url` is honestly null: OneUp's schedule APIs never
+ * return a permalink, so nothing here is a stand-in for one.
+ */
+export function recentLivePosts(posts: SocialPost[]): LivePostRow[] {
+  return posts
+    .filter((p) => p.status === 'published')
+    .flatMap((p) =>
+      p.platforms.map((platform) => ({
+        platform,
+        publishedAt: p.scheduledFor ?? p.createdAt,
+        caption: p.caption,
+        status: p.status,
+        url: null,
+      })),
+    )
+    .sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : a.publishedAt > b.publishedAt ? -1 : 0));
+}
+
+/** Real published-post days for the posting-consistency chart (the
+ * `postDays` prop `AudienceConsistency` plots against the audience series) —
+ * one entry per published post, dated the same way `recentLivePosts` times
+ * it. Genuinely empty until a post has actually published; never backfilled
+ * with the dummy per-platform rhythm `postingCadenceByPlatform` produces. */
+export function publishedPostDays(posts: SocialPost[]): PostDay[] {
+  return posts
+    .filter((p) => p.status === 'published')
+    .map((p) => ({ date: (p.scheduledFor ?? p.createdAt).slice(0, 10), platforms: p.platforms }));
 }
 
 // ── Audience (followers + email) ──────────────────────────────────────────

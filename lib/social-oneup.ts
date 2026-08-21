@@ -1,6 +1,12 @@
 import type { FounderDb } from '@/lib/db';
 import type { SocialPlatform, SocialPost } from '@/lib/schemas';
-import { listOneUpAccounts, publishOneUpPost, type OneUpAccount } from '@/lib/connectors/oneup';
+import {
+  listOneUpAccounts,
+  listOneUpFailedPosts,
+  publishOneUpPost,
+  type OneUpAccount,
+  type OneUpFailedPost,
+} from '@/lib/connectors/oneup';
 
 /**
  * Bridges the app's own post queue (Social tab -> POST /api/social/posts,
@@ -138,4 +144,33 @@ export async function publishQueuedSocialPosts(
   }
 
   return outcomes;
+}
+
+export type OneUpFailedPostsResult = { ok: true; posts: OneUpFailedPost[] } | { ok: false; error: string };
+
+/**
+ * Real failed-post detail straight from OneUp's own /getfailedposts feed
+ * (lib/connectors/oneup.ts's listOneUpFailedPosts — had zero callers
+ * anywhere in the app until this fix). This is the only place a post's real
+ * fail_reason survives once the triggering agent run finishes:
+ * `publishQueuedSocialPosts` above marks a post 'failed' in our own queue
+ * immediately, but AgentRunSchema never persists a run's per-post `data`,
+ * only its one-line `summary` string — so a queued post that OneUp itself
+ * rejects (platform mismatch, a malformed field, etc.) used to vanish from
+ * the operator's view entirely beyond that truncated /agents summary line.
+ * Never throws: a network/API failure surfaces as an honest
+ * `{ ok: false, error }` for the caller to render inline, same as every
+ * other connector call in this app — not a hidden section and not a fake
+ * empty list.
+ */
+export async function fetchOneUpFailedPosts(
+  env: Record<string, string | undefined>,
+  fetchImpl: typeof fetch = fetch,
+): Promise<OneUpFailedPostsResult> {
+  try {
+    const posts = await listOneUpFailedPosts(env, fetchImpl);
+    return { ok: true, posts };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
 }

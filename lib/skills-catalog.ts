@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import type { ConnectorStatus } from '@/lib/connectors/types';
+import type { SkillStatus } from '@/lib/schemas';
 
 /**
  * Reads the operator's real Claude Code skills from ~/.claude/skills/<name>/SKILL.md,
@@ -101,6 +103,24 @@ export function readUserSkills(dir: string = SKILLS_DIR): CatalogSkill[] {
     });
   }
   return out.sort((a, b) => a.group.localeCompare(b.group) || a.name.localeCompare(b.name));
+}
+
+/**
+ * Honest, computed status for the one seeded skill card whose seed entry
+ * hardcoded 'live' regardless of the real connector behind it — 'skill-books'
+ * (Books pulse) always read as a live green dot on /skills even with no
+ * QuickBooks OAuth grant connected, the same class of bug lib/agents/
+ * live-status.ts's liveAgentStatus() fixed for agent cards. Every other
+ * seeded skill keeps its authored seed status untouched; this only judges
+ * the one card whose description already promises a live QuickBooks read.
+ */
+export function liveSkillStatus(
+  skillId: string,
+  quickbooks: ConnectorStatus | undefined,
+  seedStatus: SkillStatus,
+): SkillStatus {
+  if (skillId !== 'skill-books') return seedStatus;
+  return quickbooks?.state === 'connected' ? 'live' : 'planned';
 }
 
 /** Read one skill's full SKILL.md. Null on a bad slug or missing file (honest). */

@@ -114,7 +114,20 @@ export const INTEGRATIONS: Integration[] = [
   { slug: 'typeform', name: 'Typeform', tagline: 'Forms & surveys', category: 'Creative' },
 ];
 
-export type CatalogEntry = Integration & { connected: boolean; keySaved: boolean };
+export type CatalogEntry = Integration & {
+  connected: boolean;
+  keySaved: boolean;
+  /** True only when the linked connector's LIVE status is genuinely
+   *  'error' — a stored grant/key exists but the last real API call failed
+   *  (e.g. a QuickBooks token that needs reconnecting). Distinct from
+   *  `connected: false` on a tool that was never connected at all: before
+   *  this field existed, `connected` collapsed 'error' and 'not_configured'
+   *  into the same false, so the board (and ConnectFlow) rendered a
+   *  previously-working-but-now-broken connector identically to one that
+   *  was never touched — throwing away the alarming detail message
+   *  (`ConnectorStatus.detail`) along with it. 2026-08-21 fix. */
+  error: boolean;
+};
 
 /** The env var names the connect flow may write for an entry. Explicit
  *  envKeys win; no envKeys = a generic <SLUG>_API_KEY; [] = guidance only
@@ -136,10 +149,12 @@ export function connectionCatalog(
   const byId = new Map(statuses.map((s) => [s.id, s]));
   return INTEGRATIONS.map((i) => {
     const keys = connectKeysFor(i);
+    const status = i.connectorId ? byId.get(i.connectorId) : undefined;
     return {
       ...i,
-      connected: i.connectorId ? byId.get(i.connectorId)?.state === 'connected' : false,
+      connected: status?.state === 'connected',
       keySaved: keys.length > 0 && keys.every((k) => Boolean(savedEnv[k])),
+      error: status?.state === 'error',
     };
   });
 }

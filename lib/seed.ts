@@ -73,7 +73,7 @@ const agents: Agent[] = [
     role: 'Knowledge Search',
     status: 'planned',
     tier: 'lead',
-    description: 'Answers questions from the knowledge layer through the brain provider abstraction. Honest stub until a provider is wired.',
+    description: 'Answers questions from the knowledge layer through the brain provider abstraction — real grep search over the bundled markdown store today, upgradeable to a vector provider later.',
     model: 'brain provider',
     tools: ['brain'],
     parentId: null,
@@ -206,8 +206,8 @@ const sopTasks: SopTask[] = [
       'Receive the directive from the operator console',
       'Resolve the target list: the whole fleet, or the pillar the directive names',
       'Fan the message out to every target at once and stamp each send',
-      'Collect replies as they land and file the run to agent_runs',
-      'Report non-responders so nothing fails silently',
+      'Wait for every agent to answer and record each reply to broadcast_replies',
+      'Surface a failure as its own agent\'s honest error text, never a silent gap',
     ],
   },
   {
@@ -217,7 +217,7 @@ const sopTasks: SopTask[] = [
     steps: [
       'Parse the incoming question into a search query',
       'Run the query through the configured brain provider',
-      'Report an honest empty result while no provider is wired',
+      'Report an honest empty result when the query matches nothing in the store',
       'Return cited passages with their source notes, never invented ones',
       'Log unanswerable questions as gaps to fill',
     ],
@@ -446,12 +446,12 @@ const skills: Omit<Skill, 'markdown'>[] = [
   { id: 'skill-triage', name: 'Inbox triage', category: 'Ops', description: 'Unread counts and recent mail across up to four IMAP inboxes, honest per-inbox errors.', ownerAgentId: 'gmail-worker', status: 'live', tools: ['imap'], order: 0 },
   { id: 'skill-schedule', name: 'Schedule awareness', category: 'Ops', description: 'Upcoming events merged across connected calendar feeds, join links extracted.', ownerAgentId: 'calendar-worker', status: 'live', tools: ['calendar'], order: 1 },
   { id: 'skill-books', name: 'Books pulse', category: 'Finance', description: 'QuickBooks month-to-date income, expenses, and open invoices once the OAuth grant lands.', ownerAgentId: 'quickbooks-pulse', status: 'live', tools: ['quickbooks'], order: 2 },
-  { id: 'skill-retrieval', name: 'Knowledge retrieval', category: 'Ops', description: 'Search over the knowledge layer so every agent shares one memory. Stub until a provider is wired.', ownerAgentId: 'data-agent', status: 'planned', tools: ['brain'], order: 3 },
+  { id: 'skill-retrieval', name: 'Knowledge retrieval', category: 'Ops', description: 'Search over the knowledge layer so every agent shares one memory — real grep search over the bundled markdown store today, upgradeable to a vector provider behind the same interface later.', ownerAgentId: 'data-agent', status: 'live', tools: ['brain'], order: 3 },
 ];
 
 /** Bump when the seed content changes shape — existing DBs re-seed once to
  *  pick up the new baseline (and purge retired rows). */
-export const SEED_VERSION = '2026-08-21-agent-cron-roadmap';
+export const SEED_VERSION = '2026-08-21-org-honesty-fixes';
 
 export function seedDatabase(db: FounderDb): void {
   // The whole reseed runs as ONE SQLite transaction, not ~100 separate

@@ -279,7 +279,13 @@ export default async function FunnelPage({
   const stage = stageParsed.success ? stageParsed.data : undefined;
   // Two ways to see the same journeys: hubs left → right, or the circle
   // running outside → in (acquisition wedges around the rim, the win center).
-  const layout = searchParams?.layout === 'radial' ? 'radial' : 'flow';
+  // The radial's rim is AAC's real lead-source taxonomy (phone/Google/
+  // website/social/referral/word-of-mouth, lib/funnel-radial.ts) — Apps has
+  // no acquisition-channel data yet, so radial is AAC-only: Apps forces flow
+  // regardless of the ?layout= param rather than rendering wedges that don't
+  // mean anything for it.
+  const requestedLayout = searchParams?.layout === 'radial' ? 'radial' : 'flow';
+  const layout = business === 'apps' ? 'flow' : requestedLayout;
   const href = (
     v: FunnelBusiness | undefined,
     w: 'live' | 'archive',
@@ -303,9 +309,13 @@ export default async function FunnelPage({
   const allJourneys = getDb().funnel.journeys(business);
   // Quiet past DECAY_DAYS → out of the space, into the archive tab.
   const { active: journeys, archived } = splitFunnelJourneys(allJourneys, now);
-  const summary = funnelSummary(journeys);
-  const radial = layout === 'radial' ? funnelRadialModel(journeys, now) : null;
-  const spaceNodes = layout === 'flow' ? funnelSpaceModel(journeys, now) : null;
+  // Scoped to the selected business's real pipeline — AAC's 8 stages, Apps'
+  // 6 — so switching the tab never leaves the summary/canvas reading against
+  // the wrong backbone (stagesFor falls back to AAC's when business is unset,
+  // the shared "All clients" tab).
+  const summary = funnelSummary(journeys, stagesFor(business));
+  const radial = layout === 'radial' ? funnelRadialModel(journeys, now, stagesFor(business)) : null;
+  const spaceNodes = layout === 'flow' ? funnelSpaceModel(journeys, now, stagesFor(business)) : null;
   // ?lead= (attention-rail clicks) pins that lead's dossier in the canvas
   const lead = journeys.some((j) => j.id === searchParams?.lead) ? searchParams?.lead : undefined;
   const attention = attentionQueue(journeys, now);
@@ -375,13 +385,22 @@ export default async function FunnelPage({
             flow
           </Link>
           <span className="text-os-dim">·</span>
-          <Link
-            href={href(business, 'live', stage, 'radial')}
-            title="Circle, outside → in — center is the win"
-            className={layout === 'radial' && view === 'live' ? 'text-os-accent' : 'text-os-dim hover:text-os-muted'}
-          >
-            radial
-          </Link>
+          {business === 'apps' ? (
+            <span
+              title="Radial models AAC's real lead-source wedges (phone, Google, website, social, referral) — not defined for Apps yet"
+              className="cursor-not-allowed text-os-dim opacity-50"
+            >
+              radial
+            </span>
+          ) : (
+            <Link
+              href={href(business, 'live', stage, 'radial')}
+              title="Circle, outside → in — center is the win"
+              className={layout === 'radial' && view === 'live' ? 'text-os-accent' : 'text-os-dim hover:text-os-muted'}
+            >
+              radial
+            </Link>
+          )}
           <span className="mx-1 h-3 w-px bg-os-border" />
           <Link
             href={href(business, 'live')}
@@ -465,7 +484,7 @@ export default async function FunnelPage({
           ) : radial ? (
             <FunnelRadialLazy model={radial} initialLeadId={lead} />
           ) : spaceNodes ? (
-            <FunnelSpaceLazy nodes={spaceNodes} summary={summary} initialLeadId={lead} />
+            <FunnelSpaceLazy nodes={spaceNodes} summary={summary} stages={stagesFor(business)} initialLeadId={lead} />
           ) : null}
         </div>
       </section>

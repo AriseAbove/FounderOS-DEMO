@@ -24,12 +24,12 @@ Kicks off when it is time to "receive the directive from the operator console" â
 1. Receive the directive from the operator console
 2. Resolve the target list: the whole fleet, or the pillar the directive names
 3. Fan the message out to every target at once and stamp each send
-4. Collect replies as they land and file the run to agent_runs
-5. Report non-responders so nothing fails silently
+4. Wait for every agent to answer and record each reply to broadcast_replies
+5. Surface a failure as its own agent's honest error text, never a silent gap
 
 ## Definition of done
 
-The run is complete when "report non-responders so nothing fails silently" has verifiably happened and is logged to the run history.
+The run is complete when "surface a failure as its own agent's honest error text, never a silent gap" has verifiably happened and is logged to the run history.
 
 ## Escalation
 

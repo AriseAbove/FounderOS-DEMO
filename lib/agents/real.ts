@@ -256,7 +256,7 @@ export const realAgents: RuntimeAgent[] = [
   {
     id: 'data-agent',
     name: 'Data Agent',
-    description: 'Answers questions from the knowledge layer via the brain provider abstraction; honest stub until a provider is wired.',
+    description: 'Answers questions from the knowledge layer via the brain provider abstraction; grep search over the bundled markdown store today, upgradeable to a vector provider later.',
     departmentId: 'dept-tech',
     async run() {
       const status = await getBrainProvider().status();

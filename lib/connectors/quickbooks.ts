@@ -230,11 +230,14 @@ export async function monthToDateExpenses(
     the standard QuickBooks report for accountant-categorized income/expense
     by account, not another raw transaction-query sum. This is what actually
     answers "where did the money go this month": monthToDateExpenses above
-    sums raw Purchase transactions to one number; this reads the same books
-    QuickBooks itself categorizes them into (Materials, Advertising, Fuel,
-    Subcontractors, …) for the finances page's category chart. Null when
-    unreachable/unauthorized — the page falls back to uploaded-statement
-    categories rather than showing a fake empty chart. */
+    sums raw Purchase transactions to one number regardless of which P&L
+    account they posted to; this reads the same books QuickBooks itself
+    categorizes them into (Materials, Advertising, Fuel, Subcontractors, …),
+    across BOTH the report's Expenses and COGS sections (see
+    parseProfitAndLossExpenseCategories) — a construction company's real
+    job/material costs commonly post to Cost of Goods Sold, not Expenses.
+    Null when unreachable/unauthorized — the page falls back to
+    uploaded-statement categories rather than showing a fake empty chart. */
 export async function monthToDateExpensesByCategory(
   env: Record<string, string | undefined> = process.env,
   now: Date = new Date(),
@@ -289,19 +292,37 @@ function collectLeafCategories(rows: unknown): CategoryTotal[] {
   return out;
 }
 
-/** Parse the "Expenses" section of a QBO Reports API ProfitAndLoss response
-    into category totals, largest first. Guarded like every other QBO parser
-    here — Income/COGS/NetIncome sections are ignored, malformed or
-    non-finite rows are skipped, duplicate category labels are summed rather
-    than overwritten, and anything unexpected returns [] instead of
-    throwing. A real, connected report with genuinely no expenses this
-    period also returns [] — that's an honest zero, not an error. */
+/** The ProfitAndLoss report's section `group` values that represent real
+    money spent this period. "Expenses" is standard operating expenses
+    (Advertising, Fuel, Office…); "COGS" (Cost of Goods Sold) is where a
+    construction business's job/material/subcontractor costs typically post
+    — QuickBooks treats it as a separate P&L section from Expenses, but both
+    are real cash that left the business, and a Purchase transaction coded
+    to either counts toward the raw MTD-expenses sum the same way. Income/
+    OtherIncome/NetIncome are deliberately excluded — this is a spend total,
+    not the whole P&L. */
+const SPEND_SECTION_GROUPS = new Set(['Expenses', 'COGS']);
+
+/** Parse the money-actually-spent sections (see SPEND_SECTION_GROUPS above)
+    of a QBO Reports API ProfitAndLoss response into category totals,
+    largest first. (2026-08-21 fix: this used to read the "Expenses" section
+    only, so a real Purchase transaction coded to a COGS account counted
+    toward the finances page's raw MTD-expenses total but silently vanished
+    from this category chart — the same real spend showing up as one number
+    in one card and zero in another on the same page. See CLAUDE.md's dated
+    entry and the regression test in tests/quickbooks.test.ts.) Guarded like
+    every other QBO parser here — Income/NetIncome sections are still
+    ignored, malformed or non-finite rows are skipped, duplicate category
+    labels are summed rather than overwritten, and anything unexpected
+    returns [] instead of throwing. A real, connected report with genuinely
+    no spend this period also returns [] — that's an honest zero, not an
+    error. */
 export function parseProfitAndLossExpenseCategories(raw: unknown): CategoryTotal[] {
   const rows = (raw as { Rows?: { Row?: unknown } } | null | undefined)?.Rows?.Row;
   if (!Array.isArray(rows)) return [];
-  const expensesSection = rows.find((r) => (r as QboReportRow)?.group === 'Expenses') as QboReportRow | undefined;
-  if (!expensesSection) return [];
-  const leaves = collectLeafCategories(expensesSection.Rows?.Row);
+  const spendSections = rows.filter((r) => SPEND_SECTION_GROUPS.has((r as QboReportRow)?.group ?? '')) as QboReportRow[];
+  if (spendSections.length === 0) return [];
+  const leaves = spendSections.flatMap((section) => collectLeafCategories(section.Rows?.Row));
 
   const totals = new Map<string, number>();
   for (const { category, total } of leaves) totals.set(category, (totals.get(category) ?? 0) + total);

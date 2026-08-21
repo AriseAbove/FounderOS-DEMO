@@ -488,6 +488,268 @@ pre-wired to any one machine.
      genuine `0/0`) it renders the real value with the normal `ok` LED,
      visually and textually distinct from the loading state in every case.
      Tests in `tests/sidebar-status.test.ts`.
+- **`/finances` bypassing the `.env.local` credential overlay, plus a
+  QuickBooks refresh race and a swallowed connector 'error' state
+  (2026-08-21 fix).** A live QA session found `/api/connections` reporting
+  QuickBooks connected 8/8 times while `/finances` said "RECONNECT NEEDED"
+  8/8 times in the same session — the same grant, disagreeing with itself
+  depending which page read it. Root cause: `app/finances/page.tsx` called
+  `qboConfigured`, `companyName`, `monthToDateIncome`, `openInvoices`, and
+  `monthToDateExpensesByCategory` with bare `process.env` (`qboConfigured`)
+  or with no argument at all (the other four, silently falling back to each
+  connector function's own `= process.env` default) — the one QuickBooks
+  consumer in the codebase that skipped `lib/creds.ts`'s `runtimeEnv()`
+  (process.env + a fresh `.env.local` read). `.env.local` is where the
+  `/integrations` connect/rotate flow — and production's
+  `FOUNDER_OS_ENV_LOCAL`-backed volume file — actually writes rotated
+  QuickBooks credentials, so a real, working reconnect never reached this
+  page. Every other real caller (`lib/connectors/index.ts`'s
+  `quickbooksStatus`, `lib/agents/real.ts`'s `quickbooks-pulse` agent and
+  Chief of Staff) already passed `runtimeEnv()`. Fixed by computing
+  `const env = runtimeEnv()` once at the top of the page and threading it
+  through every QBO call. Regression test in `tests/finances-page.test.ts`
+  reads the page's own source (same convention as `tests/funnel-page.test.ts`)
+  and pins that every QBO call receives `env`, never bare `process.env` or no
+  argument.
+  Same review flagged two related defects, fixed alongside: (1)
+  `getValidAccessToken` (`lib/connectors/quickbooks.ts`) had no locking
+  around its refresh call — Intuit rotates the refresh token on every use
+  (the function's own comment says so), so concurrent callers (e.g.
+  `/finances` firing 4 QBO calls in one `Promise.all`, plus other pages
+  potentially rendering concurrently) could each independently hit the token
+  endpoint and invalidate each other's refresh token. A module-level
+  in-flight-refresh promise now makes every concurrent caller await the SAME
+  refresh instead of firing its own — single-process Next.js server, no
+  distributed lock needed. Test in `tests/quickbooks-refresh-lock.test.ts`
+  (mocks the token endpoint with an artificial delay and asserts N concurrent
+  `getValidAccessToken()` calls produce exactly one real network call, and
+  that the lock correctly releases afterward for a genuinely later refresh).
+  (2) A connector genuinely in the `'error'` state (a stored grant/key exists
+  but the last real API call failed) rendered on `/integrations` as a plain
+  "Not connected · Connect →" card — indistinguishable from a tool that was
+  never touched, and throwing away the real failure detail
+  (`ConnectorStatus.detail`, e.g. "token may be revoked"). `CatalogEntry`
+  (`lib/integrations-catalog.ts`) gained a genuine `error: boolean` field
+  (true only when a real `connectorId`'s live status is `'error'`, never
+  invented, never true alongside `connected`), and `ConnectFlow.tsx` renders
+  a third, distinct amber/red "Reconnect needed" chip with the real detail
+  message shown as visible body text (not just a title tooltip) and a
+  "Reconnect →" action, instead of collapsing into "Not connected". (While
+  wiring the new `error` prop into `ConnectFlow`, found and fixed a real prop
+  name collision: the component already had an unrelated local
+  `[error, setError]` state for transient save/disconnect-request failures,
+  which would have silently shadowed the new connector-status prop — renamed
+  to `formError`/`setFormError`.) The existing connected/keySaved/never-
+  connected states are unchanged for every other connector on the board
+  (Gmail, Allo, Calendar, OneUp, Knowledge Store, Anthropic, Slack, Notion,
+  etc.). Tests extended in `tests/integrations-catalog.test.ts` and added in
+  `tests/connect-flow.test.ts` (source-based, matching
+  `tests/funnel-page.test.ts`'s convention — no DOM-rendering harness is
+  installed in this repo).
+- **`/org` status dots, the Conductor's fake pills, and three stale honesty
+  strings, fixed (2026-08-21).** A review of the org chart found it was the
+  one page never migrated to the honest-status fix above: `app/org/page.tsx`
+  rendered `db.agents.all()`'s static seed `status` completely untouched
+  (Home, `/agents`, and `/content` all already compute it live via
+  `lib/agents/live-status.ts`'s `liveAgentStatus()`), so 8 of 10 agents
+  showed a hollow "planned" dot regardless of what was actually connected or
+  had actually run — including Chief of Staff, which `/agents` correctly
+  shows ACTIVE with real run history. Fixed by threading the same
+  `allConnectorStatuses()` → `liveAgentStatus()` pipeline through before the
+  page builds its hierarchy tree; a small "Status" legend (matching the
+  page's existing "Life areas" legend styling) now explains the four dot
+  states, since none existed before. Regression test in
+  `tests/org-page.test.ts` reproduces the exact Chief-of-Staff scenario.
+  Separately: (1) `components/ConductorCard.tsx` showed "Broadcast",
+  "Orchestration", and "Instances" as three equal capability pills, but the
+  Conductor's only real tool is fan-out broadcast (`lib/agents/
+  runtime.ts`'s `broadcast()`) — no scheduling or process-instance
+  management exists anywhere in the codebase, so the other two were
+  decorative. Removed rather than invented a replacement. (2) The Conductor
+  SOP (`lib/seed.ts`'s `sopTasks`) claimed it "files the run to agent_runs"
+  and "reports non-responders" — `broadcast()` actually only ever writes to
+  `broadcasts`/`broadcast_replies` (never `agent_runs`), and every agent
+  always produces a reply via its own try/catch (there's no separate
+  non-responder detection to report). Reworded to describe what the code
+  actually does. (3) `/sops`' intro line said "every agent and person on the
+  roster" runs from a written procedure, but `lib/seed.ts`'s `people` array
+  has been empty since the original purge — no person has ever been seeded
+  — so the sentence implied a roster that doesn't exist. Reworded to name
+  the roster as agents-only today. (4) The Data Agent's SOP step and its
+  own + its `RuntimeAgent`/seed-agent descriptions (`lib/seed.ts`,
+  `lib/agents/real.ts`) all still said "stub until a provider is wired" —
+  stale from before `lib/brain.ts`'s bundled markdown-store provider
+  shipped; `/brain` and `/integrations` ("Knowledge Store — CONNECTED")
+  have both reported a live, real grep-search provider for a while. Reworded
+  to match `/brain`'s own honest phrasing ("real grep search … upgradeable
+  to a vector provider later") instead of denying a provider exists. (5) The
+  Skills catalog's "Knowledge retrieval" card carried the same stale "stub"
+  claim and a stale `status: 'planned'` (the same connector is realistically
+  always connected in this repo, via the bundled fallback) — fixed the copy
+  and the status together so they agree. (6) Separately, "Books pulse" (the
+  QuickBooks skill card) hardcoded `status: 'live'` in the seed regardless
+  of whether QuickBooks was actually connected. `lib/skills-catalog.ts`
+  gained `liveSkillStatus()` (same honest-computed idea as `liveAgentStatus`,
+  scoped to this one card) and `app/skills/page.tsx` now reads the real
+  QuickBooks connector state before rendering the fallback seeded catalog.
+  `SEED_VERSION` bumped to `2026-08-21-org-honesty-fixes` so an
+  already-seeded production DB picks up the corrected copy on next touch;
+  `knowledge/brain-store`'s generated conductor/data-agent docs were
+  regenerated (`npm run brain:docs`) to match. Tests: `tests/org-page.test.ts`,
+  `tests/skills-catalog.test.ts`.
+- **Hydration mismatch on every load of `/`, `/agents`, `/comms` (2026-08-21
+  fix).** `components/AgentActivityFeed.tsx` and `components/WeekCalendar.tsx`
+  formatted timestamps with `toLocaleTimeString([], …)` /
+  `toLocaleDateString([], …)` — the BROWSER's local timezone/locale —
+  directly during render. Next.js server-renders these client components on
+  Railway (server TZ = UTC), then React hydrates and re-renders them in the
+  visitor's local timezone; the formatted string differs between the two
+  passes (e.g. "2:30 PM" vs "10:30 AM"), so React discarded the SSR HTML and
+  threw hydration mismatches (#418/#423/#425) on every single page load —
+  confirmed live via browser console. Fixed with the standard swap-after-
+  mount pattern rather than `suppressHydrationWarning` (which would only
+  silence the error while still doing the wasteful re-render and flashing
+  the wrong time): each formatter is split into a UTC variant (`clockUTC`,
+  `fmtTimeUTC`, `weekdayUTC` — deterministic, used on the render that has to
+  match SSR) and a local variant (`clockLocal`, `fmtTimeLocal`,
+  `weekdayLocal`), gated by a `hydrated` state flag that starts `false` and
+  flips to `true` inside a `useEffect` — which only runs client-side, after
+  hydration has already reconciled. `WeekCalendar.tsx` also gained an
+  explicit `'use client'` directive (it was already being rendered client-
+  side as a descendant of `CommsTabs.tsx`, just undeclared). A repo-wide grep
+  for the same call shapes found no other instance of this bug class — the
+  remaining `toLocaleDateString`/`toLocaleString` call sites
+  (`app/analytics/page.tsx`, `app/finances/page.tsx`,
+  `components/AudienceConsistency.tsx`, `components/BusinessIncomeChart.tsx`)
+  already pass an explicit `timeZone: 'UTC'` and locale, so they're
+  deterministic regardless of where they run. Separately, the Home page's
+  agent roster row appended a literal `" ago"` onto `relativeTime()`'s output
+  unconditionally, producing "just now ago" for any run in the last minute
+  (`relativeTime()` already returns a full phrase for that case and only a
+  bare duration like `"5m"` otherwise); fixed with a `relativeTimeAgo()`
+  wrapper that only appends the suffix when the value isn't already a
+  phrase. Tests in `tests/hydration-safe-clock.test.ts` (source-structure
+  assertions plus a determinism check on the UTC formatters — a real
+  SSR-vs-client render pass isn't available in Vitest/jsdom) and
+  `tests/relative-time-ago.test.ts` (extracts and runs the real
+  `relativeTime`/`relativeTimeAgo` bodies against a live "just now" case).
+- **Four honesty/safety bugs found and fixed on `/social` and its composer
+  (2026-08-21).**
+  1. **PostComposer's own "manual only" claim went stale the moment its
+     sibling fix shipped.** The "Every real agent now has a real schedule"
+     entry above landed `.github/workflows/agent-cron-checks.yml` with a real
+     `0 */4 * * *` schedule for social-pulse, and it is confirmed firing in
+     production — but `components/PostComposer.tsx`'s footer copy still read
+     "Queues only — Social Pulse publishes it, but only when run manually
+     from /agents (no automatic schedule is wired up yet)," written for the
+     "OneUp status reconciliation" fix two entries above, before the cron
+     existed. With `ONEUP_API_KEY` + `ONEUP_CATEGORY_ID` both set, the publish
+     path is fully live: a rough/draft caption queued here now auto-publishes
+     to the real connected Instagram account within ~4 hours, not "only when
+     run manually" — actively dangerous copy for a composer, since it told
+     the operator queuing was safe drafting when it was really scheduling a
+     near-term live post. Fixed the copy to say plainly that Social Pulse
+     runs automatically every ~4 hours and will publish whatever is queued.
+     Grepped the rest of the app for the same claim — this was the only
+     occurrence.
+  2. **`/social` hardcoded `livePosts=[]` / `recentLive=false` /
+     `postDays=[]`** unconditionally, with a stale "no posting source
+     connected" comment predating OneUp — so the instant Social Pulse
+     actually published something, `/content`'s `contentPipelineStatus()`
+     (real `db.socialPosts` `'published'`-status count) would correctly show
+     it while `/social`, the actual social page, kept insisting no post
+     history had ever synced. `lib/social.ts` gained `recentLivePosts()` (one
+     row per published-post × platform, newest first, timed by
+     `scheduledFor ?? createdAt` since OneUp has no "post immediately" verb —
+     `url` stays honestly `null`, OneUp's schedule APIs never return a
+     permalink) and `publishedPostDays()` (real `PostDay[]` for the
+     posting-consistency chart) — both pure functions over `db.socialPosts`
+     rows, same `status === 'published'` filter `/content` already uses, no
+     new data source. `app/social/page.tsx` now derives `livePosts`,
+     `recentLive`, and `postDays` from these instead of literals. Tests in
+     `tests/social.test.ts`.
+  3. **`listOneUpFailedPosts` (`lib/connectors/oneup.ts`, OneUp's own
+     `/getfailedposts` feed with real `fail_reason`) had zero callers
+     anywhere in the app.** A post OneUp rejected (platform mismatch, a
+     malformed field) got marked `'failed'` in our own queue immediately,
+     but `AgentRunSchema` never persists a run's per-post `data` — only its
+     one-line `summary` string — so the real reason vanished the moment the
+     triggering `social-pulse` run finished, leaving no trace beyond a
+     truncated one-line `/agents` summary. `lib/social-oneup.ts`'s new
+     `fetchOneUpFailedPosts()` wires the existing function in behind an
+     honest, never-throwing `{ ok: true, posts } | { ok: false, error }`
+     result; `/social` renders a "Failed" section (only when there's
+     something to show, no empty clutter) combining our own queue's
+     `'failed'` rows with OneUp's real `fail_reason` detail — visible and
+     explained, not silently gone. No retry flow added (out of scope, kept
+     this scoped per the review). Tests in `tests/social-oneup.test.ts`.
+  4. **`components/InstagramDmInbox.tsx` claimed a live ManyChat webhook that
+     doesn't exist.** Its badge read "SEEDED · LIVE VIA MANYCHAT WEBHOOK" and
+     its empty state told the operator messages "appear here as ManyChat
+     posts them to /api/webhooks/manychat" — but neither that route nor
+     `/api/social/dm/reply` exists anywhere under `app/api` (verified by
+     search; both would 404 in production), and no `MANYCHAT_API_KEY` env var
+     exists in this codebase either. Fixed the badge to read "seeded ·
+     manychat not connected," the empty state to say ManyChat isn't
+     connected or built yet, and the send-failure fallback text to stop
+     referencing a nonexistent env var — matching the honest-empty-state
+     pattern used elsewhere (e.g. `/brain` saying "not configured" rather
+     than faking a working search) instead of implying working live
+     infrastructure. Building the actual ManyChat integration stays out of
+     scope — this only fixes the misleading claim.
+- **Three dashboard-review fixes: Run pill wiring, broadcast footgun warning,
+  /tasks honesty (2026-08-21).**
+  1. *Dead "Run" pill, now real.* The home page's agent row rendered a
+     styled `<span>` inside `<Link href="/agents">` that said "Run" but did
+     nothing except navigate away on click — `POST /api/agents/[id]/run`
+     (the real trigger, backed by `lib/agents/runtime.ts`'s `run()`) already
+     existed and worked, it just wasn't wired to anything clickable. The
+     `/agents` roster had it worse: no run trigger at all. New
+     `components/AgentRunButton.tsx` (same busy/note pattern as
+     `AlloSyncButton`/`WebsiteSyncButton`) is a real `<button>` that POSTs
+     the run endpoint, disables itself in flight, shows an honest OK/FAILED
+     outcome plus the run's own summary, then `router.refresh()`s so the
+     row's last-run info updates from the server. On the home page the
+     button now sits **outside** the row's `<Link>` (which still wraps just
+     the agent name/meta and still navigates to `/agents`) instead of nested
+     inside it, so the two controls can't swallow or be confused with each
+     other; `/agents`' roster cards (not links to begin with) get the same
+     button next to the tier badge.
+  2. *Conductor broadcast footgun, now disclosed.* Live testing confirmed
+     `lib/agents/runtime.ts`'s `broadcast()` calls
+     `agent.respond ? agent.respond(message) : agent.run()` for every agent
+     — and only `data-agent` implements `respond()` (`lib/agents/real.ts`).
+     Send an ordinary message to `ConductorCard.tsx` (the chat pill on
+     `/org`, the only UI that actually calls `POST /api/agents/broadcast` →
+     `runtime.broadcast()`) and every other agent runs its **full real
+     job** instead of replying: Allo Pulse pulls live calls, Gmail Worker
+     polls real unread counts, Social Pulse can PUBLISH queued posts to the
+     real Instagram account. `ConductorChat.tsx`/`AgentChat.tsx` on `/agents`
+     were checked too and don't carry this risk — they route through
+     `chatWithAgent`/`routeConductorMessage` (`lib/agents/chat.ts`,
+     `lib/agents/conductor.ts`), which never falls back to `run()` — so the
+     warning was added only where the real risk lives: `ConductorCard.tsx`
+     now shows a standing, visible notice that sending broadcasts to every
+     agent and can trigger real calls/email checks/publishes, not just a
+     reply, and points to `/agents` for a side-effect-free chat. The
+     broadcast architecture itself is unchanged — this is a disclosure, not
+     a redesign.
+  3. *`/tasks` honesty + a real create-task affordance.* `TaskBoard.tsx`'s
+     intro copy claimed "Agents advance their own cards as they commit and
+     finish" — untrue. No agent `run()` in `lib/agents/real.ts` writes to
+     `agent_tasks`; the seed ships it permanently empty
+     (`lib/seed.ts`'s `agentTasks` array), and the only writers were the
+     board's own drag handler and the manual add-task form that lived
+     exclusively in `AgentWorkPanel.tsx`'s collapsed drawer on `/agents`.
+     Copy now reads "Tasks are created and moved manually today; no agent
+     writes to this board on its own yet." `TaskBoard.tsx` also gained its
+     own create-task form (agent picker + title, `POST /api/agents/work` —
+     the same working CRUD endpoint `AgentWorkPanel` already uses) plus a
+     per-card delete (`DELETE /api/agents/work`), so adding or removing a
+     task no longer requires knowing about a hidden drawer on a different
+     page. Tests: `tests/agent-run-button.test.ts`,
+     `tests/conductor-broadcast-warning.test.ts`,
+     `tests/task-board-honesty.test.ts`.
 - Credentials go in `.env.local` (gitignored). NEVER commit keys.
 
 ## Views

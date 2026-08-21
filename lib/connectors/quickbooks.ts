@@ -225,7 +225,16 @@ export async function monthToDateExpenses(
   }
 }
 
-export type OpenInvoice = { id: string; docNumber: string; customer: string; balance: number; dueDate: string | null };
+export type OpenInvoice = {
+  id: string;
+  docNumber: string;
+  customer: string;
+  balance: number;
+  dueDate: string | null;
+  /** Bill-to email QBO has on file, if any — needed to chase by email.
+      Null (never invented) when QBO didn't return one. */
+  billEmail: string | null;
+};
 
 /** Parse open (Balance > 0) invoices from a QBO Query response. Guarded. */
 export function parseOpenInvoices(raw: unknown): OpenInvoice[] {
@@ -243,6 +252,7 @@ export function parseOpenInvoices(raw: unknown): OpenInvoice[] {
       customer: typeof r.CustomerRef?.name === 'string' ? r.CustomerRef.name : 'Unknown client',
       balance,
       dueDate: typeof r.DueDate === 'string' ? r.DueDate : null,
+      billEmail: typeof r.BillEmail?.Address === 'string' ? r.BillEmail.Address : null,
     });
   }
   return out.sort((a, b) => b.balance - a.balance);
@@ -254,7 +264,8 @@ export async function openInvoices(
   env: Record<string, string | undefined> = process.env,
 ): Promise<OpenInvoice[] | null> {
   try {
-    const query = "SELECT Id, DocNumber, CustomerRef, Balance, DueDate FROM Invoice WHERE Balance > '0' MAXRESULTS 100";
+    const query =
+      "SELECT Id, DocNumber, CustomerRef, Balance, DueDate, BillEmail FROM Invoice WHERE Balance > '0' MAXRESULTS 100";
     const raw = await qboFetch(env, `/query?query=${encodeURIComponent(query)}&minorversion=65`);
     return parseOpenInvoices(raw);
   } catch {

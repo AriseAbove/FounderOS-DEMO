@@ -13,7 +13,7 @@ export type InboxConfig = {
   smtpPort: number;
 };
 
-const MAX_INBOXES = 4;
+export const MAX_INBOXES = 4;
 
 export function parseInboxConfigs(env: Record<string, string | undefined>): InboxConfig[] {
   const inboxes: InboxConfig[] = [];
@@ -167,7 +167,7 @@ export async function emailStatus(env: Record<string, string | undefined> = proc
       kind: 'email',
       state: 'error',
       detail: `All ${counts.length} inbox connections failed: ${errors[0].error}`,
-      meta: { configured: inboxes.length },
+      meta: { configured: inboxes.length, slots: MAX_INBOXES },
     };
   }
   return {
@@ -178,6 +178,6 @@ export async function emailStatus(env: Record<string, string | undefined> = proc
     detail: `${inboxes.length} inbox${inboxes.length > 1 ? 'es' : ''} · ${totalUnread} unread${
       errors.length ? ` · ${errors.length} failing` : ''
     }`,
-    meta: { configured: inboxes.length, unread: totalUnread },
+    meta: { configured: inboxes.length, unread: totalUnread, slots: MAX_INBOXES },
   };
 }

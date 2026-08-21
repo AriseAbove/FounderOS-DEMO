@@ -198,6 +198,11 @@ export default async function HomePage() {
     status: liveAgentStatus(a.id, connections, lastRunByAgent.get(a.id), a.status),
   }));
 
+  // Same allConnectorStatuses() call /api/connections and /integrations use —
+  // this tally can never disagree with those by construction. It used to
+  // outrun /integrations' "connected" count because the catalog there only
+  // had tiles (connectorId wirings) for 4 of these 7 real connectors; see
+  // lib/integrations-catalog.ts's brainstore/anthropic/allo entries.
   const connected = connections.filter((c) => c.state === 'connected').length;
   const activeAgents = agents.filter((a) => a.status === 'active').length;
   const health = overview.doctor.healthScore;

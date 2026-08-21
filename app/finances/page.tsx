@@ -3,11 +3,12 @@ import {
   qboConfigured,
   monthToDateIncome as qboMonthToDateIncome,
   monthToDateExpenses as qboMonthToDateExpenses,
+  monthToDateExpensesByCategory as qboMonthToDateExpensesByCategory,
   openInvoices as qboOpenInvoices,
   companyName as qboCompanyName,
 } from '@/lib/connectors/quickbooks';
 import { getDb } from '@/lib/data';
-import { net } from '@/lib/finances';
+import { net, resolveExpenseCategories } from '@/lib/finances';
 import { openLedger } from '@/lib/ledger';
 import { openBankStore } from '@/lib/bank';
 import { businessSeries } from '@/lib/bank-statements';
@@ -41,12 +42,14 @@ export default async function FinancesPage() {
   let qboIncome: number | null = null;
   let qboExpenses: number | null = null;
   let qboAr: Awaited<ReturnType<typeof qboOpenInvoices>> = null;
+  let qboExpenseCategories: Awaited<ReturnType<typeof qboMonthToDateExpensesByCategory>> = null;
   if (qboAuthorized) {
-    [qboName, qboIncome, qboExpenses, qboAr] = await Promise.all([
+    [qboName, qboIncome, qboExpenses, qboAr, qboExpenseCategories] = await Promise.all([
       qboCompanyName().catch(() => null),
       qboMonthToDateIncome().catch(() => null),
       qboMonthToDateExpenses().catch(() => null),
       qboOpenInvoices().catch(() => null),
+      qboMonthToDateExpensesByCategory().catch(() => null),
     ]);
   }
   const qboConnected = qboAuthorized && qboName !== null;
@@ -54,7 +57,9 @@ export default async function FinancesPage() {
 
   // Income = QuickBooks (the real books). Honest zero until the grant lands.
   const incomeMtd = qboIncome ?? 0;
-  // Expenses come from the uploaded statement ledger only — no sample spend.
+  // Category-level expenses come from the uploaded statement ledger — the
+  // fallback path for whoever hasn't authorized QuickBooks yet (or whose
+  // token needs reconnecting).
   let ledgerSpend: { category: string; total: number }[] = [];
   let ledgerMonth: string | null = null;
   try {
@@ -68,7 +73,6 @@ export default async function FinancesPage() {
   } catch {
     ledgerSpend = [];
   }
-  const expensesLive = ledgerSpend.length > 0;
   // Per-business income from uploaded bank statements (Vantage, General Ops…).
   let bankSeries: ReturnType<typeof businessSeries> = [];
   try {
@@ -85,8 +89,19 @@ export default async function FinancesPage() {
   const monthLabel = ledgerMonth
     ? new Date(`${ledgerMonth}-01T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' })
     : null;
-  const byCategory = ledgerSpend;
-  const expenses = ledgerSpend.reduce((s, c) => s + c.total, 0);
+  const qboMonthLabel = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+
+  // Category chart: QuickBooks' real ProfitAndLoss breakdown when it's
+  // connected and reachable, uploaded-statement categories otherwise — see
+  // resolveExpenseCategories' doc comment for why these two sources take
+  // priority over each other instead of being merged/summed.
+  const resolvedExpenses = resolveExpenseCategories(qboConnected, qboExpenseCategories, ledgerSpend);
+  const byCategory = resolvedExpenses.categories;
+  const expensesSource = resolvedExpenses.source;
+  const expensesLive = expensesSource !== 'none';
+  const expensesPeriodLabel =
+    expensesSource === 'quickbooks' ? `QuickBooks · ${qboMonthLabel}` : expensesSource === 'statements' ? `uploaded · ${monthLabel}` : 'no statements uploaded';
+  const expenses = byCategory.reduce((s, c) => s + c.total, 0);
   const netMonthly = net(incomeMtd, expenses);
   const maxCategory = Math.max(...byCategory.map((c) => c.total), 1);
 
@@ -214,7 +229,7 @@ export default async function FinancesPage() {
             <span
               className={`min-w-0 truncate font-mono text-[9.5px] uppercase tracking-[0.1em] ${expensesLive ? 'text-os-ok' : 'text-os-dim'}`}
             >
-              {expensesLive ? `uploaded · ${monthLabel}` : 'no statements uploaded'}
+              {expensesPeriodLabel}
             </span>
           </div>
         </div>
@@ -254,14 +269,15 @@ export default async function FinancesPage() {
       <section className="mb-5">
         <SectionHead
           label="Monthly expenses · by category"
-          count={expensesLive && monthLabel ? `${usd(expenses)} · ${monthLabel}` : `${usd(expenses)} /mo`}
+          count={expensesLive ? `${usd(expenses)} · ${expensesPeriodLabel}` : `${usd(expenses)} /mo`}
         />
         <div className="grid items-stretch gap-3.5 lg:grid-cols-[1.15fr_1fr_0.85fr]">
-          {/* where the money goes — share per category (empty until an upload) */}
+          {/* where the money goes — share per category. Empty until QuickBooks
+              is connected or a statement is uploaded (see resolveExpenseCategories). */}
           <SharePie
             items={byCategory.map((c) => ({ key: c.category, label: c.category, value: Math.round(c.total * 100) }))}
             total={Math.round(expenses * 100)}
-            centerLabel={expensesLive && monthLabel ? monthLabel : 'per month'}
+            centerLabel={expensesSource === 'quickbooks' ? qboMonthLabel : expensesSource === 'statements' && monthLabel ? monthLabel : 'per month'}
             format={(cents) => usd(cents / 100)}
             donutPx={190}
             ariaLabel="Monthly expenses by category"
@@ -283,8 +299,18 @@ export default async function FinancesPage() {
             </div>
           </div>
 
-          {/* Statement ingestion — upload a CSV to replace the sample figures */}
-          <StatementUploader />
+          {/* Statement ingestion — the fallback source. While QuickBooks is
+              connected it drives the chart above (see resolveExpenseCategories
+              in lib/finances.ts); an upload here still lands in the ledger for
+              when QuickBooks isn't reachable. */}
+          <div className="flex flex-col gap-2">
+            {expensesSource === 'quickbooks' && (
+              <p className="rounded-lg-t border border-os-border bg-os-surface px-3 py-2 font-mono text-[10px] leading-relaxed text-os-dim">
+                Chart is reading QuickBooks' categorized P&amp;L. Uploads here still save to the fallback ledger for whenever QuickBooks is unreachable.
+              </p>
+            )}
+            <StatementUploader />
+          </div>
         </div>
       </section>
 

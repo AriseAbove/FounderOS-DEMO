@@ -3,7 +3,15 @@ import type { FounderDb } from '@/lib/db';
 import type { LlmToolSpec } from '@/lib/connectors/llm';
 import type { AgentRun, Broadcast } from '@/lib/schemas';
 
-export type AgentRunResult = { ok: boolean; summary: string; data?: unknown };
+export type AgentRunResult = {
+  ok: boolean;
+  summary: string;
+  data?: unknown;
+  /** True only when the run's own job succeeded (ok: true) but a downstream
+   *  notification it attempted (e.g. an ntfy push) genuinely failed. Distinct
+   *  from `ok` on purpose — see lib/analytics.ts's runOutcomeCounts. */
+  pushFailed?: boolean;
+};
 
 export type RuntimeAgent = {
   id: string;
@@ -50,6 +58,7 @@ export function createRuntime(db: FounderDb, agents: RuntimeAgent[]) {
         finishedAt: new Date().toISOString(),
         ok: result.ok,
         summary: result.summary,
+        pushFailed: result.pushFailed ?? false,
       };
       db.agentRuns.insert(run);
       return run;

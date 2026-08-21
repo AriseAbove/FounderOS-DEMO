@@ -17,7 +17,7 @@ import { oneupConfigured } from '@/lib/connectors/oneup';
 import { publishQueuedSocialPosts } from '@/lib/social-oneup';
 import { runtimeEnv } from '@/lib/creds';
 import { getDb } from '@/lib/data';
-import { gatherSignals, briefingText, newHighSeveritySignals, markNotified, sendNtfyPush } from '@/lib/chief-of-staff';
+import { gatherSignals, briefingText, newHighSeveritySignals, markNotified, sendNtfyPush, describeFetchError } from '@/lib/chief-of-staff';
 import type { LlmToolSpec } from '@/lib/connectors/llm';
 import type { AgentRunResult, RuntimeAgent } from '@/lib/agents/runtime';
 import type { FounderDb } from '@/lib/db';
@@ -136,7 +136,17 @@ async function socialPulseRun(): Promise<AgentRunResult> {
  *  outage) can be exercised without touching the module-level singletons.
  *  A push failure is reported honestly in the summary but never fails the
  *  whole run — the signals were still gathered correctly, and the dedupe
- *  gate correctly leaves the signal un-notified so the next run retries it. */
+ *  gate correctly leaves the signal un-notified so the next run retries it.
+ *
+ *  `ok` and `pushFailed` are deliberately separate signals on the returned
+ *  result: `ok` says the run did its real job (gathering signals), and
+ *  `pushFailed` says a notification it tried to send genuinely did not go
+ *  through. Before 2026-08-21 there was no `pushFailed` at all, so every
+ *  agent_runs row for this agent read `ok: true` regardless of push outcome
+ *  and Analytics' "Run outcomes" pie rolled every failed push straight into
+ *  "Succeeded" — 69 straight hourly runs whose push failed with "fetch
+ *  failed" showed up as ~99% OK. See lib/analytics.ts's runOutcomeCounts and
+ *  app/analytics/page.tsx for where this now surfaces. */
 export async function chiefOfStaffRunWith(
   db: FounderDb,
   env: Record<string, string | undefined>,
@@ -146,23 +156,32 @@ export async function chiefOfStaffRunWith(
   const signals = await gatherSignals(db, env, now);
   const fresh = newHighSeveritySignals(db, signals);
   let pushNote = '';
+  let pushFailed = false;
   if (fresh.length > 0) {
     try {
       const push = await sendNtfyPush(env, 'Chief of Staff', fresh.map((s) => s.summary).join('\n'), fetchImpl);
       if (push.sent) {
         markNotified(db, fresh);
         pushNote = ` · pushed ${fresh.length} new`;
+      } else if ('reason' in push) {
+        // Honest no-op — nothing was attempted (e.g. NTFY_TOPIC not set).
+        // Not configured is not the same as broken, so this doesn't count
+        // as a push failure.
+        pushNote = ` · ${fresh.length} new high-severity, push not sent (${push.reason})`;
       } else {
-        const why = 'reason' in push ? push.reason : `ntfy status ${push.status}`;
-        pushNote = ` · ${fresh.length} new high-severity, push not sent (${why})`;
+        // ntfy responded, but rejected the push — a genuine failure.
+        pushFailed = true;
+        pushNote = ` · ${fresh.length} new high-severity, push failed (ntfy status ${push.status})`;
       }
     } catch (err) {
-      const why = err instanceof Error ? err.message : String(err);
+      pushFailed = true;
+      const why = describeFetchError(err);
       pushNote = ` · ${fresh.length} new high-severity, push failed (${why})`;
     }
   }
   return {
     ok: true,
+    pushFailed,
     summary: `${briefingText(signals)}${pushNote}`,
     data: { signals, fresh },
   };

@@ -40,13 +40,23 @@ const AGENT_LIVE_RULE: Record<string, LiveRule> = {
 export function liveAgentStatus(
   agentId: string,
   connections: ConnectorStatus[],
-  lastRun: { ok: boolean } | undefined,
+  lastRun: { ok: boolean; pushFailed?: boolean } | undefined,
   seedStatus: Agent['status'],
 ): Agent['status'] {
   const rule = AGENT_LIVE_RULE[agentId];
   if (!rule) return seedStatus;
   if (rule.kind === 'always') return 'active';
-  if (rule.kind === 'last-run') return lastRun?.ok ? 'active' : 'planned';
+  if (rule.kind === 'last-run') {
+    if (!lastRun?.ok) return 'planned';
+    // The run itself succeeded, but a downstream notification it attempted
+    // (the ntfy push) genuinely failed — see lib/agents/real.ts's
+    // chiefOfStaffRunWith. Before this fix that still read "active" exactly
+    // like a fully healthy run, so ~69 straight hourly runs whose push
+    // failed showed the same green, pulsing "LIVE" dot as a clean run. Not
+    // fully healthy, but not "planned"/down either — it did run, it just
+    // couldn't deliver. 'idle' renders as its own (amber) state.
+    return lastRun.pushFailed ? 'idle' : 'active';
+  }
   const byId = new Map(connections.map((c) => [c.id, c.state]));
   const live = rule.ids.some((id) => byId.get(id) === 'connected');
   return live ? 'active' : 'planned';

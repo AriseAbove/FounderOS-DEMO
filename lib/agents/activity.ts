@@ -11,7 +11,17 @@ export function recentActivity(db: FounderDb, limit = 50): ActivityEvent[] {
   const events: ActivityEvent[] = [];
 
   for (const run of db.agentRuns.recent(limit)) {
-    events.push({ kind: 'run', agentId: run.agentId, at: run.startedAt, summary: run.summary, ok: run.ok });
+    events.push({
+      kind: 'run',
+      agentId: run.agentId,
+      at: run.startedAt,
+      summary: run.summary,
+      ok: run.ok,
+      // Carried through (not folded into `ok`) so the feed can flag a run
+      // whose real job succeeded but whose push genuinely failed — see
+      // lib/schemas.ts's ActivityEventSchema and AgentRunSchema.
+      pushFailed: run.pushFailed || undefined,
+    });
   }
 
   for (const msg of db.agentMessages.recent(limit)) {

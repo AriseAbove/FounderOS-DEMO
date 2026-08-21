@@ -8,9 +8,12 @@ import {
   buildSocialDashboard,
   dmGrowth,
   dmThreads,
+  socialSourceBadge,
   totalDms,
   PLATFORM_LABELS,
 } from '@/lib/social';
+import { oneupStatus } from '@/lib/connectors/oneup';
+import { runtimeEnv } from '@/lib/creds';
 import type { SocialPlatform } from '@/lib/schemas';
 import { PageHeader } from '@/components/PageHeader';
 import { Badge, SectionHead } from '@/components/terminal';
@@ -71,8 +74,14 @@ function agoFrom(iso: string | null): string {
 
 export default async function SocialPage() {
   const db = getDb();
-  // Honest, DB-only view: no posting/analytics source is connected, so every
-  // figure below comes from real recorded snapshots — none exist yet.
+  // Honest badge: reads the real OneUp connector state (same check
+  // /integrations and Home use via allConnectorStatuses()) so this page can
+  // never claim "no posting source" once ONEUP_API_KEY is actually set. The
+  // follower/reach/post figures below are still DB-only — no OneUp account
+  // or post-history sync is wired yet, so they stay honestly empty even once
+  // connected; the badge below says so explicitly instead of overclaiming.
+  const oneup = await oneupStatus(runtimeEnv());
+  const badge = socialSourceBadge(oneup);
   const dash = buildSocialDashboard(db);
   const posts = db.socialPosts.all();
   const livePosts: { platform: string; publishedAt: string; caption: string; status: string; url: string | null }[] = [];
@@ -91,7 +100,7 @@ export default async function SocialPage() {
       <PageHeader
         eyebrow="audience"
         title="Social"
-        right={<Badge tone="warn" ghost>no posting source connected</Badge>}
+        right={<Badge tone={badge.tone} ghost={badge.ghost}>{badge.label}</Badge>}
       />
 
       {/* Every account on the first screen — compact row, one cell per channel.
@@ -195,7 +204,7 @@ export default async function SocialPage() {
           </div>
         ) : (
           <p className="rounded-lg-t border border-dashed border-os-border bg-os-surface px-4 py-5 text-center font-mono text-[11.5px] text-os-dim">
-            No published posts on record — connect a posting source to fill this in.
+            {badge.emptyPostsDetail}
           </p>
         )}
       </section>

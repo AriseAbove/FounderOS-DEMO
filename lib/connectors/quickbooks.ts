@@ -225,6 +225,91 @@ export async function monthToDateExpenses(
   }
 }
 
+/** Month-to-date expenses broken out by category, from the QBO Reports API's
+    ProfitAndLoss report (/v3/company/{realmId}/reports/ProfitAndLoss) —
+    the standard QuickBooks report for accountant-categorized income/expense
+    by account, not another raw transaction-query sum. This is what actually
+    answers "where did the money go this month": monthToDateExpenses above
+    sums raw Purchase transactions to one number; this reads the same books
+    QuickBooks itself categorizes them into (Materials, Advertising, Fuel,
+    Subcontractors, …) for the finances page's category chart. Null when
+    unreachable/unauthorized — the page falls back to uploaded-statement
+    categories rather than showing a fake empty chart. */
+export async function monthToDateExpensesByCategory(
+  env: Record<string, string | undefined> = process.env,
+  now: Date = new Date(),
+): Promise<CategoryTotal[] | null> {
+  try {
+    const start = monthStartDate(now);
+    const end = isoDate(now);
+    const raw = await qboFetch(env, `/reports/ProfitAndLoss?start_date=${start}&end_date=${end}&minorversion=65`);
+    return parseProfitAndLossExpenseCategories(raw);
+  } catch {
+    return null;
+  }
+}
+
+export type CategoryTotal = { category: string; total: number };
+
+/** One row of a QBO Reports API response's `Rows.Row` array — either a leaf
+    "Data" row (one account/category + amount) or a "Section" row that nests
+    its own child Rows (a sub-account rollup, e.g. "Job Expenses" grouping
+    "Materials"/"Permits"). Loosely typed — this is exactly the shape we
+    guard against being wrong. */
+type QboReportRow = {
+  type?: string;
+  group?: string;
+  ColData?: { value?: unknown }[];
+  Header?: { ColData?: { value?: unknown }[] };
+  Summary?: { ColData?: { value?: unknown }[] };
+  Rows?: { Row?: unknown };
+};
+
+/** Recursively pull every leaf category+amount out of a section's child rows.
+    "Data" rows are read directly; "Section" rows (sub-account rollups) are
+    recursed into so multi-level chart-of-accounts nesting still yields real
+    per-account numbers instead of one lumped total. A Section's own Summary
+    total is never added alongside its children — that would double-count
+    the same spend once as the rollup and again per leaf account. */
+function collectLeafCategories(rows: unknown): CategoryTotal[] {
+  if (!Array.isArray(rows)) return [];
+  const out: CategoryTotal[] = [];
+  for (const raw of rows) {
+    const row = (raw ?? {}) as QboReportRow;
+    if (row.type === 'Data') {
+      const category = row.ColData?.[0]?.value;
+      const total = Number(row.ColData?.[1]?.value);
+      if (typeof category === 'string' && category.trim() && Number.isFinite(total)) {
+        out.push({ category, total });
+      }
+    } else if (row.type === 'Section') {
+      out.push(...collectLeafCategories(row.Rows?.Row));
+    }
+  }
+  return out;
+}
+
+/** Parse the "Expenses" section of a QBO Reports API ProfitAndLoss response
+    into category totals, largest first. Guarded like every other QBO parser
+    here — Income/COGS/NetIncome sections are ignored, malformed or
+    non-finite rows are skipped, duplicate category labels are summed rather
+    than overwritten, and anything unexpected returns [] instead of
+    throwing. A real, connected report with genuinely no expenses this
+    period also returns [] — that's an honest zero, not an error. */
+export function parseProfitAndLossExpenseCategories(raw: unknown): CategoryTotal[] {
+  const rows = (raw as { Rows?: { Row?: unknown } } | null | undefined)?.Rows?.Row;
+  if (!Array.isArray(rows)) return [];
+  const expensesSection = rows.find((r) => (r as QboReportRow)?.group === 'Expenses') as QboReportRow | undefined;
+  if (!expensesSection) return [];
+  const leaves = collectLeafCategories(expensesSection.Rows?.Row);
+
+  const totals = new Map<string, number>();
+  for (const { category, total } of leaves) totals.set(category, (totals.get(category) ?? 0) + total);
+  return [...totals.entries()]
+    .map(([category, total]) => ({ category, total }))
+    .sort((a, b) => b.total - a.total);
+}
+
 export type OpenInvoice = {
   id: string;
   docNumber: string;

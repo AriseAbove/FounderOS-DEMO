@@ -1,4 +1,4 @@
-import { getBrainProvider, readStoreNotes } from '@/lib/brain';
+import { getBrainProvider, readStoreNotes, summarizeDoctor } from '@/lib/brain';
 import type { RosterClient } from '@/lib/schemas';
 import { buildBrainGraph } from '@/lib/brain-graph';
 import { buildKnowledgeGraph } from '@/lib/knowledge-graph';
@@ -19,6 +19,34 @@ const CHECK_DOT: Record<string, string> = {
   ok: 'ok',
   warn: 'warn',
   error: 'err',
+};
+
+// Color for the doctor's headline word, keyed off summarizeDoctor()'s state
+// — 'not_scored' is deliberately NOT the ok/green class: it means "we don't
+// have a number yet", which is a neutral fact, not a good one.
+const DOCTOR_STATE_CLASS: Record<string, string> = {
+  offline: 'text-os-err',
+  not_scored: 'text-os-dim',
+  warnings: 'text-os-warn',
+  ok: 'text-os-ok',
+};
+
+// Store-folder display names for the brain-store pipeline listing. This
+// counts markdown DOCUMENTATION PAGES per folder — e.g. the "tools" folder
+// holds one .md page per catalog tool (today: 9) — a wholly different count
+// from "how many tools are wired to an agent" (the knowledge graph's
+// directory, deduped by slug) or "how many tool NODES the graph wheel
+// draws" (the legend, which duplicates a shared tool once per department
+// that uses it). All three were rendered as a bare "TOOLS"/"Tools" before
+// this fix, reading as three disagreeing counts of the same thing. Renaming
+// this one to "tool docs" (etc.) makes clear it's page count, not roster
+// count — see components/KnowledgeGraph.tsx and lib/knowledge-graph.ts for
+// the other two labels' equivalent fix. 2026-08-21.
+const FOLDER_DISPLAY_NAME: Record<string, string> = {
+  tools: 'tool docs',
+  agents: 'agent docs',
+  sops: 'sop docs',
+  org: 'org docs',
 };
 
 function relativeTime(iso: string): string {
@@ -141,7 +169,17 @@ export default async function BrainPage() {
       .map((r) => [r.agentId, r]),
   );
   const warnings = doctor.checks.filter((c) => c.status !== 'ok');
-  const fallbackActive = !doctor.connected;
+  const doctorSummary = summarizeDoctor(doctor);
+  // Falling back to plain grep means "no real vector/embeddings provider is
+  // wired" — NOT "the local store is unreachable" (that's `doctor.connected`,
+  // a different fact). Before this fix these were conflated: this flag used
+  // to be `!doctor.connected`, so a healthy local store read as "hybrid
+  // search verified" / "supabase reachable" even though no vector backend
+  // has ever been integrated in this codebase (no SDK, no env var, nothing —
+  // see doctor.vector's own comment in lib/brain.ts). It is `true` today for
+  // every provider that exists; it only goes false once a real vector
+  // provider is registered and reports `vector: true`.
+  const fallbackActive = !doctor.vector;
 
   const layers: { name: string; sub: string; val: string; state: string }[] = [
     {
@@ -218,18 +256,26 @@ export default async function BrainPage() {
           <div className="flex items-start justify-between px-4 pt-3.5 font-mono text-[10px] leading-normal text-os-dim">
             <div className="flex flex-col gap-1">
               <span>
-                <b className="font-medium text-os-muted">doctor</b> —{' '}
-                {doctor.connected ? (warnings.length > 0 ? 'warnings' : 'ok') : 'unreachable'}
+                <b className="font-medium text-os-muted">doctor</b> — {doctorSummary.label}
               </span>
               <span>
-                {lastBrainRun ? `last run ${relativeTime(lastBrainRun.finishedAt)} · data-agent` : 'no agent runs yet'}
+                {lastBrainRun
+                  ? `last run ${relativeTime(lastBrainRun.finishedAt)} · data-agent`
+                  : /* Scoped to data-agent on purpose — it's the one agent
+                       tied to the knowledge layer (lib/agents/live-status.ts
+                       maps it to the 'brain' connector). This block used to
+                       say the bare "no agent runs yet", which read as "no
+                       agent has ever run" to anyone who'd just seen 70 total
+                       runs on /agents or /analytics — it was only ever
+                       reporting on this one agent. 2026-08-21 fix: say so. */
+                    'data-agent has not run yet'}
               </span>
             </div>
             <div className="flex flex-col gap-1 text-right">
               <span>
-                <b className="font-medium text-os-muted">hybrid search</b> {doctor.connected ? 'verified' : 'degraded'}
+                <b className="font-medium text-os-muted">search</b> {doctor.connected ? 'grep verified' : 'degraded'}
               </span>
-              <span>{fallbackActive ? 'local fallback active' : 'supabase reachable'}</span>
+              <span>{fallbackActive ? 'no vector provider wired' : 'vector provider reachable'}</span>
             </div>
           </div>
           <div className="grid flex-1 place-items-center">
@@ -268,9 +314,13 @@ export default async function BrainPage() {
           <span className="text-os-dim">
             <b className="font-medium text-os-muted">doctor</b> — health {doctor.healthScore ?? '—'}/100
           </span>
-          <span className={warnings.length > 0 ? 'text-os-warn' : doctor.connected ? 'text-os-ok' : 'text-os-err'}>
-            {doctor.connected ? (warnings.length > 0 ? `${warnings.length} warnings` : 'all green') : 'offline'}
-          </span>
+          {/* 2026-08-21 fix: this used to read "all green" (styled os-ok,
+              i.e. green) whenever connected+no-warnings, with zero regard
+              for whether `doctor.healthScore` was actually a number — so a
+              literal "—/100" sat right next to a green "all green" badge.
+              `summarizeDoctor` is the one place that decides "ok" now, and
+              it refuses to say "ok" without a real score behind it. */}
+          <span className={DOCTOR_STATE_CLASS[doctorSummary.state]}>{doctorSummary.label}</span>
         </div>
       </div>
 
@@ -300,7 +350,9 @@ export default async function BrainPage() {
             <ul className="mt-3 space-y-1.5">
               {store.folders.map((folder) => (
                 <li key={folder.name} className="flex items-center gap-2">
-                  <span className="w-24 shrink-0 truncate font-mono text-[11px] text-os-muted">{folder.name}</span>
+                  <span className="w-24 shrink-0 truncate font-mono text-[11px] text-os-muted">
+                    {FOLDER_DISPLAY_NAME[folder.name] ?? folder.name}
+                  </span>
                   <span
                     className="h-2 rounded-sm bg-os-accent"
                     style={{

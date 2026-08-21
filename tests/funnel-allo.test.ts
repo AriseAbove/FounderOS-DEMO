@@ -142,4 +142,88 @@ describe('importAlloCalls', () => {
     importAlloCalls(db, [call({ startedAt: null })], NOW);
     expect(db.funnel.journeys('aac')[0].touches[0].at).toBe('2026-08-13');
   });
+
+  test('call duration is captured onto the touch, not discarded', () => {
+    db = freshDb();
+    importAlloCalls(db, [call({ durationSeconds: 214 })], NOW);
+    expect(db.funnel.journeys('aac')[0].touches[0].durationSeconds).toBe(214);
+  });
+
+  describe('lead score is real and differentiated, not a flat "Warm/50%" for every lead', () => {
+    test('a wrong-number/robocall pattern (30+ short calls) scores cold, not the flat default', () => {
+      db = freshDb();
+      for (let i = 0; i < 32; i++) {
+        importAlloCalls(
+          db,
+          [call({ id: `spam-call-${i}`, durationSeconds: 4, summary: 'no answer' })],
+          NOW,
+        );
+      }
+      const [j] = db.funnel.journeys('aac');
+      expect(j.touches).toHaveLength(32);
+      expect(j.relationship).toBe('cold');
+      expect(j.likelihood).toBeLessThan(20);
+    });
+
+    test('a single, real, qualified inquiry scores above the flat default', () => {
+      db = freshDb();
+      importAlloCalls(db, [call({ durationSeconds: 180 })], NOW);
+      const [j] = db.funnel.journeys('aac');
+      expect(j.relationship).toBe('warm');
+      expect(j.likelihood).toBeGreaterThan(50);
+    });
+
+    test('a genuine repeat caller with real conversations scores hot', () => {
+      db = freshDb();
+      importAlloCalls(db, [call({ id: 'real-1', durationSeconds: 240 })], NOW);
+      importAlloCalls(db, [call({ id: 'real-2', durationSeconds: 190, summary: 'Following up on the estimate' })], NOW);
+      const [j] = db.funnel.journeys('aac');
+      expect(j.relationship).toBe('hot');
+      expect(j.likelihood).toBeGreaterThanOrEqual(70);
+    });
+
+    test('a lead with no new calls this sync still gets rescored on a later sync (backfill for pre-fix leads)', () => {
+      // Simulates a lead imported before durationSeconds existed: the touch
+      // predates the fix and carries no duration, but there are enough of
+      // them that a later sync (even one importing an unrelated call)
+      // should still catch the repeat-caller pattern.
+      db = freshDb();
+      db.funnel.insertContact({
+        id: 'allo-2485559999',
+        name: '(248) 555-9999',
+        business: 'aac',
+        status: 'inquiry',
+        product: null,
+        amountUsd: null,
+        relationship: 'warm',
+        likelihood: 50,
+        url: null,
+        email: null,
+        phone: '(248) 555-9999',
+        person: null,
+        company: null,
+        role: null,
+        linkedin: null,
+        createdAt: '2026-07-01',
+      });
+      for (let i = 0; i < 16; i++) {
+        db.funnel.insertTouch({
+          id: `legacy-${i}`,
+          contactId: 'allo-2485559999',
+          seq: i + 1,
+          stage: 'inquiry',
+          channel: 'call',
+          label: 'legacy call, no duration on record',
+          source: 'allo',
+          at: '2026-07-01',
+          durationSeconds: null,
+        });
+      }
+
+      importAlloCalls(db, [call({ id: 'unrelated', from: '+12485550001' })], NOW);
+
+      const legacy = db.funnel.journeys('aac').find((j) => j.id === 'allo-2485559999')!;
+      expect(legacy.relationship).toBe('cold');
+    });
+  });
 });

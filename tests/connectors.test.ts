@@ -1,5 +1,22 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { imapClientOptions, parseInboxConfigs } from '@/lib/connectors/email';
+import { imapClientOptions, parseInboxConfigs, MAX_INBOXES, emailStatus } from '@/lib/connectors/email';
+
+vi.mock('imapflow', () => {
+  class FakeImapFlow {
+    private opts: { host: string };
+    constructor(opts: { host: string }) {
+      this.opts = opts;
+    }
+    async connect() {
+      if (this.opts.host === 'unreachable.example.com') throw new Error('ECONNREFUSED');
+    }
+    async status() {
+      return { unseen: 1572 };
+    }
+    async logout() {}
+  }
+  return { ImapFlow: FakeImapFlow };
+});
 
 describe('parseInboxConfigs', () => {
   test('returns empty when nothing is configured', () => {
@@ -84,5 +101,46 @@ describe('parseInboxConfigs', () => {
     expect(inboxes).toHaveLength(1);
     expect(inboxes[0].id).toBe('inbox-1');
     expect(inboxes[0].name).toBe('AAC');
+  });
+});
+
+// Regression for the /comms "1 inbox" (Sources card) vs "4 IMAP inboxes"
+// (footer) bug: the footer used to hardcode the literal string "4 IMAP
+// inboxes" instead of reading the real configured count off this connector's
+// status, so it always claimed all 4 slots were live even when only one was.
+// meta.slots (the true slot capacity) and meta.configured (what's actually
+// wired up) now ship on every branch so a consumer can never fall back to a
+// hardcoded number.
+describe('emailStatus meta — slots vs configured stay honest and consistent', () => {
+  const ONE_INBOX = {
+    INBOX_1_HOST: 'imap.gmail.com',
+    INBOX_1_USER: 'sean@ariseaboveconstruction.com',
+    INBOX_1_PASS: 'app-password',
+    INBOX_1_NAME: 'AAC',
+  };
+
+  test('not configured: 0 of 4 slots', async () => {
+    const status = await emailStatus({});
+    expect(status.state).toBe('not_configured');
+    expect(status.meta).toEqual({ configured: 0, slots: MAX_INBOXES });
+  });
+
+  test('one of four slots configured and reachable: real unread count, real slot math', async () => {
+    const status = await emailStatus(ONE_INBOX);
+    expect(status.state).toBe('connected');
+    expect(status.meta).toEqual({ configured: 1, unread: 1572, slots: MAX_INBOXES });
+    // The Sources card's "1 inbox" text and the footer's "N of 4 slots" text
+    // must derive from these same two numbers — never a hardcoded "4".
+    expect(status.detail).toMatch(/^1 inbox · 1572 unread$/);
+  });
+
+  test('every inbox unreachable: still reports the real slot capacity, not a guess', async () => {
+    const status = await emailStatus({
+      INBOX_1_HOST: 'unreachable.example.com',
+      INBOX_1_USER: 'a@b.c',
+      INBOX_1_PASS: 'x',
+    });
+    expect(status.state).toBe('error');
+    expect(status.meta).toEqual({ configured: 1, slots: MAX_INBOXES });
   });
 });

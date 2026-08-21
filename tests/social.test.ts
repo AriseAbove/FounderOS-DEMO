@@ -7,6 +7,7 @@ import {
   buildSocialDashboard,
   growthPct,
   platformDetail,
+  socialSourceBadge,
   syncSocialSnapshots,
 } from '@/lib/social';
 
@@ -225,5 +226,33 @@ describe('seeded social data', () => {
     const accounts = db.social.accounts().length;
     seedDatabase(db);
     expect(db.social.accounts().length).toBe(accounts);
+  });
+});
+
+describe('socialSourceBadge — the /social header must agree with /integrations', () => {
+  test('not_configured reads "no posting source connected", same as before OneUp existed', () => {
+    const badge = socialSourceBadge({ state: 'not_configured' });
+    expect(badge.label).toBe('no posting source connected');
+    expect(badge.tone).toBe('warn');
+    expect(badge.ghost).toBe(true);
+  });
+
+  test('connected never claims "no posting source" — that would contradict /integrations', () => {
+    const badge = socialSourceBadge({ state: 'connected' });
+    expect(badge.label.toLowerCase()).not.toContain('no posting source');
+    expect(badge.label.toLowerCase()).toContain('connected');
+    expect(badge.tone).toBe('ok');
+    expect(badge.ghost).toBe(false);
+  });
+
+  test('connected is still honest that no post/account data has synced — no invented numbers', () => {
+    const badge = socialSourceBadge({ state: 'connected' });
+    expect(badge.emptyPostsDetail.toLowerCase()).toContain('no post history has synced');
+  });
+
+  test('error state is distinct from both connected and not_configured', () => {
+    const badge = socialSourceBadge({ state: 'error' });
+    expect(badge.tone).toBe('err');
+    expect(badge.label.toLowerCase()).toContain('error');
   });
 });

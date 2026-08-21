@@ -74,4 +74,15 @@ describe('shared nav config', () => {
     expect(src).toMatch(/from '@\/lib\/nav'/);
     expect(src).not.toMatch(/const DIGIT_VIEWS\s*=/); // must import, not redefine
   });
+
+  test('NAV_LIBRARY ships empty (no real variant view exists yet)', () => {
+    expect(NAV_LIBRARY).toEqual([]);
+  });
+
+  test('Sidebar never renders a nav heading with zero links under it — an empty group (e.g. NAV_LIBRARY) must render nothing at all, not a bare "Variants" heading', () => {
+    const src = readFileSync(path.join(process.cwd(), 'components', 'Sidebar.tsx'), 'utf8');
+    const fn = src.slice(src.indexOf('function NavGroup'), src.indexOf('\n}', src.indexOf('function NavGroup')));
+    expect(fn).toMatch(/items\.length === 0/);
+    expect(fn).toMatch(/return null/);
+  });
 });

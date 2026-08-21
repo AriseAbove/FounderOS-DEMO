@@ -61,6 +61,7 @@ const touch = (over: Partial<FunnelTouch> = {}): FunnelTouch => ({
   label: 'Allo call: kitchen remodel inquiry',
   source: 'allo',
   at: '2026-06-01',
+  durationSeconds: null,
   ...over,
 });
 
@@ -201,6 +202,7 @@ describe('funnelSummary', () => {
         label: 'Allo call',
         source: 'allo',
         at: '2026-06-01',
+        durationSeconds: null,
       },
     ],
   });
@@ -258,7 +260,7 @@ describe('funnelSummary', () => {
     linkedin: null,
     createdAt: '2026-06-01',
     touches: [
-      { id: `${id}-t1`, contactId: id, seq: 1, stage: 'discovered', channel: 'organic', label: 'App Store find', source: 'website', at: '2026-06-01' },
+      { id: `${id}-t1`, contactId: id, seq: 1, stage: 'discovered', channel: 'organic', label: 'App Store find', source: 'website', at: '2026-06-01', durationSeconds: null },
     ],
   });
 
@@ -317,7 +319,7 @@ describe('journeyMeta', () => {
     touches: [
       {
         id: 'jm-t1', contactId: 'jm', seq: 1, stage: 'inquiry',
-        channel: 'call', label: 'x', source: 'allo', at,
+        channel: 'call', label: 'x', source: 'allo', at, durationSeconds: null,
       },
     ],
   });
@@ -353,14 +355,14 @@ describe('journeyMeta', () => {
     const discovered: FunnelJourney = {
       ...journeyLastTouchedAt('discovered', at),
       business: 'apps',
-      touches: [{ id: 'jm-t1', contactId: 'jm', seq: 1, stage: 'discovered', channel: 'organic', label: 'x', source: 'website', at }],
+      touches: [{ id: 'jm-t1', contactId: 'jm', seq: 1, stage: 'discovered', channel: 'organic', label: 'x', source: 'website', at, durationSeconds: null }],
     };
     expect(journeyMeta(discovered, now).state).toBe('active');
     const installedAt = daysAgoIso(now, 10);
     const installed: FunnelJourney = {
       ...journeyLastTouchedAt('installed', installedAt),
       business: 'apps',
-      touches: [{ id: 'jm-t1', contactId: 'jm', seq: 1, stage: 'installed', channel: 'organic', label: 'x', source: 'website', at: installedAt }],
+      touches: [{ id: 'jm-t1', contactId: 'jm', seq: 1, stage: 'installed', channel: 'organic', label: 'x', source: 'website', at: installedAt, durationSeconds: null }],
     };
     expect(journeyMeta(installed, now).state).toBe('stalled');
   });
@@ -418,6 +420,7 @@ describe('funnelSpaceModel', () => {
     label: `${stage} touch`,
     source: 'manual',
     at: dAgo(daysBack),
+    durationSeconds: null,
   });
 
   const mkJourney = (
@@ -567,7 +570,7 @@ describe('attentionQueue — what to act on today', () => {
     touches: [
       {
         id: `${id}-t1`, contactId: id, seq: 1, stage: 'follow_up',
-        channel: 'crm', label: 'x', source: 'crm', at: daysAgo(quietDays),
+        channel: 'crm', label: 'x', source: 'crm', at: daysAgo(quietDays), durationSeconds: null,
       },
     ],
     ...over,

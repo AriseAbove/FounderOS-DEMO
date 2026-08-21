@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { agentRunVolume, runsWithin } from '@/lib/analytics';
+import { agentRunVolume, runsWithin, runOutcomeCounts } from '@/lib/analytics';
 
 const runs = [
   { startedAt: '2026-06-13T11:22:53.404Z' },
@@ -43,5 +43,38 @@ describe('runsWithin', () => {
     expect(runsWithin(runs, '2026-06-14', 7)).toBe(4); // three on 06-13 + one on 06-10
     expect(runsWithin(runs, '2026-06-14', 14)).toBe(4);
     expect(runsWithin(runs, '2026-06-14', 60)).toBe(5);
+  });
+});
+
+describe('runOutcomeCounts', () => {
+  // Regression: before 2026-08-21 the Chief of Staff cron always recorded
+  // ok: true even when its ntfy push failed (a deliberate, separate design
+  // choice — a flaky push should never fail the whole run), and Analytics
+  // rolled `ok` straight into "Succeeded" with no other signal. 69 straight
+  // hourly runs whose push failed with "fetch failed" showed up as ~99%
+  // SUCCEEDED. ok (the run did its job) and pushFailed (a downstream
+  // notification failed) are legitimately different signals and must be
+  // counted separately, never merged back into one bucket.
+  test('a run that finished ok but whose push failed is neither Succeeded nor Failed', () => {
+    const runs = [
+      { ok: true, pushFailed: false },
+      { ok: true, pushFailed: true },
+      { ok: false, pushFailed: false },
+    ];
+    expect(runOutcomeCounts(runs)).toEqual({ succeeded: 1, pushFailed: 1, failed: 1, total: 3 });
+  });
+
+  test('a run without pushFailed at all counts as a clean success (every non-chief-of-staff agent)', () => {
+    const runs = [{ ok: true }, { ok: true }, { ok: false }];
+    expect(runOutcomeCounts(runs)).toEqual({ succeeded: 2, pushFailed: 0, failed: 1, total: 3 });
+  });
+
+  test('a failed run with pushFailed still set counts as Failed, not double-counted', () => {
+    const runs = [{ ok: false, pushFailed: true }];
+    expect(runOutcomeCounts(runs)).toEqual({ succeeded: 0, pushFailed: 0, failed: 1, total: 1 });
+  });
+
+  test('empty log is all zeros', () => {
+    expect(runOutcomeCounts([])).toEqual({ succeeded: 0, pushFailed: 0, failed: 0, total: 0 });
   });
 });

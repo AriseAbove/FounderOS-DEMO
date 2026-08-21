@@ -103,6 +103,9 @@ describe('API route handlers', () => {
     expect(typeof body.store.path).toBe('string'); // '' = not configured
     expect(body.store.totalFiles).toBeGreaterThanOrEqual(0);
     expect(Array.isArray(body.store.folders)).toBe(true);
+    expect(body.store.generatedFiles).toBeGreaterThanOrEqual(0);
+    expect(body.store.handWrittenFiles).toBeGreaterThanOrEqual(0);
+    expect(body.store.generatedFiles + body.store.handWrittenFiles).toBe(body.store.totalFiles);
     expect(typeof body.doctor.connected).toBe('boolean');
     expect(Array.isArray(body.doctor.checks)).toBe(true);
     expect(body.doctor.detail.length).toBeGreaterThan(0);

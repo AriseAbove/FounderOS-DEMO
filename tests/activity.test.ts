@@ -7,7 +7,7 @@ import { recentActivity } from '@/lib/agents/activity';
 
 function seed() {
   const db = openDb(':memory:');
-  db.agentRuns.insert({ id: 'r1', agentId: 'data-agent', startedAt: '2026-06-12T01:00:00Z', finishedAt: '2026-06-12T01:00:01Z', ok: true, summary: 'ran the audit' });
+  db.agentRuns.insert({ id: 'r1', agentId: 'data-agent', startedAt: '2026-06-12T01:00:00Z', finishedAt: '2026-06-12T01:00:01Z', ok: true, summary: 'ran the audit', pushFailed: false });
   db.agentMessages.insert({ id: 'm1', agentId: 'sales-agent', role: 'assistant', content: 'pipeline looks good', toolCalls: [], createdAt: '2026-06-12T02:00:00Z' });
   db.broadcasts.insert({ id: 'b1', message: 'status report', createdAt: '2026-06-12T03:00:00Z' });
   db.broadcasts.insertReply({ id: 'br1', broadcastId: 'b1', agentId: 'comms-agent', ok: true, reply: 'inbox clear', finishedAt: '2026-06-12T03:00:01Z' });

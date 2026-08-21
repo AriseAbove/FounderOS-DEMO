@@ -6,6 +6,7 @@ import {
   newHighSeveritySignals,
   markNotified,
   sendNtfyPush,
+  describeFetchError,
   type Signal,
 } from '@/lib/chief-of-staff';
 import { chiefOfStaffRunWith } from '@/lib/agents/real';
@@ -41,6 +42,7 @@ function seedJourney(db: FounderDb, overrides: Partial<FunnelContact> = {}, touc
     label: 'touch',
     source: 'manual',
     at: touchAt,
+    durationSeconds: null,
   };
   db.funnel.insertTouch(touch);
 }
@@ -173,6 +175,54 @@ describe('sendNtfyPush', () => {
     const result = await sendNtfyPush({ NTFY_TOPIC: 'x' }, 'T', 'B', fetchImpl as unknown as typeof fetch);
     expect(result).toEqual({ sent: false, status: 503 });
   });
+
+  test('URL-encodes the topic so a stray character in NTFY_TOPIC cannot break the request path', async () => {
+    const calls: string[] = [];
+    const fetchImpl = async (url: string) => {
+      calls.push(url);
+      return new Response(null, { status: 200 });
+    };
+    await sendNtfyPush({ NTFY_TOPIC: 'aac cos/weird' }, 'T', 'B', fetchImpl as unknown as typeof fetch);
+    expect(calls[0]).toBe('https://ntfy.sh/aac%20cos%2Fweird');
+  });
+
+  test('attaches a timeout signal so a hung connection fails fast instead of stalling the whole cron run', async () => {
+    let sawSignal: AbortSignal | undefined;
+    const fetchImpl = async (_url: string, init: RequestInit) => {
+      sawSignal = init.signal as AbortSignal;
+      return new Response(null, { status: 200 });
+    };
+    await sendNtfyPush({ NTFY_TOPIC: 'x' }, 'T', 'B', fetchImpl as unknown as typeof fetch);
+    expect(sawSignal).toBeInstanceOf(AbortSignal);
+  });
+});
+
+describe('describeFetchError', () => {
+  // Node's fetch (undici) throws a generic `TypeError: fetch failed` for
+  // every network-level failure (DNS, connection refused, TLS, timeout) and
+  // buries the actual, diagnosable reason on `err.cause` instead of the
+  // message. Swallowing that cause is exactly the "silent exception" the
+  // honest-status principle forbids — Sean saw "push failed (fetch failed)"
+  // on all 69 runs with zero way to tell DNS failure from a firewall block
+  // from a timeout. This must surface the real cause, not just the wrapper.
+  test('plain Error with no cause — just the message', () => {
+    expect(describeFetchError(new Error('boom'))).toBe('boom');
+  });
+
+  test('fetch failed wrapping a Node system error — surfaces the cause and its code', () => {
+    const cause = Object.assign(new Error('getaddrinfo ENOTFOUND ntfy.sh'), { code: 'ENOTFOUND' });
+    const err = new TypeError('fetch failed', { cause });
+    expect(describeFetchError(err)).toBe('fetch failed — getaddrinfo ENOTFOUND ntfy.sh (ENOTFOUND)');
+  });
+
+  test('a plain-object cause (no Error instance) is still surfaced, not dropped', () => {
+    const err = new TypeError('fetch failed', { cause: { code: 'ECONNREFUSED' } });
+    expect(describeFetchError(err)).toBe('fetch failed — ECONNREFUSED');
+  });
+
+  test('a non-Error thrown value is stringified, not swallowed', () => {
+    expect(describeFetchError('weird string throw')).toBe('weird string throw');
+  });
 });
 
 describe('chiefOfStaffRunWith (the real agent run — push resilience)', () => {
@@ -183,11 +233,12 @@ describe('chiefOfStaffRunWith (the real agent run — push resilience)', () => {
   // Chief of Staff run FAILED with the cryptic summary "fetch failed", even
   // though signal-gathering itself worked perfectly. A flaky push should
   // never take down a run whose real job — surfacing signals — succeeded.
-  test('a network failure while pushing does not fail the whole run', async () => {
+  test('a network failure while pushing does not fail the whole run, and is flagged as pushFailed', async () => {
     const db = openDb(':memory:');
     seedJourney(db, { id: 'hot-1', likelihood: 85 }, '2026-08-13');
+    const cause = Object.assign(new Error('getaddrinfo ENOTFOUND ntfy.sh'), { code: 'ENOTFOUND' });
     const throwingFetch = async () => {
-      throw new TypeError('fetch failed');
+      throw new TypeError('fetch failed', { cause });
     };
     const result = await chiefOfStaffRunWith(
       db,
@@ -196,13 +247,35 @@ describe('chiefOfStaffRunWith (the real agent run — push resilience)', () => {
       new Date('2026-08-14T00:00:00Z'),
     );
     expect(result.ok).toBe(true);
-    expect(result.summary).toContain('push failed (fetch failed)');
+    // Regression: this used to be the opaque "push failed (fetch failed)"
+    // with no way to tell DNS failure from a firewall block. The real cause
+    // must be visible in the summary now.
+    expect(result.summary).toContain('push failed (fetch failed — getaddrinfo ENOTFOUND ntfy.sh (ENOTFOUND))');
+    // Part B: a genuinely failed push must never be reported as full success.
+    expect(result.pushFailed).toBe(true);
     // The signal must stay un-notified so the next run retries the push.
     expect(newHighSeveritySignals(db, (result.data as { signals: Signal[] }).signals)).toHaveLength(1);
     db.close();
   });
 
-  test('a successful push marks the signal notified and reports it', async () => {
+  test('ntfy responding with a non-2xx status is also a genuine push failure, not just "not sent"', async () => {
+    const db = openDb(':memory:');
+    seedJourney(db, { id: 'hot-4', likelihood: 88 }, '2026-08-13');
+    const fetchImpl = async () => new Response(null, { status: 503 });
+    const result = await chiefOfStaffRunWith(
+      db,
+      { NTFY_TOPIC: 'aac-cos' },
+      fetchImpl as unknown as typeof fetch,
+      new Date('2026-08-14T00:00:00Z'),
+    );
+    expect(result.ok).toBe(true);
+    expect(result.pushFailed).toBe(true);
+    expect(result.summary).toContain('push failed (ntfy status 503)');
+    expect(newHighSeveritySignals(db, (result.data as { signals: Signal[] }).signals)).toHaveLength(1);
+    db.close();
+  });
+
+  test('a successful push marks the signal notified and reports it — not pushFailed', async () => {
     const db = openDb(':memory:');
     seedJourney(db, { id: 'hot-2', likelihood: 90 }, '2026-08-13');
     const fetchImpl = async () => new Response(null, { status: 200 });
@@ -213,17 +286,21 @@ describe('chiefOfStaffRunWith (the real agent run — push resilience)', () => {
       new Date('2026-08-14T00:00:00Z'),
     );
     expect(result.ok).toBe(true);
+    expect(result.pushFailed).toBeFalsy();
     expect(result.summary).toContain('pushed 1 new');
     expect(newHighSeveritySignals(db, (result.data as { signals: Signal[] }).signals)).toHaveLength(0);
     db.close();
   });
 
-  test('no NTFY_TOPIC configured — honest no-op, run still succeeds', async () => {
+  test('no NTFY_TOPIC configured — honest no-op, run still succeeds, not counted as a push failure', async () => {
     const db = openDb(':memory:');
     seedJourney(db, { id: 'hot-3', likelihood: 90 }, '2026-08-13');
     const result = await chiefOfStaffRunWith(db, {}, fetch, new Date('2026-08-14T00:00:00Z'));
     expect(result.ok).toBe(true);
     expect(result.summary).toContain('push not sent (NTFY_TOPIC not set)');
+    // Not configured is honest and expected, not a failure — must not be
+    // conflated with a push that was attempted and actually failed.
+    expect(result.pushFailed).toBeFalsy();
     db.close();
   });
 });

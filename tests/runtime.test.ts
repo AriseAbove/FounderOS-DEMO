@@ -18,6 +18,16 @@ const okAgent: RuntimeAgent = {
   },
 };
 
+const pushFailedAgent: RuntimeAgent = {
+  id: 'test-push-failed',
+  name: 'Push-Failed Agent',
+  description: 'Job succeeds, notification does not',
+  departmentId: 'dept-tech',
+  async run() {
+    return { ok: true, summary: 'did the thing · push failed (fetch failed)', pushFailed: true };
+  },
+};
+
 const failAgent: RuntimeAgent = {
   id: 'test-fail',
   name: 'Fail Agent',
@@ -45,6 +55,25 @@ describe('agent runtime', () => {
     expect(stored).toHaveLength(1);
     expect(stored[0].ok).toBe(true);
     expect(stored[0].finishedAt >= stored[0].startedAt).toBe(true);
+  });
+
+  test('runs an agent whose job succeeded but push failed — ok stays true, pushFailed is recorded separately', async () => {
+    db = openDb(':memory:');
+    const runtime = createRuntime(db, [pushFailedAgent]);
+    const run = await runtime.run('test-push-failed');
+    expect(run.ok).toBe(true);
+    expect(run.pushFailed).toBe(true);
+    const stored = db.agentRuns.byAgent('test-push-failed');
+    expect(stored[0].ok).toBe(true);
+    expect(stored[0].pushFailed).toBe(true);
+  });
+
+  test('an agent that never mentions pushFailed defaults to false, not undefined', async () => {
+    db = openDb(':memory:');
+    const runtime = createRuntime(db, [okAgent]);
+    const run = await runtime.run('test-ok');
+    expect(run.pushFailed).toBe(false);
+    expect(db.agentRuns.byAgent('test-ok')[0].pushFailed).toBe(false);
   });
 
   test('captures a throwing agent as a failed run instead of crashing', async () => {

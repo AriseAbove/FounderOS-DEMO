@@ -1,8 +1,12 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { openDb, type FounderDb } from '@/lib/db';
 import { seedDatabase } from '@/lib/seed';
 import { groupRoadmapByQuarter, roadmapProgress, splitRoadmap } from '@/lib/roadmap';
 import type { RoadmapItem } from '@/lib/schemas';
+
+const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8');
 
 const ITEMS: RoadmapItem[] = [
   { id: 'a', title: 'A', quarter: '2026-Q3', status: 'done', departmentId: null, description: '' },
@@ -76,5 +80,33 @@ describe('roadmap seed data reflects the real build plan', () => {
     const labels = quarters.map((q) => q.quarter);
     expect(labels).toEqual([...labels].sort());
     db.close();
+  });
+});
+
+// Regression: "12/12 · 100% shipped · Nothing waiting on you" was true only
+// for this fixed rebuild-milestone checklist (a hand-curated seed array —
+// see lib/seed.ts's `roadmap`), but read as a blanket claim about the whole
+// app. Real, live gaps (an unconfigured connector on /integrations, a
+// not-yet-set secret) don't contradict a 100% here — they're a different
+// scope entirely, computed from a different source (live connector status,
+// not this static checklist). The page must say so, not just imply it.
+describe('/roadmap page — scope is stated plainly, not just implied', () => {
+  const page = () => read('app/roadmap/page.tsx');
+
+  test('the intro explains this tracks the rebuild plan, not live connector/credential status', () => {
+    expect(page()).toMatch(/not live connector or credential status/);
+    expect(page()).toMatch(/href="\/integrations"/);
+  });
+
+  test('the empty "waiting" state does not claim nothing anywhere needs Sean', () => {
+    const src = page();
+    expect(src).not.toMatch(/Nothing waiting — everything buildable is built and live\./);
+    expect(src).toMatch(/Nothing waiting on the rebuild plan/);
+  });
+
+  test('section labels name the rebuild-plan scope explicitly', () => {
+    const src = page();
+    expect(src).toMatch(/Rebuild milestones shipped/);
+    expect(src).toMatch(/Waiting on you \(rebuild plan\)/);
   });
 });

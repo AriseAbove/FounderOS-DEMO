@@ -12,6 +12,7 @@ const touch = (over: Partial<FunnelTouch> = {}): FunnelTouch => ({
   label: 'Allo call: kitchen remodel inquiry',
   source: 'allo',
   at: '2026-06-01',
+  durationSeconds: null,
   ...over,
 });
 

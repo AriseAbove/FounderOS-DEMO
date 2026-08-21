@@ -30,6 +30,20 @@ describe('G-Brain query pop-out entrance', () => {
   });
 });
 
+describe('Doctor — warnings panel never renders blank', () => {
+  // Root cause: doctor.checks is always [] under the real local-store
+  // provider (lib/brain.ts never populates it — no doctor-scoring
+  // computation exists yet), so the "all N checks green" branch (needs
+  // checks.length > 0) and the "!connected" branch both miss whenever the
+  // store IS reachable, and the panel rendered nothing — reading as broken,
+  // not as an honest "health —/100, not yet computed" state.
+  test('a connected doctor with zero checks renders an explicit not-yet-computed message', () => {
+    const core = read('components/BrainCore.tsx');
+    expect(core).toMatch(/doctor\.connected && warnings\.length === 0 && doctor\.checks\.length === 0/);
+    expect(core).toMatch(/no scored doctor checks yet/);
+  });
+});
+
 describe('theme token completeness', () => {
   test('every theme resolves the full token set (universal :root covers shared constants)', () => {
     const css = read('app/globals.css');

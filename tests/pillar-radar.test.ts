@@ -20,7 +20,7 @@ const task = (id: string, departmentId: string): SopTask => ({
 });
 const run = (agentId: string, minutesAgo: number): AgentRun => ({
   id: `r-${agentId}`, agentId, startedAt: new Date(Date.now() - minutesAgo * 60_000).toISOString(),
-  finishedAt: new Date(Date.now() - minutesAgo * 60_000).toISOString(), ok: true, summary: 'ok',
+  finishedAt: new Date(Date.now() - minutesAgo * 60_000).toISOString(), ok: true, summary: 'ok', pushFailed: false,
 });
 
 const departments = [dept('dept-sales', 'Sales', 1), dept('dept-tech', 'TECH', 2)];

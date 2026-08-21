@@ -128,13 +128,43 @@ describe('parseOpenInvoices', () => {
       },
     };
     expect(parseOpenInvoices(raw)).toEqual([
-      { id: '2', docNumber: '1002', customer: 'Tinholt', balance: 4200, dueDate: '2026-08-20' },
-      { id: '3', docNumber: '1003', customer: 'Holcomb', balance: 900, dueDate: null },
+      { id: '2', docNumber: '1002', customer: 'Tinholt', balance: 4200, dueDate: '2026-08-20', billEmail: null },
+      { id: '3', docNumber: '1003', customer: 'Holcomb', balance: 900, dueDate: null, billEmail: null },
     ]);
   });
 
   test('returns [] for malformed input', () => {
     expect(parseOpenInvoices(null)).toEqual([]);
     expect(parseOpenInvoices({})).toEqual([]);
+  });
+
+  test('carries the customer bill-to email when QBO has one on file — needed to chase by email', () => {
+    const raw = {
+      QueryResponse: {
+        Invoice: [
+          {
+            Id: '4',
+            DocNumber: '1004',
+            CustomerRef: { name: 'Ashworth' },
+            Balance: 1500,
+            DueDate: '2026-07-01',
+            BillEmail: { Address: 'ashworth@example.com' },
+          },
+        ],
+      },
+    };
+    expect(parseOpenInvoices(raw)[0].billEmail).toBe('ashworth@example.com');
+  });
+
+  test('missing or malformed BillEmail never invents an address', () => {
+    const raw = {
+      QueryResponse: {
+        Invoice: [
+          { Id: '5', DocNumber: '1005', CustomerRef: { name: 'Post' }, Balance: 300, BillEmail: {} },
+          { Id: '6', DocNumber: '1006', CustomerRef: { name: 'Reyes' }, Balance: 300, BillEmail: { Address: 42 } },
+        ],
+      },
+    };
+    for (const inv of parseOpenInvoices(raw)) expect(inv.billEmail).toBeNull();
   });
 });

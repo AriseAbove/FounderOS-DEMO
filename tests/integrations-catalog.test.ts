@@ -8,6 +8,7 @@ import {
 import { IntegrationSchema, INTEGRATION_CATEGORIES } from '@/lib/schemas';
 import { hasBrandMark } from '@/lib/brand-logos';
 import type { ConnectorStatus } from '@/lib/connectors/types';
+import { allConnectorStatuses } from '@/lib/connectors';
 
 describe('INTEGRATIONS catalog', () => {
   test('a rich catalog, every entry valid against the schema', () => {
@@ -46,6 +47,20 @@ describe('INTEGRATIONS catalog', () => {
     expect(ids.has('email')).toBe(true);
     expect(ids.has('calendar')).toBe(true);
     expect(ids.has('quickbooks')).toBe(true);
+  });
+
+  // Regression for the Home-vs-/integrations "7/7 vs 4 connected" bug: Home's
+  // tally comes straight from allConnectorStatuses() (every real connector),
+  // but /integrations only ever counts catalog rows with a connectorId — so
+  // any real connector missing a catalog tile silently caps the board's
+  // count below Home's, even when everything is actually connected. Every
+  // id allConnectorStatuses() can ever report must have a home here.
+  test('every real connector has a matching catalog entry — /integrations can never under-represent Home\'s tally', async () => {
+    const statuses = await allConnectorStatuses();
+    const wiredIds = new Set(INTEGRATIONS.map((i) => i.connectorId).filter(Boolean));
+    for (const s of statuses) {
+      expect(wiredIds.has(s.id)).toBe(true);
+    }
   });
 });
 

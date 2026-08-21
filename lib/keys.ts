@@ -39,6 +39,18 @@ export const KEY_SLOTS: KeySlot[] = [
   { envVar: 'QUICKBOOKS_CLIENT_SECRET', label: 'QuickBooks client secret', group: 'QuickBooks' },
   { envVar: 'BRAIN_STORE', label: 'Knowledge store path', group: 'Knowledge', hint: 'folder of markdown files' },
   { envVar: 'ALLO_API_KEY', label: 'Allo API key', group: 'Allo', hint: 'Conversations Read scope' },
+  {
+    envVar: 'NTFY_TOPIC',
+    label: 'ntfy topic',
+    group: 'Chief of Staff',
+    hint: 'pick any hard-to-guess topic name — sendNtfyPush (lib/chief-of-staff.ts) reads this',
+  },
+  {
+    envVar: 'NTFY_URL',
+    label: 'ntfy server URL',
+    group: 'Chief of Staff',
+    hint: 'optional — defaults to https://ntfy.sh; set only when self-hosting',
+  },
 ];
 
 export function maskSecret(value: string): string {

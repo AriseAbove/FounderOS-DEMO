@@ -301,7 +301,8 @@ CREATE TABLE IF NOT EXISTS workflows (
   subtitle TEXT NOT NULL DEFAULT '',
   revenue_usd INTEGER NOT NULL DEFAULT 0,
   ord INTEGER NOT NULL DEFAULT 0,
-  steps TEXT NOT NULL DEFAULT '[]'
+  steps TEXT NOT NULL DEFAULT '[]',
+  business TEXT NOT NULL DEFAULT 'shared'
 );
 CREATE TABLE IF NOT EXISTS skills (
   id TEXT PRIMARY KEY,
@@ -432,6 +433,18 @@ function migrateBrainHealthTable(db: InstanceType<typeof Database>): void {
   }
 }
 
+// Databases created before the /workflows business-lens fix (2026-08-21)
+// lack the `business` column. DEFAULT 'shared' backfills every existing row
+// as visible under any business selection — honest, since nothing about a
+// pre-existing workflow's real AAC/Apps ownership was recorded either way,
+// and 'shared' is the option that never hides a real row from view.
+function migrateWorkflowsTable(db: InstanceType<typeof Database>): void {
+  const columns = new Set((db.pragma('table_info(workflows)') as { name: string }[]).map((c) => c.name));
+  if (columns.size > 0 && !columns.has('business')) {
+    safeAlter(db, "ALTER TABLE workflows ADD COLUMN business TEXT NOT NULL DEFAULT 'shared'");
+  }
+}
+
 // Runs recorded before 2026-08-21 lack push_failed — the column that keeps a
 // genuinely failed Chief of Staff ntfy push from being reported as full
 // success (see lib/analytics.ts's runOutcomeCounts). DEFAULT 0 backfills
@@ -505,6 +518,7 @@ export function openDb(path: string) {
   migrateSkillsTable(db);
   migrateBrainHealthTable(db);
   migrateAgentRunsTable(db);
+  migrateWorkflowsTable(db);
 
   /** Shared purge guard: drop every row whose id is not in the seed's list
       (empty list = drop all — avoids invalid `NOT IN ()` SQL). */
@@ -1159,14 +1173,15 @@ export function openDb(path: string) {
             revenueUsd: r.revenue_usd,
             order: r.ord,
             steps: JSON.parse(r.steps),
+            business: r.business,
           }),
         );
     },
     insert(w: Workflow): void {
       WorkflowSchema.parse(w);
       db.prepare(
-        'INSERT OR REPLACE INTO workflows (id, name, subtitle, revenue_usd, ord, steps) VALUES (?, ?, ?, ?, ?, ?)',
-      ).run(w.id, w.name, w.subtitle, w.revenueUsd, w.order, JSON.stringify(w.steps));
+        'INSERT OR REPLACE INTO workflows (id, name, subtitle, revenue_usd, ord, steps, business) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      ).run(w.id, w.name, w.subtitle, w.revenueUsd, w.order, JSON.stringify(w.steps), w.business);
     },
     deleteWhereIdNotIn(ids: string[]): void {
       if (ids.length === 0) {

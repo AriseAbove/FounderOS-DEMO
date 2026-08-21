@@ -65,6 +65,9 @@ const LETTERMARK: Record<string, string> = {
   'proposal-gen': '#00764f',
   allo: '#F59E0B',
   brainstore: '#8B5CF6',
+  quickbooks: '#2CA01C',
+  phone: '#64748B',
+  projectdox: '#0F766E',
 };
 
 function siFor(slug: string): SiIcon | null {

@@ -1,4 +1,5 @@
 import type { Workflow } from '@/lib/schemas';
+import type { BusinessFilter } from '@/lib/business-filter';
 
 /**
  * The bottom-bar numbers for a workflow: how much human time it burns, how much
@@ -56,4 +57,16 @@ export function workflowStats(workflow: Workflow): WorkflowStats {
     toolCount: tools.size,
     automationCount,
   };
+}
+
+/**
+ * Scope the workflow list to the Topbar's selected business (2026-08-21
+ * fix) — the same lens /org and /funnel already read. A workflow tagged
+ * 'shared' shows under every selection since it's genuinely cross-cutting;
+ * 'all' (combined) shows every workflow unfiltered, exactly as before this
+ * fix. Pure so it's directly testable without a DB or a rendered page.
+ */
+export function workflowsForBusiness(workflows: Workflow[], filter: BusinessFilter): Workflow[] {
+  if (filter === 'all') return workflows;
+  return workflows.filter((w) => w.business === filter || w.business === 'shared');
 }

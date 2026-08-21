@@ -482,6 +482,13 @@ export const SopTaskSchema = z.object({
 // (a bottleneck), and may carry a live/suggested automation that recovers it.
 export const WorkflowOwnerKindSchema = z.enum(['human', 'agent']);
 export const WorkflowAutomationStateSchema = z.enum(['live', 'suggested']);
+// Which business a workflow belongs to — same lens as the funnel
+// (lib/business-filter.ts's cookie, lib/businesses.ts's BusinessId) but a
+// workflow additionally allows 'shared' for a cross-cutting process that
+// serves both businesses (e.g. shared-infra onboarding), which the funnel's
+// per-journey business tag doesn't need since every lead belongs to exactly
+// one pipeline.
+export const WorkflowBusinessSchema = z.enum(['aac', 'apps', 'shared']);
 
 export const WorkflowStepSchema = z.object({
   id: z.string().min(1),
@@ -508,6 +515,9 @@ export const WorkflowSchema = z.object({
   revenueUsd: z.number().nonnegative(), // $/mo this machine drives (context for leaks)
   order: z.number().int(),
   steps: z.array(WorkflowStepSchema),
+  // AAC / Apps / shared — lets /workflows scope its display to the Topbar's
+  // business switcher the same way /org and /funnel already do.
+  business: WorkflowBusinessSchema,
 });
 
 // ── Skills — the agent workforce's capability library ───────────────────────
@@ -687,6 +697,7 @@ export type FunnelStageRow = z.infer<typeof FunnelStageRowSchema>;
 export type FunnelSummary = z.infer<typeof FunnelSummarySchema>;
 export type WorkflowOwnerKind = z.infer<typeof WorkflowOwnerKindSchema>;
 export type WorkflowAutomationState = z.infer<typeof WorkflowAutomationStateSchema>;
+export type WorkflowBusiness = z.infer<typeof WorkflowBusinessSchema>;
 export type WorkflowStep = z.infer<typeof WorkflowStepSchema>;
 export type Workflow = z.infer<typeof WorkflowSchema>;
 export type SkillStatus = z.infer<typeof SkillStatusSchema>;

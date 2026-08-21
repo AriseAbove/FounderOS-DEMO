@@ -402,10 +402,116 @@ const socialPosts: SocialPost[] = [];
 const funnelContacts: FunnelContact[] = [];
 const funnelTouches: FunnelTouch[] = [];
 
-// Workflows are empty on purpose: the previous seed shipped the original
-// creator's invented revenue machines (fake $ figures throughout). Real AAC
-// workflows get mapped here deliberately, one at a time.
-const workflows: Workflow[] = [];
+// Workflows were empty on purpose: the previous seed shipped the original
+// creator's invented revenue machines (fake $ figures throughout). These six
+// are AAC's actual documented processes, mapped one at a time as Sean writes
+// them down — steps, owners, and sequence are real; `revenueUsd`,
+// `hoursPerWeek`, `leakUsd`, and `automation` are honestly 0/null across the
+// board because no real dollar or time-logged figure backs any of these yet
+// (HONESTY: an invented number is worse than an honest zero — see
+// tests/workflow-seed.test.ts). Fill those in only once a real number exists
+// to attach to a specific step.
+const workflows: Workflow[] = [
+  {
+    id: 'wf-203k-draw-request',
+    name: '203(k) Draw Request',
+    subtitle: 'FHA 203(k) renovation loans: milestone completion through fund release. Rule: subs never get ahead of draws.',
+    revenueUsd: 0,
+    business: 'aac',
+    order: 0,
+    steps: [
+      { id: 'wf-203k-s1', title: 'Complete milestone of work', ownerKind: 'human', owner: 'Sean · Owner', hoursPerWeek: 0, tools: [], edgeLabel: 'call to schedule inspection', leakUsd: null, automation: null },
+      { id: 'wf-203k-s2', title: 'Call HUD consultant to schedule inspection', ownerKind: 'human', owner: 'Sean · Owner', hoursPerWeek: 0, tools: ['phone'], edgeLabel: 'inspection scheduled', leakUsd: null, automation: null },
+      { id: 'wf-203k-s3', title: 'Consultant inspects & approves draw', ownerKind: 'human', owner: 'HUD Consultant · 3rd party', hoursPerWeek: 0, tools: [], edgeLabel: 'draw approved', leakUsd: null, automation: null },
+      { id: 'wf-203k-s4', title: 'Lender releases funds (3–5 business days)', ownerKind: 'human', owner: 'Lender · 3rd party', hoursPerWeek: 0, tools: [], edgeLabel: 'funds released', leakUsd: null, automation: null },
+      { id: 'wf-203k-s5', title: 'Pay subs & materials from the draw', ownerKind: 'human', owner: 'Sean · Owner', hoursPerWeek: 0, tools: ['quickbooks'], edgeLabel: null, leakUsd: null, automation: null },
+    ],
+  },
+  {
+    id: 'wf-reno-trade-sequence',
+    name: 'Full Renovation Trade Sequence',
+    subtitle: 'Standard 14-week sub-trade order for a full residential renovation, demo through final punch.',
+    revenueUsd: 0,
+    business: 'aac',
+    order: 1,
+    steps: [
+      { id: 'wf-reno-s1', title: 'Week 1 — Demo crew', ownerKind: 'human', owner: 'Demo crew · Sub', hoursPerWeek: 0, tools: [], edgeLabel: null, leakUsd: null, automation: null },
+      { id: 'wf-reno-s2', title: 'Week 2 — Rough plumbing', ownerKind: 'human', owner: 'Plumber · Sub', hoursPerWeek: 0, tools: [], edgeLabel: null, leakUsd: null, automation: null },
+      { id: 'wf-reno-s3', title: 'Week 3 — Rough electrical', ownerKind: 'human', owner: 'Electrician · Sub', hoursPerWeek: 0, tools: [], edgeLabel: null, leakUsd: null, automation: null },
+      { id: 'wf-reno-s4', title: 'Week 4 — HVAC rough', ownerKind: 'human', owner: 'HVAC tech · Sub', hoursPerWeek: 0, tools: [], edgeLabel: null, leakUsd: null, automation: null },
+      { id: 'wf-reno-s5', title: 'Week 5 — Insulation', ownerKind: 'human', owner: 'Insulation crew · Sub', hoursPerWeek: 0, tools: [], edgeLabel: null, leakUsd: null, automation: null },
+      { id: 'wf-reno-s6', title: 'Week 6 — Drywall hang & finish', ownerKind: 'human', owner: 'Drywall crew · Sub', hoursPerWeek: 0, tools: [], edgeLabel: null, leakUsd: null, automation: null },
+      { id: 'wf-reno-s7', title: 'Week 7 — Paint (prime + 2 coats)', ownerKind: 'human', owner: 'Painter · Sub', hoursPerWeek: 0, tools: [], edgeLabel: null, leakUsd: null, automation: null },
+      { id: 'wf-reno-s8', title: 'Week 8 — Cabinets', ownerKind: 'human', owner: 'Cabinet installer · Sub', hoursPerWeek: 0, tools: [], edgeLabel: null, leakUsd: null, automation: null },
+      { id: 'wf-reno-s9', title: 'Week 9 — Tile setter', ownerKind: 'human', owner: 'Tile setter · Sub', hoursPerWeek: 0, tools: [], edgeLabel: null, leakUsd: null, automation: null },
+      { id: 'wf-reno-s10', title: 'Week 10 — Countertops: measure', ownerKind: 'human', owner: 'Countertop fabricator · Sub', hoursPerWeek: 0, tools: [], edgeLabel: '7–10 day lead time', leakUsd: null, automation: null },
+      { id: 'wf-reno-s11', title: 'Week 10 — Countertops: install', ownerKind: 'human', owner: 'Countertop fabricator · Sub', hoursPerWeek: 0, tools: [], edgeLabel: null, leakUsd: null, automation: null },
+      { id: 'wf-reno-s12', title: 'Week 11 — Trim carpenter + interior doors', ownerKind: 'human', owner: 'Trim carpenter · Sub', hoursPerWeek: 0, tools: [], edgeLabel: null, leakUsd: null, automation: null },
+      { id: 'wf-reno-s13', title: 'Week 12 — Finish electrical + finish plumbing', ownerKind: 'human', owner: 'Electrician + Plumber · Sub', hoursPerWeek: 0, tools: [], edgeLabel: null, leakUsd: null, automation: null },
+      { id: 'wf-reno-s14', title: 'Week 13 — Flooring (last trade in)', ownerKind: 'human', owner: 'Flooring installer · Sub', hoursPerWeek: 0, tools: [], edgeLabel: null, leakUsd: null, automation: null },
+      { id: 'wf-reno-s15', title: 'Week 14 — Final punch + paint touch-ups', ownerKind: 'human', owner: 'Sean · Owner', hoursPerWeek: 0, tools: [], edgeLabel: null, leakUsd: null, automation: null },
+    ],
+  },
+  {
+    id: 'wf-permit-application',
+    name: 'Permit Application',
+    subtitle: "Confirm requirement, submit to the right jurisdiction, never start permitted work before approval — no exceptions.",
+    revenueUsd: 0,
+    business: 'aac',
+    order: 2,
+    steps: [
+      { id: 'wf-permit-s1', title: 'Confirm whether a permit is required', ownerKind: 'human', owner: 'Sean · Owner', hoursPerWeek: 0, tools: [], edgeLabel: 'structural, panel/circuit, plumbing rough-in, HVAC replacement, reroof, basement finish, additions/ADUs', leakUsd: null, automation: null },
+      { id: 'wf-permit-s2', title: "Submit via the jurisdiction's system", ownerKind: 'human', owner: 'Sean · Owner', hoursPerWeek: 0, tools: ['projectdox'], edgeLabel: 'Detroit ProjectDox 3–6wk · Southfield/Farmington Hills 1–2wk · West Bloomfield 2–3wk · Oakland Co. townships 1–3wk', leakUsd: null, automation: null },
+      { id: 'wf-permit-s3', title: 'Wait for approval — never start before it, no exceptions', ownerKind: 'human', owner: 'Sean · Owner', hoursPerWeek: 0, tools: [], edgeLabel: null, leakUsd: null, automation: null },
+    ],
+  },
+  {
+    id: 'wf-review-request-followup',
+    name: 'Review Request Follow-Up',
+    subtitle: 'Sent within 48 hours of the final walk-through — personalized, with a direct Google review link.',
+    revenueUsd: 0,
+    business: 'aac',
+    order: 3,
+    steps: [
+      { id: 'wf-review-s1', title: 'Final walk-through completed', ownerKind: 'human', owner: 'Sean · Owner', hoursPerWeek: 0, tools: [], edgeLabel: 'within 48 hours', leakUsd: null, automation: null },
+      { id: 'wf-review-s2', title: 'Send personalized email referencing the project', ownerKind: 'human', owner: 'Sean · Owner', hoursPerWeek: 0, tools: ['gmail'], edgeLabel: 'include review link', leakUsd: null, automation: null },
+      { id: 'wf-review-s3', title: 'Include direct Google review link', ownerKind: 'human', owner: 'Sean · Owner', hoursPerWeek: 0, tools: ['google-reviews'], edgeLabel: 'thank the client', leakUsd: null, automation: null },
+      { id: 'wf-review-s4', title: 'Thank the client for trusting AAC', ownerKind: 'human', owner: 'Sean · Owner', hoursPerWeek: 0, tools: [], edgeLabel: null, leakUsd: null, automation: null },
+    ],
+  },
+  {
+    id: 'wf-project-kickoff-checklist',
+    name: 'Project Kickoff Checklist',
+    subtitle: 'Day 1 of a signed job: deposit through the filed contract.',
+    revenueUsd: 0,
+    business: 'aac',
+    order: 4,
+    steps: [
+      { id: 'wf-kickoff-s1', title: 'Collect deposit (minimum 30%)', ownerKind: 'human', owner: 'Sean · Owner', hoursPerWeek: 0, tools: ['quickbooks'], edgeLabel: null, leakUsd: null, automation: null },
+      { id: 'wf-kickoff-s2', title: 'Apply for permit if required', ownerKind: 'human', owner: 'Sean · Owner', hoursPerWeek: 0, tools: [], edgeLabel: null, leakUsd: null, automation: null },
+      { id: 'wf-kickoff-s3', title: 'Order materials — long-lead items first (cabinets, tile, fixtures)', ownerKind: 'human', owner: 'Sean · Owner', hoursPerWeek: 0, tools: [], edgeLabel: null, leakUsd: null, automation: null },
+      { id: 'wf-kickoff-s4', title: 'Confirm sub schedule — who starts when', ownerKind: 'human', owner: 'Sean · Owner', hoursPerWeek: 0, tools: ['phone'], edgeLabel: null, leakUsd: null, automation: null },
+      { id: 'wf-kickoff-s5', title: 'Hold client kickoff meeting (schedule, communication, site access)', ownerKind: 'human', owner: 'Sean · Owner', hoursPerWeek: 0, tools: ['calendar'], edgeLabel: null, leakUsd: null, automation: null },
+      { id: 'wf-kickoff-s6', title: 'Create job folder', ownerKind: 'human', owner: 'Sean · Owner', hoursPerWeek: 0, tools: [], edgeLabel: null, leakUsd: null, automation: null },
+      { id: 'wf-kickoff-s7', title: 'File signed contract', ownerKind: 'human', owner: 'Sean · Owner', hoursPerWeek: 0, tools: [], edgeLabel: null, leakUsd: null, automation: null },
+    ],
+  },
+  {
+    id: 'wf-lead-followup-cadence',
+    name: 'Lead Follow-Up Cadence',
+    subtitle: 'From first inquiry to archive: callback, walk-through, estimate, and three follow-up touches.',
+    revenueUsd: 0,
+    business: 'aac',
+    order: 5,
+    steps: [
+      { id: 'wf-lead-s1', title: 'Sean calls back within 24 business hours', ownerKind: 'human', owner: 'Sean · Owner', hoursPerWeek: 0, tools: ['phone'], edgeLabel: 'walk-through scheduled', leakUsd: null, automation: null },
+      { id: 'wf-lead-s2', title: 'Walk-through scheduled via booking calendar link', ownerKind: 'human', owner: 'Sean · Owner', hoursPerWeek: 0, tools: ['calendar'], edgeLabel: 'estimate due in 3 business days', leakUsd: null, automation: null },
+      { id: 'wf-lead-s3', title: 'Estimate sent within 3 business days of walk-through', ownerKind: 'human', owner: 'Sean · Owner', hoursPerWeek: 0, tools: ['gmail'], edgeLabel: 'no response?', leakUsd: null, automation: null },
+      { id: 'wf-lead-s4', title: 'Follow up at 3, 7, and 14 days if no response', ownerKind: 'human', owner: 'Sean · Owner', hoursPerWeek: 0, tools: ['gmail'], edgeLabel: 'still no response at 21 days', leakUsd: null, automation: null },
+      { id: 'wf-lead-s5', title: 'Mark stale & archive at 21 days (unless client re-engages)', ownerKind: 'human', owner: 'Sean · Owner', hoursPerWeek: 0, tools: [], edgeLabel: null, leakUsd: null, automation: null },
+    ],
+  },
+];
 
 // Seeded agent tasks are gone — the previous list was invented work items.
 // Real tasks are created from the UI (insert-by-id keeps user tasks intact).
@@ -451,7 +557,7 @@ const skills: Omit<Skill, 'markdown'>[] = [
 
 /** Bump when the seed content changes shape — existing DBs re-seed once to
  *  pick up the new baseline (and purge retired rows). */
-export const SEED_VERSION = '2026-08-21-org-honesty-fixes';
+export const SEED_VERSION = '2026-08-21-aac-workflows';
 
 export function seedDatabase(db: FounderDb): void {
   // The whole reseed runs as ONE SQLite transaction, not ~100 separate

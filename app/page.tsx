@@ -12,6 +12,7 @@ import { inboundLast24h } from '@/lib/comms';
 import { roadmapProgress, splitRoadmap } from '@/lib/roadmap';
 import { PageHeader } from '@/components/PageHeader';
 import { HomeSocialGraph } from '@/components/HomeSocialGraph';
+import { AgentRunButton } from '@/components/AgentRunButton';
 import { Badge, Dot, Kbd, Label, SectionHead, Spark } from '@/components/terminal';
 import { runsPerDay, inboundPerDay, stateOfWorld, type Tone } from '@/lib/pulse-history';
 import { countRanWithin, DAY_MS } from '@/lib/analytics';
@@ -132,6 +133,17 @@ function relativeTime(iso: string): string {
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h`;
   return `${Math.floor(h / 24)}d`;
+}
+
+// 2026-08-21 fix: the agent roster row below used to append a literal " ago"
+// onto relativeTime()'s output unconditionally, producing "just now ago" for
+// any run in the last minute — relativeTime() already returns a full phrase
+// ("just now") for that case and only a bare duration ("5m"/"3h"/"2d")
+// otherwise. This only adds the suffix when relativeTime() returned a bare
+// duration.
+function relativeTimeAgo(iso: string): string {
+  const t = relativeTime(iso);
+  return t === 'just now' ? t : `${t} ago`;
 }
 
 /** Clickable pulse tile that routes to its detail page. */
@@ -409,38 +421,36 @@ export default async function HomePage() {
             {agents.map((a) => {
               const last = lastRunByAgent.get(a.id);
               return (
-                <Link
+                <div
                   key={a.id}
-                  href="/agents"
                   className="hoverable flex items-center gap-3 rounded-lg-t border border-os-border bg-os-surface px-3.5 py-[11px]"
                 >
-                  <Dot state={a.status} pulse={a.status === 'active'} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="whitespace-nowrap text-[13.5px] font-semibold">{a.name}</span>
-                      {a.tier === 'lead' && <Badge>lead</Badge>}
+                  {/* Row nav — the agent name/meta area only. Kept as its own
+                      <Link>, separate from the Run button below, so the two
+                      controls can never be confused with (or swallow) each
+                      other. */}
+                  <Link href="/agents" className="flex min-w-0 flex-1 items-center gap-3">
+                    <Dot state={a.status} pulse={a.status === 'active'} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="whitespace-nowrap text-[13.5px] font-semibold">{a.name}</span>
+                        {a.tier === 'lead' && <Badge>lead</Badge>}
+                      </div>
+                      <div className="mt-0.5 truncate font-mono text-[10.5px] text-os-dim">
+                        {departments.get(a.departmentId) ?? '—'} ·{' '}
+                        {last
+                          ? `last run ${
+                              !last.ok ? 'FAILED' : last.pushFailed ? 'push failed' : 'OK'
+                            } · ${relativeTimeAgo(last.finishedAt)}`
+                          : 'never run'}
+                      </div>
                     </div>
-                    <div className="mt-0.5 truncate font-mono text-[10.5px] text-os-dim">
-                      {departments.get(a.departmentId) ?? '—'} ·{' '}
-                      {last
-                        ? `last run ${
-                            !last.ok ? 'FAILED' : last.pushFailed ? 'push failed' : 'OK'
-                          } · ${relativeTime(last.finishedAt)} ago`
-                        : 'never run'}
-                    </div>
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-sm-t border px-2.5 py-[3px] font-mono text-[11px] font-semibold ${
-                      a.status === 'active'
-                        ? 'border-[var(--accent-line)] bg-[var(--accent-soft)] text-os-accent'
-                        : a.status === 'idle'
-                          ? 'border-[color-mix(in_oklab,var(--warn)_35%,transparent)] bg-[color-mix(in_oklab,var(--warn)_9%,transparent)] text-os-warn'
-                          : 'border-os-border text-os-dim'
-                    }`}
-                  >
-                    {a.status === 'active' ? 'Run' : a.status === 'idle' ? 'Degraded' : 'no creds'}
-                  </span>
-                </Link>
+                  </Link>
+                  {/* Real trigger — POSTs /api/agents/[id]/run and shows the
+                      honest OK/FAILED outcome inline. See
+                      components/AgentRunButton.tsx. */}
+                  <AgentRunButton agentId={a.id} status={a.status} />
+                </div>
               );
             })}
           </div>

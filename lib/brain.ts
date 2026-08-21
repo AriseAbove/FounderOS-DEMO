@@ -45,6 +45,12 @@ export type BrainOverview = {
     healthScore: number | null;
     checks: DoctorCheck[];
     detail: string;
+    // True only for a provider that actually does vector/semantic retrieval
+    // (embeddings, a hybrid ranker, an external service). Both the local
+    // markdown-grep provider and the test stub are keyword-only, so this is
+    // `false` for both today — flip it in a future provider's overview(),
+    // never here, so "vector search live" is never claimed until one exists.
+    vector: boolean;
   };
 };
 
@@ -68,6 +74,16 @@ export function brainStorePath(): string | null {
   if (process.env.BRAIN_STORE) return process.env.BRAIN_STORE;
   if (process.env.GBRAIN_STORE) return process.env.GBRAIN_STORE;
   return fs.existsSync(BUNDLED_STORE) ? BUNDLED_STORE : null;
+}
+
+/** True when the bundled starter store ships on disk (it's checked into the
+ *  repo, so this is normally true everywhere). Used by lib/keys.ts's API-keys
+ *  panel to explain WHY Knowledge Store can honestly show CONNECTED on
+ *  /integrations even while the BRAIN_STORE env var itself reads "not set" —
+ *  without this the two facts (both individually true) read as a
+ *  contradiction. */
+export function bundledBrainStoreExists(env: Record<string, string | undefined> = process.env): boolean {
+  return !env.BRAIN_STORE && !env.GBRAIN_STORE && fs.existsSync(BUNDLED_STORE);
 }
 
 function walkMarkdown(dir: string, files: string[] = []): string[] {
@@ -196,7 +212,14 @@ function createLocalStoreProvider(): BrainProvider {
       if (!storePath) {
         return {
           store: EMPTY_STORE,
-          doctor: { connected: false, status: 'not_configured', healthScore: null, checks: [], detail: NOT_CONFIGURED },
+          doctor: {
+            connected: false,
+            status: 'not_configured',
+            healthScore: null,
+            checks: [],
+            detail: NOT_CONFIGURED,
+            vector: false,
+          },
         };
       }
       const folders = storeFolders(storePath);
@@ -210,6 +233,7 @@ function createLocalStoreProvider(): BrainProvider {
           healthScore: null,
           checks: [],
           detail: totalFiles > 0 ? `${totalFiles} pages on disk` : `no markdown found at ${storePath}`,
+          vector: false,
         },
       };
     },
@@ -227,10 +251,44 @@ const stubProvider: BrainProvider = {
   async overview() {
     return {
       store: EMPTY_STORE,
-      doctor: { connected: false, status: 'stub', healthScore: null, checks: [], detail: 'stub provider' },
+      doctor: { connected: false, status: 'stub', healthScore: null, checks: [], detail: 'stub provider', vector: false },
     };
   },
 };
+
+export type DoctorSummary = {
+  /** `offline` — the store itself is unreachable. `not_scored` — the store
+   *  is reachable but nothing has produced a real health number/checks yet
+   *  (today's honest baseline: `healthScore` is never computed). `warnings`
+   *  — connected with real checks and at least one non-ok. `ok` — connected,
+   *  checks ran, all green, AND a real score exists to back that claim. */
+  state: 'offline' | 'not_scored' | 'warnings' | 'ok';
+  label: string;
+};
+
+/**
+ * The single source of truth for "is the knowledge doctor okay" text, used
+ * everywhere a page renders that word next to a health number — so a null
+ * score can never sit next to "ok"/"all green" again (2026-08-21 fix: it
+ * used to, on both /brain and the home page, because each page derived its
+ * own "ok" independently of whether a score actually existed).
+ */
+export function summarizeDoctor(input: {
+  connected: boolean;
+  healthScore: number | null;
+  checks: DoctorCheck[];
+}): DoctorSummary {
+  if (!input.connected) return { state: 'offline', label: 'offline' };
+  const warnings = input.checks.filter((c) => c.status !== 'ok');
+  if (warnings.length > 0) {
+    return { state: 'warnings', label: `${warnings.length} warning${warnings.length === 1 ? '' : 's'}` };
+  }
+  // Connected and nothing flagged — but "all green" implies a real score
+  // backed that claim. Without one, the honest word is "not yet scored",
+  // never "ok".
+  if (input.healthScore == null) return { state: 'not_scored', label: 'not yet scored' };
+  return { state: 'ok', label: 'all green' };
+}
 
 export function getBrainProvider(): BrainProvider {
   const name = process.env.BRAIN_PROVIDER ?? 'local-store';

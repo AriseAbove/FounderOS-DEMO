@@ -133,7 +133,15 @@ export function graphDirectory(
     },
     {
       kind: 'tool',
-      title: 'Tools',
+      // "Unique tools" on purpose, not "Tools" — a shared tool (e.g.
+      // QuickBooks used by two departments) is one row here but TWO nodes in
+      // the graph (see buildKnowledgeGraph's toolNodeId, one per department
+      // that uses it) and the sidebar legend counts those graph nodes, not
+      // slugs. Both counts are real; a bare "Tools" label on both used to
+      // read as a contradiction when they legitimately differed.
+      // See components/KnowledgeGraph.tsx's legend row for the other half
+      // of this 2026-08-21 fix.
+      title: 'Unique tools',
       rows: [...toolRows.values()].sort(byLabel),
     },
   ];

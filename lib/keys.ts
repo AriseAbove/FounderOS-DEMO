@@ -5,11 +5,17 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { bundledBrainStoreExists } from '@/lib/brain';
 
 export type KeySlot = { envVar: string; label: string; group: string; hint?: string };
 
 export const KEY_SLOTS: KeySlot[] = [
-  { envVar: 'INBOX_1_HOST', label: 'Inbox 1 host', group: 'Email' },
+  {
+    envVar: 'INBOX_1_HOST',
+    label: 'Inbox 1 host',
+    group: 'Email',
+    hint: 'a Google host also powers Calendar via CalDAV — see lib/connectors/gcal.ts',
+  },
   { envVar: 'INBOX_1_USER', label: 'Inbox 1 user', group: 'Email' },
   { envVar: 'INBOX_1_PASS', label: 'Inbox 1 app password', group: 'Email', hint: 'Gmail app password' },
   { envVar: 'INBOX_2_HOST', label: 'Inbox 2 host', group: 'Email' },
@@ -21,8 +27,14 @@ export const KEY_SLOTS: KeySlot[] = [
   { envVar: 'INBOX_4_HOST', label: 'Inbox 4 host', group: 'Email' },
   { envVar: 'INBOX_4_USER', label: 'Inbox 4 user', group: 'Email' },
   { envVar: 'INBOX_4_PASS', label: 'Inbox 4 app password', group: 'Email' },
-  { envVar: 'CAL_1_USER', label: 'Calendar 1 user', group: 'Calendar' },
-  { envVar: 'CAL_1_PASS', label: 'Calendar 1 app password', group: 'Calendar' },
+  // Deliberately no separate "Calendar" credential slots (CAL_1_USER/
+  // CAL_1_PASS used to live here but nothing ever read them — see
+  // 2026-08-21 fix in CLAUDE.md). lib/connectors/gcal.ts's real calendar
+  // connector authenticates with the SAME Google INBOX_*_USER/_PASS app
+  // passwords above (a Gmail app password also unlocks the legacy CalDAV
+  // endpoint), so those dead vars showing "not set" next to a genuinely
+  // CONNECTED Calendar card was the actual bug: the credential panel was
+  // labeling the wrong env vars, not the badge lying.
   { envVar: 'QUICKBOOKS_CLIENT_ID', label: 'QuickBooks client id', group: 'QuickBooks' },
   { envVar: 'QUICKBOOKS_CLIENT_SECRET', label: 'QuickBooks client secret', group: 'QuickBooks' },
   { envVar: 'BRAIN_STORE', label: 'Knowledge store path', group: 'Knowledge', hint: 'folder of markdown files' },
@@ -35,12 +47,22 @@ export function maskSecret(value: string): string {
   return `••••${value.slice(-4)}`;
 }
 
-export type KeyStatus = KeySlot & { present: boolean; masked: string };
+export type KeyStatus = KeySlot & { present: boolean; masked: string; note?: string };
 
 export function listKeyStatuses(env: Record<string, string | undefined> = process.env): KeyStatus[] {
   return KEY_SLOTS.map((slot) => {
     const value = env[slot.envVar] ?? '';
-    return { ...slot, present: value.length > 0, masked: maskSecret(value) };
+    const present = value.length > 0;
+    // BRAIN_STORE is the one slot whose "not set" can sit directly under a
+    // genuinely CONNECTED badge (Knowledge Store falls back to the bundled
+    // knowledge/brain-store/ folder — see lib/brain.ts). Left as a bare "not
+    // set" this reads as a contradiction; the note makes both facts visible
+    // and consistent instead of one silently overriding the other.
+    const note =
+      slot.envVar === 'BRAIN_STORE' && !present && bundledBrainStoreExists(env)
+        ? 'using the bundled starter store — already connected'
+        : undefined;
+    return { ...slot, present, masked: maskSecret(value), note };
   });
 }
 

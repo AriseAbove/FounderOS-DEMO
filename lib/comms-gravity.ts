@@ -98,3 +98,59 @@ const SPAN_PCT = 74;
 export function laneBottomPct(priority: CommsItem['priority']): number {
   return NEAR_PCT + (1 - gravityDepth(priority)) * SPAN_PCT;
 }
+
+// Priority tiers ordered by ascending `laneBottomPct` — tier 1 nearest the
+// reply box, untagged furthest/highest.
+const TIER_ORDER: CommsItem['priority'][] = [1, 2, 3, undefined];
+
+// The topmost tier's territory stops short of 100% so it never renders under
+// the lane's sticky header.
+const TOP_CLEARANCE_PCT = 10;
+
+/**
+ * The fixed, non-overlapping vertical territory a priority tier owns inside
+ * a lane, as `{ bottomPct, heightPct }` CSS percentages. Deliberately a pure
+ * function of the tier alone — never of how many messages land in it — so a
+ * tier's box can never grow past its own territory no matter how full it
+ * gets. `bandRowsWithOffsets` below packs a tier's rows inside this box.
+ */
+export function laneBandZone(priority: CommsItem['priority']): { bottomPct: number; heightPct: number } {
+  const i = TIER_ORDER.indexOf(priority);
+  const bottomPct = laneBottomPct(priority);
+  const topPct = i + 1 < TIER_ORDER.length ? laneBottomPct(TIER_ORDER[i + 1]) : 100 - TOP_CLEARANCE_PCT;
+  return { bottomPct, heightPct: topPct - bottomPct };
+}
+
+/** How many node buttons sit in one row before wrapping to the next. */
+export const LANE_NODES_PER_ROW = 8;
+
+/**
+ * Root cause of the WORK-lane overflow bug (2026-08-21): nodes used to wrap
+ * inside a single flex box anchored only by `bottom: X%`, with the box's own
+ * height left to grow unbounded with however many rows the wrap produced.
+ * Once a lane's busiest tier held enough items to need more rows than fit
+ * between that anchor and the container's top edge, the extra rows pushed
+ * the box's own top edge above y=0 — invisible and unclickable, clipped by
+ * the lane's `overflow-hidden` (25 WORK nodes genuinely existed in the DOM,
+ * but only 13 stayed on-canvas; PERSONAL and MISC "worked" only because
+ * neither lane's busiest tier ever needed enough rows to escape).
+ *
+ * The fix: chunk a tier's items into fixed-width rows, then place each row
+ * at a `bottomPct` that divides the tier's fixed `laneBandZone` evenly
+ * across however many rows are actually needed. Row pitch shrinks as the
+ * band grows, so the top row's offset is always strictly less than the
+ * zone's own height — every row (and so every node) stays inside `[0, 100]`
+ * regardless of how many items land in the tier.
+ */
+export function bandRowsWithOffsets<T>(
+  items: T[],
+  priority: CommsItem['priority'],
+  perRow: number = LANE_NODES_PER_ROW
+): { row: T[]; bottomPct: number }[] {
+  if (items.length === 0) return [];
+  const zone = laneBandZone(priority);
+  const rows: T[][] = [];
+  for (let i = 0; i < items.length; i += perRow) rows.push(items.slice(i, i + perRow));
+  const pitch = rows.length <= 1 ? 0 : zone.heightPct / rows.length;
+  return rows.map((row, i) => ({ row, bottomPct: zone.bottomPct + i * pitch }));
+}

@@ -229,6 +229,10 @@ export const ActivityEventSchema = z.object({
   at: z.string().min(1),
   summary: z.string(),
   ok: z.boolean().optional(),
+  // Distinct from `ok` — see AgentRunSchema's own pushFailed. Carried through
+  // so the /agents activity log can flag a run whose downstream notification
+  // genuinely failed instead of letting it read as an unremarkable success.
+  pushFailed: z.boolean().optional(),
 });
 
 export const BrainOverviewSchema = z.object({

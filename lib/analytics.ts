@@ -76,3 +76,38 @@ export function runOutcomeCounts(runs: RunOutcomeLike[]): RunOutcomeCounts {
   }
   return { succeeded, pushFailed, failed, total: runs.length };
 }
+
+/** 24 hours in ms — the "has this actually run recently" window used by the
+ *  home page and /agents to distinguish a configured agent from one that has
+ *  genuinely executed lately. */
+export const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Whether an agent's most-recent run (if any) falls inside the trailing
+ * `windowMs` ending at `nowMs`. This is the honest counterpart to
+ * "configured" — a connector being wired up (lib/agents/live-status.ts's
+ * `liveAgentStatus`) only says an agent is *able* to run, not that it has
+ * actually fired. See CLAUDE.md's 2026-08-21 agent-cron entry: a real
+ * schedule landed for the whole roster, but as of this writing most agents
+ * still show zero run history — "configured" and "running" are genuinely
+ * different facts and the UI must not conflate them.
+ */
+export function ranWithin(
+  lastRun: { startedAt: string } | undefined,
+  windowMs: number,
+  nowMs = Date.now(),
+): boolean {
+  if (!lastRun) return false;
+  const t = Date.parse(lastRun.startedAt);
+  return Number.isFinite(t) && nowMs - t <= windowMs;
+}
+
+/** Count of agents (given their most-recent run each, or undefined if it has
+ *  never run) that actually ran within the trailing `windowMs`. */
+export function countRanWithin(
+  lastRuns: ({ startedAt: string } | undefined)[],
+  windowMs: number,
+  nowMs = Date.now(),
+): number {
+  return lastRuns.filter((r) => ranWithin(r, windowMs, nowMs)).length;
+}

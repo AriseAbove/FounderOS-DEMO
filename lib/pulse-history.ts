@@ -60,6 +60,15 @@ export type PulseFacts = {
   health: number | null;
   brainConnected: boolean;
   failedRuns: number;
+  // Honest counterpart to activeAgents: how many agents (of activeAgents,
+  // the ones with a real dependency actually wired up) have executed a run
+  // in the trailing 24h — see lib/analytics.ts's countRanWithin. Being
+  // "configured" (a connector connected, or chief-of-staff's last run ok)
+  // only means an agent is *able* to run; it says nothing about whether its
+  // schedule has actually fired. Before this field existed, a roster that
+  // was fully configured but had never once run still read "10/10 agents
+  // live" — see CLAUDE.md's 2026-08-21 agent-cron entry.
+  ranRecently: number;
 };
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -67,12 +76,15 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 /**
  * One honest sentence about what needs the operator, worst-first: failed runs,
  * an unhealthy brain, downed connectors, then inbound to reply to — always
- * anchored by the live agent count. Leads with "All nominal" only when nothing
- * is actually wrong.
+ * anchored by the configured-vs-actually-ran agent facts. Leads with "All
+ * nominal" only when nothing is actually wrong, which now includes "every
+ * configured agent has actually run recently" — a roster that is merely
+ * wired up but has never fired is not nominal, even with zero other issues.
  */
 export function stateOfWorld(f: PulseFacts): StateSegment[] {
   const segs: StateSegment[] = [];
   const down = Math.max(0, f.totalConnectors - f.connected);
+  const neverRan = Math.max(0, f.activeAgents - f.ranRecently);
 
   if (f.failedRuns > 0) segs.push({ text: `${plural(f.failedRuns, 'run')} failed`, tone: 'err' });
   if (!f.brainConnected) segs.push({ text: 'Knowledge store offline', tone: 'err' });
@@ -80,8 +92,9 @@ export function stateOfWorld(f: PulseFacts): StateSegment[] {
   if (down > 0) segs.push({ text: `${plural(down, 'connector')} down`, tone: 'warn' });
   if (f.inbound > 0) segs.push({ text: `${f.inbound} inbound need reply`, tone: 'accent' });
 
-  const hadAttention = segs.length > 0;
-  segs.push({ text: `${f.activeAgents}/${f.totalAgents} agents live`, tone: f.activeAgents > 0 ? 'ok' : 'dim' });
+  const hadAttention = segs.length > 0 || neverRan > 0;
+  const tone: Tone = f.activeAgents === 0 ? 'dim' : neverRan > 0 ? 'warn' : 'ok';
+  segs.push({ text: `${f.activeAgents}/${f.totalAgents} configured · ${f.ranRecently} ran in 24h`, tone });
   if (!hadAttention) segs.unshift({ text: 'All nominal', tone: 'ok' });
 
   return segs;

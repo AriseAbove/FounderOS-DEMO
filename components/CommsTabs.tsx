@@ -20,6 +20,7 @@ export function CommsTabs({
   accounts,
   nowISO,
   workKeywords = [],
+  totalUnread,
 }: {
   feed: CommsItem[];
   tags: ContactTag[];
@@ -27,9 +28,14 @@ export function CommsTabs({
   accounts: Account[];
   nowISO: string;
   workKeywords?: string[];
+  /** The real, unbounded mailbox unread count (lib/connectors/email.ts's
+   *  unreadCounts, same number the page header badge shows) — NOT derived
+   *  from `feed`, which only carries the ~15 most-recent envelopes per
+   *  inbox and would silently under-count against the real inbox. */
+  totalUnread: number;
 }) {
   const [tab, setTab] = useState<Tab>('messaging');
-  const unread = feed.reduce((sum, item) => sum + (item.unread ?? 0), 0);
+  const unread = totalUnread;
 
   const TabButton = ({ id, icon: Icon, label, count }: { id: Tab; icon: typeof MessageSquare; label: string; count: number }) => {
     const active = tab === id;

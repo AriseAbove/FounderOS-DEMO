@@ -80,7 +80,7 @@ export function PostComposer({ initialPosts }: { initialPosts: SocialPost[] }) {
         <textarea
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
-          placeholder="Write a caption — this queues for the Zernio publishing agent…"
+          placeholder="Write a caption — this queues for Social Pulse to publish via OneUp…"
           rows={4}
           className="w-full resize-none rounded-sm-t border border-os-border bg-os-surface2 px-3 py-2.5 text-[13px] leading-relaxed text-os-text outline-none placeholder:text-os-dim focus:border-os-border-strong"
         />
@@ -125,7 +125,7 @@ export function PostComposer({ initialPosts }: { initialPosts: SocialPost[] }) {
         </div>
         <div className="mt-3 flex items-center justify-between gap-3">
           <span className="font-mono text-[10px] text-os-dim">
-            Queues only — the Social agent publishes on its next run.
+            Queues only — Social Pulse publishes it, but only when run manually from /agents (no automatic schedule is wired up yet).
           </span>
           <button
             onClick={submit}

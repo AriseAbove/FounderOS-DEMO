@@ -162,9 +162,20 @@ export function WorkflowMap({
 
   if (!current || !stats) {
     return (
-      <p className="rounded-xl border border-dashed border-os-border px-4 py-10 text-center text-xs text-os-dim">
-        No workflows seeded yet.
-      </p>
+      <section className="rounded-lg-t border border-os-border bg-os-surface p-5">
+        <p className="font-mono text-[12px] leading-relaxed text-os-muted">
+          No workflows mapped yet. A <span className="text-os-text">workflow</span> here is one real AAC
+          business process traced step by step — who owns each step (a person or an agent), how many
+          hours/week it costs, which tools run it, where money leaks at a bottleneck, and what automation
+          (live or suggested) recovers it. This view reads seeded <code className="text-os-accent">workflows</code>{' '}
+          rows (<code className="text-os-accent">WorkflowSchema</code> in{' '}
+          <code className="text-os-accent">lib/schemas.ts</code>) — the seed ships zero on purpose: the
+          previous build shipped invented revenue-machine numbers here, and this OS never backfills a
+          placeholder in their place. A real AAC process gets added to{' '}
+          <code className="text-os-accent">lib/seed.ts</code>&apos;s <code className="text-os-accent">workflows</code>{' '}
+          list deliberately, one at a time, once it&apos;s actually mapped.
+        </p>
+      </section>
     );
   }
 

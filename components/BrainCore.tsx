@@ -107,6 +107,17 @@ export function BrainCore({
                       all {doctor.checks.length} checks green · health {doctor.healthScore ?? '—'}/100
                     </div>
                   )}
+                  {/* Today's local-store provider never populates doctor.checks — no
+                      scored doctor run has ever shipped for it — so this box used to
+                      render nothing at all whenever the store was reachable: neither
+                      "all green" (needs checks.length > 0) nor "offline" nor a
+                      warnings list applied, and a blank panel reads as broken, not as
+                      an honest "not yet computed" state. */}
+                  {doctor.connected && warnings.length === 0 && doctor.checks.length === 0 && (
+                    <div className="font-mono text-[11px] text-os-dim">
+                      store reachable — no scored doctor checks yet · health —/100
+                    </div>
+                  )}
                   {!doctor.connected && (
                     <div className="font-mono text-[11px] text-os-err">doctor offline — {doctor.detail}</div>
                   )}

@@ -7,6 +7,10 @@ import { NAV_OPERATE, NAV_AGENTS, NAV_INTELLIGENCE, NAV_MARKETING, NAV_SYSTEM, N
 import { OsMark } from '@/components/OsMark';
 
 function NavGroup({ title, items, pathname }: { title: string; items: NavItem[]; pathname: string }) {
+  // An empty group renders nothing at all — not even its heading. A nav
+  // heading with zero links under it is dead weight the honest-empty-state
+  // rule applies to just as much as a page body (see NAV_LIBRARY below).
+  if (items.length === 0) return null;
   return (
     <>
       <div className="px-2.5 pb-1.5 pt-3.5 font-mono text-[9px] uppercase tracking-[0.18em] text-os-dim">

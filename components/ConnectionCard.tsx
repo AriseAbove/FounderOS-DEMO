@@ -23,6 +23,7 @@ export function ConnectionCard({ entry, guidance }: { entry: CatalogEntry; guida
         slug={entry.slug}
         connected={entry.connected}
         keySaved={entry.keySaved}
+        error={entry.error}
         keys={connectKeysFor(entry)}
         guidance={guidance}
         oauthConnectUrl={entry.slug === 'quickbooks' ? '/api/connections/quickbooks/connect' : undefined}

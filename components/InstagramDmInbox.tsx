@@ -46,11 +46,15 @@ function groupThreads(messages: SocialDmMessage[]): DmThread[] {
 }
 
 /**
- * The Instagram DM inbox: thread list + conversation pane, with a reply box that
- * sends for real via ManyChat (POST /api/social/dm/reply). Seeded until the
- * ManyChat webhook feeds it live; a message with source 'manychat' flips the
- * "live" pip. Sending is honest — a failed/unconfigured send shows inline and
- * appends nothing.
+ * The Instagram DM inbox: thread list + conversation pane. Seeded data only —
+ * ManyChat is not connected or built yet: neither POST /api/social/dm/reply
+ * nor POST /api/webhooks/manychat exists in app/api (verified 2026-08-21;
+ * both 404 in production), so the reply box's fetch always fails and no
+ * inbound message can ever arrive live. `isLive` (a message with source
+ * 'manychat') is dead code today — kept as the honest seam a real webhook
+ * would flip — never true until that integration is actually built. Sending
+ * is honest either way: a failed/unbuilt send shows inline and appends
+ * nothing.
  */
 export function InstagramDmInbox({ threads: initial, nowMs }: { threads: DmThread[]; nowMs: number }) {
   const [messages, setMessages] = useState<SocialDmMessage[]>(() => initial.flatMap((t) => t.messages));
@@ -77,7 +81,7 @@ export function InstagramDmInbox({ threads: initial, nowMs }: { threads: DmThrea
       });
       const body = await res.json().catch(() => null);
       if (!res.ok || !body?.ok) {
-        setError(typeof body?.error === 'string' ? body.error : 'Send failed — connect ManyChat (MANYCHAT_API_KEY) to reply.');
+        setError(typeof body?.error === 'string' ? body.error : 'Send failed — ManyChat isn\'t connected yet, so there is no live reply channel.');
         return;
       }
       setMessages((prev) => [body.message as SocialDmMessage, ...prev]);
@@ -102,13 +106,13 @@ export function InstagramDmInbox({ threads: initial, nowMs }: { threads: DmThrea
         </div>
         <span className="ml-auto flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.15em] text-os-dim">
           <span className={`h-1.5 w-1.5 ${isLive ? 'bg-os-ok' : 'bg-os-dim'}`} />
-          {isLive ? 'live · manychat' : 'seeded · live via manychat webhook'}
+          {isLive ? 'live · manychat' : 'seeded · manychat not connected'}
         </span>
       </div>
 
       {threads.length === 0 ? (
         <div className="rounded-lg-t border border-os-border bg-os-surface px-4 py-8 text-center font-mono text-[12px] text-os-dim">
-          No DMs yet. They appear here as ManyChat posts them to /api/webhooks/manychat.
+          No DMs yet. ManyChat isn&apos;t connected or built yet — this inbox has no live message source.
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg-t border border-os-border bg-os-border md:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">

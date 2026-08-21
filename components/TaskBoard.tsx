@@ -3,11 +3,21 @@
 /**
  * Agent task board — a card drag-through across To do / In progress / Done.
  * Drag a card to a column and it persists to SQLite via PATCH /api/agents/work;
- * a 6s poll pulls the board back from the server so cards also move on their own
- * as agents commit and finish work. Optimistic on drop, reconciled on poll.
+ * a 6s poll pulls the board back from the server so a task created or moved
+ * from another tab/session shows up here too. Optimistic on drop, reconciled
+ * on poll.
+ *
+ * HONESTY (2026-08-21 fix): the intro copy used to claim "Agents advance
+ * their own cards as they commit and finish" — untrue. No agent `run()` in
+ * lib/agents/real.ts writes to the agent_tasks table; the seed ships it
+ * permanently empty (lib/seed.ts's `agentTasks` array). The only writers are
+ * this board's own drag handler (below) and POST /api/agents/work, which
+ * this file now also calls directly via the create-task form — previously
+ * that form only existed in AgentWorkPanel.tsx's drawer on /agents, so
+ * adding a task meant knowing about a hidden control on a different page.
  */
 import { useEffect, useRef, useState } from 'react';
-import { User } from 'lucide-react';
+import { Plus, Trash2, User } from 'lucide-react';
 import type { AgentTask } from '@/lib/schemas';
 
 const COLUMNS: { status: AgentTask['status']; label: string; tone: string }[] = [
@@ -28,6 +38,12 @@ export function TaskBoard({
   const [overCol, setOverCol] = useState<AgentTask['status'] | null>(null);
   // Don't let a poll stomp a drop that's still persisting.
   const pending = useRef(0);
+
+  const agentIds = Object.keys(agentNames).sort((a, b) => agentNames[a].localeCompare(agentNames[b]));
+  const [newTitle, setNewTitle] = useState('');
+  const [newAgentId, setNewAgentId] = useState(agentIds[0] ?? '');
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
     const id = setInterval(async () => {
@@ -62,11 +78,85 @@ export function TaskBoard({
     }
   };
 
+  const addTask = async () => {
+    const title = newTitle.trim();
+    if (!title || !newAgentId || creating) return;
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const res = await fetch('/api/agents/work', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'task', agentId: newAgentId, title }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setCreateError(typeof json.error === 'string' ? json.error : 'could not create task');
+        return;
+      }
+      setTasks((prev) => [json.task, ...prev]);
+      setNewTitle('');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const removeTask = async (id: string) => {
+    pending.current += 1;
+    try {
+      const res = await fetch('/api/agents/work', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'task', id }),
+      });
+      if (res.ok) setTasks((prev) => prev.filter((t) => t.id !== id));
+    } finally {
+      pending.current -= 1;
+    }
+  };
+
   return (
     <div>
       <p className="mb-4 font-mono text-[11px] text-os-dim">
-        Drag a card across the board as work moves. Agents advance their own cards as they commit and finish.
+        Drag a card across the board as work moves — or add one below. Tasks are created and moved manually today;
+        no agent writes to this board on its own yet.
       </p>
+
+      {/* Create-task form — previously the only way to add a task was
+          AgentWorkPanel.tsx's drawer on /agents, a hidden control on a
+          different page. Same POST /api/agents/work the drawer already
+          uses. */}
+      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-os-border bg-os-surface p-3">
+        <select
+          value={newAgentId}
+          onChange={(e) => setNewAgentId(e.target.value)}
+          disabled={agentIds.length === 0}
+          className="shrink-0 rounded border border-os-border bg-os-bg px-2 py-1.5 font-mono text-[11px] text-os-text focus:border-os-border-bright focus:outline-none"
+        >
+          {agentIds.length === 0 && <option value="">no agents</option>}
+          {agentIds.map((id) => (
+            <option key={id} value={id}>
+              {agentNames[id]}
+            </option>
+          ))}
+        </select>
+        <input
+          value={newTitle}
+          onChange={(e) => setNewTitle(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && addTask()}
+          placeholder="New task…"
+          className="min-w-0 flex-1 rounded border border-os-border bg-os-bg px-2.5 py-1.5 text-[12px] text-os-text placeholder:text-os-dim focus:border-os-border-bright focus:outline-none"
+        />
+        <button
+          onClick={addTask}
+          disabled={creating || !newTitle.trim() || !newAgentId}
+          className="flex shrink-0 items-center gap-1 rounded border border-os-border-strong bg-os-surface2 px-2.5 py-1.5 font-mono text-[11px] font-semibold text-os-text transition-opacity hover:border-os-dim disabled:opacity-40"
+        >
+          <Plus className="h-3 w-3" /> {creating ? 'adding…' : 'Add task'}
+        </button>
+        {createError && <p className="w-full font-mono text-[10px] text-os-err">✗ {createError}</p>}
+      </div>
+
       <div className="grid gap-4 md:grid-cols-3">
         {COLUMNS.map((col) => {
           const colTasks = tasks.filter((t) => t.status === col.status);
@@ -110,12 +200,21 @@ export function TaskBoard({
                     dragId === task.id ? 'opacity-40' : ''
                   }`}
                 >
-                  <div
-                    className={`text-[12.5px] font-medium leading-snug ${
-                      task.status === 'done' ? 'text-os-dim line-through' : 'text-os-text'
-                    }`}
-                  >
-                    {task.title}
+                  <div className="flex items-start justify-between gap-2">
+                    <div
+                      className={`min-w-0 flex-1 text-[12.5px] font-medium leading-snug ${
+                        task.status === 'done' ? 'text-os-dim line-through' : 'text-os-text'
+                      }`}
+                    >
+                      {task.title}
+                    </div>
+                    <button
+                      onClick={() => void removeTask(task.id)}
+                      title="Delete task"
+                      className="shrink-0 text-os-dim hover:text-os-text"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
                   </div>
                   <div className="mt-2 flex items-center gap-1.5 font-mono text-[10px] text-os-dim">
                     <User className="h-3 w-3" />

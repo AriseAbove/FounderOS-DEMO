@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import type { ActivityEvent } from '@/lib/schemas';
 
@@ -15,7 +15,24 @@ const KIND: Record<ActivityEvent['kind'], { label: string; cls: string }> = {
   broadcast: { label: 'cast', cls: 'text-os-text' },
 };
 
-function clock(iso: string): string {
+// 2026-08-21 hydration fix: this used to call toLocaleTimeString([], …) (the
+// BROWSER's local timezone) directly in render. Next.js server-renders this
+// 'use client' component on Railway (server TZ = UTC), then React hydrates
+// and re-renders it in the visitor's local timezone — the formatted string
+// differs (e.g. "2:30 PM" vs "10:30 AM"), and React throws a hydration
+// mismatch (#418/#423/#425) on every single page load. Fixed by rendering
+// the deterministic UTC string on the render that has to match SSR (both the
+// server pass and the client's pre-hydration pass compute it the same way,
+// since it doesn't depend on the runtime's local offset), then swapping to
+// the real local-time string inside useEffect — which only runs client-side,
+// strictly after hydration has already reconciled successfully.
+function clockUTC(iso: string): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return '';
+  return new Date(t).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+}
+
+function clockLocal(iso: string): string {
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return '';
   return new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -30,6 +47,11 @@ export function AgentActivityFeed({
 }) {
   const [events, setEvents] = useState<ActivityEvent[]>(initialEvents);
   const [loading, setLoading] = useState(false);
+  // Stays false through SSR and the client's first (pre-hydration) render so
+  // both passes render clockUTC identically; flips true once mounted, which
+  // only ever happens client-side and after hydration already succeeded.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
 
   async function refresh() {
     setLoading(true);
@@ -79,7 +101,7 @@ export function AgentActivityFeed({
               <span className="min-w-0 flex-1 truncate text-os-muted" title={e.summary}>
                 {e.summary}
               </span>
-              <span className="shrink-0 text-os-dim">{clock(e.at)}</span>
+              <span className="shrink-0 text-os-dim">{hydrated ? clockLocal(e.at) : clockUTC(e.at)}</span>
             </li>
           ))}
         </ul>

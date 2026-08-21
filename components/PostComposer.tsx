@@ -125,7 +125,8 @@ export function PostComposer({ initialPosts }: { initialPosts: SocialPost[] }) {
         </div>
         <div className="mt-3 flex items-center justify-between gap-3">
           <span className="font-mono text-[10px] text-os-dim">
-            Queues only — Social Pulse publishes it, but only when run manually from /agents (no automatic schedule is wired up yet).
+            Social Pulse runs automatically every ~4 hours and will publish whatever is queued here — this isn&apos;t a safe
+            drafting area, queuing a post schedules it to go live soon.
           </span>
           <button
             onClick={submit}

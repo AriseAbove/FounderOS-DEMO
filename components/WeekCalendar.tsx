@@ -1,3 +1,6 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import { Video } from 'lucide-react';
 import type { CalEvent } from '@/lib/connectors/gcal';
 import { assignLanes, hourBounds, type Interval } from '@/lib/calendar-layout';
@@ -20,16 +23,42 @@ function fmtHour(h: number): string {
   const hr = h % 12 === 0 ? 12 : h % 12;
   return `${hr} ${ampm}`;
 }
-function fmtTime(iso: string): string {
+// 2026-08-21 hydration fix: fmtTime and the weekday label below used to call
+// toLocaleTimeString([], …) / toLocaleDateString([], …) directly in render —
+// the BROWSER's local timezone/locale. Next.js server-renders this component
+// on Railway (server TZ = UTC), then React hydrates and re-renders it in the
+// visitor's local timezone, so the formatted string differs between the two
+// passes and React throws a hydration mismatch (#418/#423/#425) on every
+// page load. Each formatter below is split into a UTC variant (deterministic,
+// used on the render that must match SSR — both the server pass and the
+// client's pre-hydration pass) and a local variant swapped in via useEffect
+// once mounted, i.e. strictly after hydration already reconciled.
+function fmtTimeUTC(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' });
+}
+function fmtTimeLocal(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+function weekdayUTC(d: Date): string {
+  return d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
+}
+function weekdayLocal(d: Date): string {
+  return d.toLocaleDateString([], { weekday: 'short' });
 }
 
 type Placed = { ev: CalEvent; startMin: number; endMin: number };
 
 /** 7-day week grid: days across the top, hours down the side, meetings placed
     at their times and colored per account. Events with a video link join on
-    click. Times render in the machine's local timezone. */
+    click. Times render UTC on first paint (matches SSR) then swap to the
+    viewer's local timezone once mounted — see fmtTimeUTC's comment. */
 export function WeekCalendar({ events, accounts, nowISO }: { events: CalEvent[]; accounts: Account[]; nowISO: string }) {
+  // See fmtTimeUTC's comment: stays false through SSR and the client's first
+  // (pre-hydration) render so every pass renders the UTC strings identically;
+  // flips true once mounted, which only ever happens client-side.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
+
   const now = new Date(nowISO);
   const base = localMidnight(now);
 
@@ -92,7 +121,7 @@ export function WeekCalendar({ events, accounts, nowISO }: { events: CalEvent[];
             return (
               <div key={c.key} className={`border-l border-os-border px-2 py-2 text-center ${today ? 'bg-[var(--accent-soft)]' : ''}`}>
                 <div className={`font-mono text-[9.5px] uppercase tracking-[0.12em] ${today ? 'text-os-accent' : 'text-os-dim'}`}>
-                  {c.date.toLocaleDateString([], { weekday: 'short' })}
+                  {hydrated ? weekdayLocal(c.date) : weekdayUTC(c.date)}
                 </div>
                 <div className={`text-[15px] font-semibold ${today ? 'text-os-accent' : 'text-os-text'}`}>{c.date.getDate()}</div>
               </div>
@@ -142,7 +171,7 @@ export function WeekCalendar({ events, accounts, nowISO }: { events: CalEvent[];
                 )}
                 {/* events */}
                 {dayEvents.map((p, j) => (
-                  <EventBlock key={p.ev.id} placed={p} lane={lanes[j]} loHour={loHour} />
+                  <EventBlock key={p.ev.id} placed={p} lane={lanes[j]} loHour={loHour} hydrated={hydrated} />
                 ))}
               </div>
             );
@@ -167,7 +196,17 @@ function AllDayChip({ ev }: { ev: CalEvent }) {
   );
 }
 
-function EventBlock({ placed, lane, loHour }: { placed: Placed; lane: { lane: number; lanes: number }; loHour: number }) {
+function EventBlock({
+  placed,
+  lane,
+  loHour,
+  hydrated,
+}: {
+  placed: Placed;
+  lane: { lane: number; lanes: number };
+  loHour: number;
+  hydrated: boolean;
+}) {
   const { ev, startMin, endMin } = placed;
   const top = (startMin / 60 - loHour) * HOUR_PX;
   const height = Math.max(22, ((endMin - startMin) / 60) * HOUR_PX - 3);
@@ -194,7 +233,7 @@ function EventBlock({ placed, lane, loHour }: { placed: Placed; lane: { lane: nu
       </div>
       {!compact && (
         <div className="mt-0.5 truncate font-mono text-[9px] text-os-dim">
-          {fmtTime(ev.start)} · {ev.account}
+          {hydrated ? fmtTimeLocal(ev.start) : fmtTimeUTC(ev.start)} · {ev.account}
         </div>
       )}
     </Tag>

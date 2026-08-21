@@ -79,14 +79,30 @@ export function ConductorCard({
         </button>
       </div>
       {error && <p className="mt-1.5 text-[11px] text-os-muted">⚠ {error}</p>}
+      {/* Real, verified footgun (lib/agents/runtime.ts's broadcast): only
+          data-agent implements respond() — every other agent falls back to
+          its full run() the instant a message reaches it here, with real
+          side effects (Allo Pulse pulls live calls, Gmail Worker polls real
+          unread counts, Social Pulse can PUBLISH queued posts to Instagram).
+          This looks like idle chat; it isn't. Chat with one agent from
+          /agents instead for a reply with no side effects. */}
+      <p className="mt-2 text-[9.5px] leading-relaxed text-os-dim">
+        ⚠ sending broadcasts to every agent — most have no live reply
+        handler, so this runs their full real job (real calls, email checks,
+        social publishes) instead of just answering. For a reply with no
+        side effects, chat with one agent from <span className="text-os-muted">/agents</span> instead.
+      </p>
 
-      {/* Capability pills */}
-      <div className="mt-3 grid grid-cols-3 gap-1">
-        {['Broadcast', 'Orchestration', 'Instances'].map((cap) => (
-          <span key={cap} className="rounded-full bg-os-text px-2 py-1 text-center text-[9px] font-semibold uppercase tracking-wider text-os-bg">
-            {cap}
-          </span>
-        ))}
+      {/* Capability pill — the Conductor's only real tool is fan-out
+          broadcast (lib/agents/runtime.ts's broadcast()). "Orchestration"
+          and "Instances" used to sit here as decorative pills with no real
+          capability behind them (no scheduling, no process-instance
+          management exists) — removed rather than fixed, since there's
+          nothing honest to put in their place yet. */}
+      <div className="mt-3 flex justify-center">
+        <span className="rounded-full bg-os-text px-2 py-1 text-center text-[9px] font-semibold uppercase tracking-wider text-os-bg">
+          Broadcast
+        </span>
       </div>
 
       {/* Agent tools bar */}

@@ -71,10 +71,23 @@ function BrainHealthTile({
   snapshot,
   stale,
 }: {
-  snapshot: { pendingActions: number; failingWorkers: number; totalWorkers: number; reportedAt: string } | null;
+  snapshot: {
+    pendingActions: number;
+    failingWorkers: number;
+    totalWorkers: number;
+    connectors: { name: string; ok: boolean }[];
+    reportedAt: string;
+  } | null;
   stale: boolean;
 }) {
-  const state = !snapshot ? 'not_configured' : stale ? 'warn' : snapshot.failingWorkers > 0 ? 'warn' : 'ok';
+  const downConnectors = snapshot ? snapshot.connectors.filter((c) => !c.ok) : [];
+  const state = !snapshot
+    ? 'not_configured'
+    : stale
+      ? 'warn'
+      : snapshot.failingWorkers > 0 || downConnectors.length > 0
+        ? 'warn'
+        : 'ok';
   return (
     <Link
       href="/aac-brain"
@@ -86,7 +99,9 @@ function BrainHealthTile({
           <div className="font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-os-dim">AAC Brain</div>
           <div className="font-mono text-[12px] text-os-muted">
             {snapshot
-              ? `${snapshot.pendingActions} pending action${snapshot.pendingActions === 1 ? '' : 's'} · ${snapshot.failingWorkers}/${snapshot.totalWorkers} workers failing${stale ? ' · stale' : ''}`
+              ? `${snapshot.pendingActions} pending action${snapshot.pendingActions === 1 ? '' : 's'} · ${snapshot.failingWorkers}/${snapshot.totalWorkers} workers failing${
+                  downConnectors.length > 0 ? ` · ${downConnectors.map((c) => c.name).join(', ')} down` : ''
+                }${stale ? ' · stale' : ''}`
               : 'never reported — set AAC_BRAIN_SECRET to connect'}
           </div>
         </div>

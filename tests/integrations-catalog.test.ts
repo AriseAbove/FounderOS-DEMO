@@ -85,6 +85,48 @@ describe('connectionCatalog — merges live connector state onto the catalog', (
     expect(rows.find((r) => r.slug === 'stripe')?.connected).toBe(false);
   });
 
+  // 2026-08-21 fix: 'error' (a stored grant/key exists but the last real API
+  // call failed — e.g. a QuickBooks token needing reconnect) used to be
+  // indistinguishable from 'not_configured' (never touched at all) once
+  // squashed into `connected: false` — the UI had no way to tell them apart
+  // and rendered a plain "not connected" card either way, throwing away the
+  // real detail message. `error` is now its own field, computed the same
+  // careful way `connected` is (never invented, always off a real connectorId).
+  test("'error' is true only for a connector whose live status is genuinely 'error'", () => {
+    const rows = connectionCatalog(statuses);
+    const quickbooks = rows.find((r) => r.slug === 'quickbooks')!;
+    // 'payments' is the status id used in the fixture above; quickbooks'
+    // connectorId is 'quickbooks', so it should NOT pick up the 'payments'
+    // error — only an entry actually wired to 'payments' should.
+    expect(quickbooks.error).toBe(false);
+    expect(quickbooks.connected).toBe(false);
+  });
+
+  test("'error' true for an entry wired to a connector reporting 'error', and mutually exclusive with connected/never-connected", () => {
+    const errorStatuses: ConnectorStatus[] = [
+      { id: 'quickbooks', name: 'QuickBooks', kind: 'payments', state: 'error', detail: 'token may be revoked' },
+    ];
+    const rows = connectionCatalog(errorStatuses);
+    const quickbooks = rows.find((r) => r.slug === 'quickbooks')!;
+    expect(quickbooks.error).toBe(true);
+    expect(quickbooks.connected).toBe(false);
+
+    // A genuinely never-touched connector (not_configured) must NOT read as
+    // 'error' — the two are different honest states, not aliases.
+    const neverConnected = rows.find((r) => r.slug === 'stripe')!; // no connectorId at all
+    expect(neverConnected.error).toBe(false);
+    expect(neverConnected.connected).toBe(false);
+  });
+
+  test("a 'connected' status never also reads as error", () => {
+    const rows = connectionCatalog([
+      { id: 'quickbooks', name: 'QuickBooks', kind: 'payments', state: 'connected', detail: 'Arise Above Construction · production' },
+    ]);
+    const quickbooks = rows.find((r) => r.slug === 'quickbooks')!;
+    expect(quickbooks.connected).toBe(true);
+    expect(quickbooks.error).toBe(false);
+  });
+
   test('an integration with no connectorId is never connected', () => {
     const rows = connectionCatalog(statuses);
     const noConnector = rows.find((r) => !r.connectorId);

@@ -7,9 +7,12 @@ import {
   buildSocialDashboard,
   growthPct,
   platformDetail,
+  publishedPostDays,
+  recentLivePosts,
   socialSourceBadge,
   syncSocialSnapshots,
 } from '@/lib/social';
+import type { SocialPost } from '@/lib/schemas';
 
 let db: FounderDb;
 
@@ -254,5 +257,79 @@ describe('socialSourceBadge — the /social header must agree with /integrations
     const badge = socialSourceBadge({ state: 'error' });
     expect(badge.tone).toBe('err');
     expect(badge.label.toLowerCase()).toContain('error');
+  });
+});
+
+// /social must read the SAME real published-post rows /content already
+// reads (lib/content.ts's contentPipelineStatus, status === 'published'),
+// never the hardcoded livePosts=[]/recentLive=false/postDays=[] this page
+// shipped with before 2026-08-21. Reproduces the exact cross-page
+// contradiction: once Social Pulse actually publishes something, /content
+// correctly counts it while /social used to keep claiming no post history
+// had ever synced.
+describe('recentLivePosts — the real /social "Recent posts" data (not hardcoded empty)', () => {
+  const post = (over: Partial<SocialPost>): SocialPost => ({
+    id: 'p1',
+    caption: 'Fresh pour on Woodward',
+    mediaUrl: null,
+    platforms: ['facebook'],
+    status: 'published',
+    scheduledFor: null,
+    createdAt: '2026-08-10T12:00:00Z',
+    ...over,
+  });
+
+  test('empty input yields an empty list — never a fake fallback', () => {
+    expect(recentLivePosts([])).toEqual([]);
+  });
+
+  test('ignores queued and failed posts — only published counts as "live"', () => {
+    const posts = [post({ id: 'q1', status: 'queued' }), post({ id: 'f1', status: 'failed' })];
+    expect(recentLivePosts(posts)).toEqual([]);
+  });
+
+  test('one row per platform for a cross-posted post, newest first', () => {
+    const posts = [
+      post({ id: 'p1', createdAt: '2026-08-10T12:00:00Z', platforms: ['facebook', 'instagram'] }),
+      post({ id: 'p2', createdAt: '2026-08-12T09:00:00Z', platforms: ['instagram'] }),
+    ];
+    const rows = recentLivePosts(posts);
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toMatchObject({ platform: 'instagram', publishedAt: '2026-08-12T09:00:00Z' });
+    expect(rows.slice(1).map((r) => r.platform).sort()).toEqual(['facebook', 'instagram']);
+    // Never invents a permalink OneUp's schedule APIs don't return.
+    for (const r of rows) expect(r.url).toBeNull();
+  });
+
+  test('a scheduled post publishes at its scheduledFor time, not its queued createdAt', () => {
+    const posts = [post({ scheduledFor: '2026-08-15T08:00:00Z', createdAt: '2026-08-10T12:00:00Z' })];
+    expect(recentLivePosts(posts)[0].publishedAt).toBe('2026-08-15T08:00:00Z');
+  });
+});
+
+describe('publishedPostDays — real posting-consistency chart data (not hardcoded empty)', () => {
+  const post = (over: Partial<SocialPost>): SocialPost => ({
+    id: 'p1',
+    caption: 'Fresh pour on Woodward',
+    mediaUrl: null,
+    platforms: ['facebook', 'instagram'],
+    status: 'published',
+    scheduledFor: null,
+    createdAt: '2026-08-10T12:00:00Z',
+    ...over,
+  });
+
+  test('empty input yields an empty list', () => {
+    expect(publishedPostDays([])).toEqual([]);
+  });
+
+  test('one entry per published post, dated YYYY-MM-DD, carrying its real platforms', () => {
+    const days = publishedPostDays([post({})]);
+    expect(days).toEqual([{ date: '2026-08-10', platforms: ['facebook', 'instagram'] }]);
+  });
+
+  test('queued and failed posts never contribute a day', () => {
+    const days = publishedPostDays([post({ status: 'queued' }), post({ id: 'f', status: 'failed' })]);
+    expect(days).toEqual([]);
   });
 });

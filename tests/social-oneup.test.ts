@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from 'vitest';
 import { openDb, type FounderDb } from '@/lib/db';
 import type { OneUpAccount } from '@/lib/connectors/oneup';
 import {
+  fetchOneUpFailedPosts,
   matchesOneUpPlatform,
   resolveSocialNetworkIds,
   oneUpScheduleTime,
@@ -235,5 +236,59 @@ describe('publishQueuedSocialPosts', () => {
     expect(outcomes).toHaveLength(2);
     expect(outcomes.find((o) => o.postId === 'p5')?.ok).toBe(true);
     expect(outcomes.find((o) => o.postId === 'p6')?.ok).toBe(false);
+  });
+});
+
+// BUG 3 fix: listOneUpFailedPosts (lib/connectors/oneup.ts) had zero callers
+// anywhere in the app — a post OneUp rejected vanished with no trace beyond
+// the truncated one-line /agents run summary. fetchOneUpFailedPosts wires it
+// in behind an honest, never-throwing result the /social page can render.
+describe('fetchOneUpFailedPosts', () => {
+  const KEYED = { ONEUP_API_KEY: 'k' };
+
+  function envelope(data: unknown, error = false, message = 'OK') {
+    return JSON.stringify({ message, error, data });
+  }
+
+  test('returns real failed posts with their fail_reason', async () => {
+    const fakeFetch: typeof fetch = async () =>
+      new Response(
+        envelope([
+          {
+            post_id: '99',
+            content: 'Bad post',
+            fail_reason: 'Instagram: caption too long',
+            social_network_username: '@ariseaboveconstruction',
+            created_at: '2026-08-20 10:00:00',
+          },
+        ]),
+      );
+    const result = await fetchOneUpFailedPosts(KEYED, fakeFetch);
+    expect(result).toEqual({
+      ok: true,
+      posts: [
+        {
+          postId: '99',
+          content: 'Bad post',
+          failReason: 'Instagram: caption too long',
+          socialNetworkUsername: '@ariseaboveconstruction',
+          categoryName: null,
+          createdAt: '2026-08-20 10:00:00',
+        },
+      ],
+    });
+  });
+
+  test('never throws — a real API/network failure surfaces as an honest ok:false result', async () => {
+    const fakeFetch: typeof fetch = async () => {
+      throw new Error('network unreachable');
+    };
+    const result = await fetchOneUpFailedPosts(KEYED, fakeFetch);
+    expect(result).toEqual({ ok: false, error: expect.stringContaining('network unreachable') });
+  });
+
+  test('missing ONEUP_API_KEY surfaces as ok:false, not a thrown exception', async () => {
+    const result = await fetchOneUpFailedPosts({}, async () => new Response(envelope([])));
+    expect(result.ok).toBe(false);
   });
 });

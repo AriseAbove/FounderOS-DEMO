@@ -11,9 +11,9 @@ import { runtimeEnv } from '@/lib/creds';
 // ~/.cowork_speaker on every new cloud session (see
 // project_cowork_speaker_voice_system.md in project memory for the full
 // history) — an ordinary HTTPS call needs no device-folder grant at all.
-// Gated by a shared secret the same way the Chief of Staff cron route is
-// gated by CRON_SECRET (see app/api/cron/chief-of-staff/route.ts) since
-// this is a public route.
+// Gated by a shared secret the same way every agent's cron route is gated
+// by CRON_SECRET (see app/api/cron/[agentId]/route.ts) since this is a
+// public route.
 export const dynamic = 'force-dynamic';
 
 function checkAuth(req: Request): NextResponse | null {

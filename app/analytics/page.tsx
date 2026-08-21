@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Facebook, Instagram, Linkedin, Music2, Store, Twitter, Youtube, type LucideIcon } from 'lucide-react';
 import { getDb } from '@/lib/data';
 import { buildSocialDashboard, audienceGrowthPct, PLATFORM_LABELS } from '@/lib/social';
-import { agentRunVolume, runsWithin } from '@/lib/analytics';
+import { agentRunVolume, runsWithin, runOutcomeCounts } from '@/lib/analytics';
 import { splitMetrics, type MetricInput, type MetricTile } from '@/lib/operating-metrics';
 import { readStoreNotes } from '@/lib/brain';
 import { unreadCounts } from '@/lib/connectors/email';
@@ -214,11 +214,17 @@ export default async function AnalyticsPage() {
   const tailRuns = rankedAgents.slice(6).reduce((s, [, n]) => s + n, 0);
   if (tailRuns > 0) runsByAgentItems.push({ key: 'other', label: 'Other agents', value: tailRuns });
 
-  // Run outcomes — reliability at a glance.
-  const okRuns = runs.filter((r) => r.ok).length;
+  // Run outcomes — reliability at a glance. A run can complete its own job
+  // fine (ok: true) while a notification it tried to send — e.g. the Chief
+  // of Staff's ntfy push — genuinely fails; that's a real problem and must
+  // show up as its own bucket rather than rolling into "Succeeded" (see
+  // lib/analytics.ts's runOutcomeCounts and lib/agents/real.ts's
+  // chiefOfStaffRunWith for how ok/pushFailed are kept separate signals).
+  const outcomes = runOutcomeCounts(runs);
   const outcomeItems: PieItem[] = [
-    { key: 'ok', label: 'Succeeded', value: okRuns },
-    { key: 'fail', label: 'Failed', value: runs.length - okRuns },
+    { key: 'ok', label: 'Succeeded', value: outcomes.succeeded },
+    ...(outcomes.pushFailed > 0 ? [{ key: 'push-failed', label: 'Push failed', value: outcomes.pushFailed }] : []),
+    { key: 'fail', label: 'Failed', value: outcomes.failed },
   ];
 
   return (
@@ -267,7 +273,7 @@ export default async function AnalyticsPage() {
           {runs.length > 0 && (
             <PieCard
               title="Run outcomes"
-              sub={`${Math.round((okRuns / runs.length) * 100)}% ok`}
+              sub={`${Math.round((outcomes.succeeded / runs.length) * 100)}% ok`}
               items={outcomeItems}
               total={runs.length}
               centerLabel="run outcomes"

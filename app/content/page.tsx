@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { ArrowUpRight, Clapperboard, Wrench } from 'lucide-react';
 import { getDb } from '@/lib/data';
 import { contentAgents } from '@/lib/content';
+import { allConnectorStatuses } from '@/lib/connectors';
+import { liveAgentStatus } from '@/lib/agents/live-status';
 import { PageHeader } from '@/components/PageHeader';
 import { Badge, Dot, SectionHead } from '@/components/terminal';
 import type { Agent } from '@/lib/schemas';
@@ -46,7 +48,15 @@ function AgentCard({ agent, lead = false }: { agent: Agent; lead?: boolean }) {
 
 export default async function ContentPage() {
   const db = getDb();
-  const crew = contentAgents(db.agents.all());
+  const connections = await allConnectorStatuses();
+  // Honest, computed status — see lib/agents/live-status.ts. Same rule Home
+  // and /agents use, so this page never shows "planned" for an agent that's
+  // actually live elsewhere (e.g. Social Pulse once ONEUP_API_KEY is set).
+  const liveAgents = db.agents.all().map((a) => ({
+    ...a,
+    status: liveAgentStatus(a.id, connections, db.agentRuns.byAgent(a.id)[0], a.status),
+  }));
+  const crew = contentAgents(liveAgents);
   const lead = crew[0] ?? null;
   const workers = lead ? crew.slice(1) : crew;
 

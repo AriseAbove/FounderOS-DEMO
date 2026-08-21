@@ -132,6 +132,22 @@ export function isTokenExpiringSoon(expiresAtMs: number, now: number = Date.now(
   return expiresAtMs - now <= bufferMs;
 }
 
+/** Module-level in-flight-refresh lock. Intuit rotates the refresh token on
+    every use (see refreshTokens' own comment above), so two concurrent
+    callers each independently calling the token endpoint would race: whichever
+    response lands second carries a refresh token the OTHER caller's stored
+    write has already made stale, silently breaking the connection. This app
+    is a single Next.js process, so a module-level promise is enough — no
+    distributed lock needed. Every concurrent getValidAccessToken() call while
+    a refresh is already in flight awaits this SAME promise instead of firing
+    its own request; it's cleared once the in-flight refresh settles (success
+    or failure) so a later, genuinely-new refresh isn't blocked forever. Real
+    fix for /finances firing 4 QBO calls in one Promise.all (see
+    app/finances/page.tsx) plus other pages potentially rendering
+    concurrently — see CLAUDE.md's dated entry and
+    tests/quickbooks-refresh-lock.test.ts. */
+let refreshPromise: Promise<QuickBooksAuth> | null = null;
+
 /** A valid access token + realmId, refreshing (and persisting the rotated
     refresh token) when the stored one is stale. Null when never connected. */
 export async function getValidAccessToken(
@@ -143,8 +159,17 @@ export async function getValidAccessToken(
   if (!isTokenExpiringSoon(stored.accessTokenExpiresAt)) {
     return { accessToken: stored.accessToken, realmId: stored.realmId };
   }
-  const refreshed = await refreshTokens(env, stored.refreshToken, stored.realmId);
-  db.quickbooksAuth.save(refreshed);
+  if (!refreshPromise) {
+    refreshPromise = refreshTokens(env, stored.refreshToken, stored.realmId)
+      .then((refreshed) => {
+        db.quickbooksAuth.save(refreshed);
+        return refreshed;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  const refreshed = await refreshPromise;
   return { accessToken: refreshed.accessToken, realmId: refreshed.realmId };
 }
 

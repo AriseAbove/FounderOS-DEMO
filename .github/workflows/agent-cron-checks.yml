@@ -1,0 +1,169 @@
+name: Agent cron checks
+
+# Schedules for every real agent EXCEPT Chief of Staff, which already has its
+# own workflow (chief-of-staff-check.yml). 2026-08-21: a production review
+# found the rest of the roster — gmail-worker, calendar-worker, comms-agent,
+# allo-pulse, website-pulse, social-pulse, quickbooks-pulse, data-agent,
+# conductor — had never run on a schedule, only ever manually from /agents.
+# This workflow calls each agent's generalized cron route
+# (app/api/cron/[agentId], see that file's header comment) the same way
+# chief-of-staff-check.yml calls its own — GitHub Actions, not Railway's
+# native Cron Jobs, because the FOUNDER_OS_DB volume can only mount to one
+# Railway service; a second scheduler service would mean a second,
+# out-of-sync copy of the database.
+#
+# Same repo secrets as chief-of-staff-check.yml (already set, reused here —
+# nothing new to configure):
+#   ARISE_OS_URL   — e.g. https://your-app.up.railway.app (no trailing slash)
+#   CRON_SECRET    — must match CRON_SECRET in the app's own environment
+#
+# GitHub Actions only picks up `on: schedule` from the repo's DEFAULT branch
+# (rebuild/arise-above, see CLAUDE.md) — same caveat chief-of-staff-check.yml
+# already calls out. If this workflow ever looks "dead" in the Actions tab,
+# check that first before touching secrets.
+#
+# Cadence groups (all UTC; the /8am-6pm ET/ windows assume EDT — see
+# chief-of-staff-check.yml's own note about adjusting for DST/hour changes):
+#
+#   every-30 (12-22 UTC = 8am-6pm ET, every 30 min): gmail-worker,
+#     calendar-worker, comms-agent — inbox/calendar state changes fast during
+#     the workday and these are cheap read-only checks (IMAP/CalDAV), so a
+#     tight interval costs little and keeps /comms' unread/upcoming numbers
+#     close to real-time.
+#
+#   every-15 (12-22 UTC, every 15 min): allo-pulse, website-pulse — these
+#     file new inbound calls/form leads into the AAC pipeline. A stale lead
+#     sitting unimported is a real cost (slower follow-up, worse close rate),
+#     so lead intake gets the tightest interval of the roster.
+#
+#   hourly (12-22 UTC): data-agent, conductor — pure DB/brain-provider reads
+#     with no external API and no side effects; hourly during business hours
+#     is a cheap, steady "is the roster actually alive" heartbeat without
+#     being wasteful.
+#
+#   quickbooks-twice-daily (13,20 UTC = ~9am/~4pm ET): quickbooks-pulse — a
+#     financial snapshot (MTD income/expenses, open invoices) that doesn't
+#     meaningfully change minute to minute; twice a day is enough to catch
+#     same-day movement without hammering the QuickBooks API.
+#
+#   every-4h (round the clock): social-pulse — publishes whatever is queued
+#     on the Social tab. Posts can be queued outside business hours, so this
+#     isn't restricted to the 12-22 window; every 4 hours keeps a queued post
+#     from sitting unpublished too long without over-polling OneUp.
+
+on:
+  schedule:
+    - cron: '*/30 12-22 * * *' # every-30
+    - cron: '*/15 12-22 * * *' # every-15
+    - cron: '0 12-22 * * *'    # hourly
+    - cron: '0 13,20 * * *'    # quickbooks-twice-daily
+    - cron: '0 */4 * * *'      # every-4h
+  workflow_dispatch:
+    inputs:
+      agent:
+        description: 'Run one specific agent id instead of a whole cadence group (optional).'
+        required: false
+        type: string
+
+jobs:
+  every-30:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '*/30 12-22 * * *'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        agent: [gmail-worker, calendar-worker, comms-agent]
+      fail-fast: false
+    steps:
+      - name: Call the agent's cron route
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.agent == '' || github.event.inputs.agent == matrix.agent
+        run: |
+          if [ -z "${ARISE_OS_URL}" ] || [ -z "${CRON_SECRET}" ]; then
+            echo "ARISE_OS_URL and/or CRON_SECRET repo secret not set — skipping." >&2
+            exit 1
+          fi
+          curl --fail --show-error --silent \
+            -X POST "${ARISE_OS_URL}/api/cron/${{ matrix.agent }}" \
+            -H "Authorization: Bearer ${CRON_SECRET}"
+        env:
+          ARISE_OS_URL: ${{ secrets.ARISE_OS_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+
+  every-15:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '*/15 12-22 * * *'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        agent: [allo-pulse, website-pulse]
+      fail-fast: false
+    steps:
+      - name: Call the agent's cron route
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.agent == '' || github.event.inputs.agent == matrix.agent
+        run: |
+          if [ -z "${ARISE_OS_URL}" ] || [ -z "${CRON_SECRET}" ]; then
+            echo "ARISE_OS_URL and/or CRON_SECRET repo secret not set — skipping." >&2
+            exit 1
+          fi
+          curl --fail --show-error --silent \
+            -X POST "${ARISE_OS_URL}/api/cron/${{ matrix.agent }}" \
+            -H "Authorization: Bearer ${CRON_SECRET}"
+        env:
+          ARISE_OS_URL: ${{ secrets.ARISE_OS_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+
+  hourly:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 12-22 * * *'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        agent: [data-agent, conductor]
+      fail-fast: false
+    steps:
+      - name: Call the agent's cron route
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.agent == '' || github.event.inputs.agent == matrix.agent
+        run: |
+          if [ -z "${ARISE_OS_URL}" ] || [ -z "${CRON_SECRET}" ]; then
+            echo "ARISE_OS_URL and/or CRON_SECRET repo secret not set — skipping." >&2
+            exit 1
+          fi
+          curl --fail --show-error --silent \
+            -X POST "${ARISE_OS_URL}/api/cron/${{ matrix.agent }}" \
+            -H "Authorization: Bearer ${CRON_SECRET}"
+        env:
+          ARISE_OS_URL: ${{ secrets.ARISE_OS_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+
+  quickbooks-twice-daily:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 13,20 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the QuickBooks Pulse cron route
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.agent == '' || github.event.inputs.agent == 'quickbooks-pulse'
+        run: |
+          if [ -z "${ARISE_OS_URL}" ] || [ -z "${CRON_SECRET}" ]; then
+            echo "ARISE_OS_URL and/or CRON_SECRET repo secret not set — skipping." >&2
+            exit 1
+          fi
+          curl --fail --show-error --silent \
+            -X POST "${ARISE_OS_URL}/api/cron/quickbooks-pulse" \
+            -H "Authorization: Bearer ${CRON_SECRET}"
+        env:
+          ARISE_OS_URL: ${{ secrets.ARISE_OS_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+
+  every-4h:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 */4 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the Social Pulse cron route
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.agent == '' || github.event.inputs.agent == 'social-pulse'
+        run: |
+          if [ -z "${ARISE_OS_URL}" ] || [ -z "${CRON_SECRET}" ]; then
+            echo "ARISE_OS_URL and/or CRON_SECRET repo secret not set — skipping." >&2
+            exit 1
+          fi
+          curl --fail --show-error --silent \
+            -X POST "${ARISE_OS_URL}/api/cron/social-pulse" \
+            -H "Authorization: Bearer ${CRON_SECRET}"
+        env:
+          ARISE_OS_URL: ${{ secrets.ARISE_OS_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}

@@ -1,4 +1,4 @@
-import { CalendarDays, Mail, type LucideIcon } from 'lucide-react';
+import { CalendarDays, Mail, Phone, type LucideIcon } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { CommsTabs } from '@/components/CommsTabs';
 import { gatherCommsFeed } from '@/lib/comms-feed';
@@ -6,6 +6,7 @@ import { annotatePriorities } from '@/lib/comms';
 import { DEFAULT_WORK_KEYWORDS, parseWorkKeywords } from '@/lib/comms-gravity';
 import { emailStatus } from '@/lib/connectors/email';
 import { calendarStatus, caldavAccounts, upcomingEvents } from '@/lib/connectors/gcal';
+import { alloStatus } from '@/lib/connectors/allo';
 import { getDb } from '@/lib/data';
 import { Badge, Dot, SectionHead } from '@/components/terminal';
 
@@ -14,13 +15,15 @@ export const dynamic = 'force-dynamic';
 const SOURCE_ICON: Record<string, LucideIcon> = {
   email: Mail,
   calendar: CalendarDays,
+  allo: Phone,
 };
 
 export default async function CommsPage() {
-  const [rawFeed, email, calendar, weekEvents] = await Promise.all([
+  const [rawFeed, email, calendar, allo, weekEvents] = await Promise.all([
     gatherCommsFeed(),
     emailStatus(),
     calendarStatus(),
+    alloStatus(),
     upcomingEvents(undefined, { days: 7, limit: 200 }),
   ]);
   const tags = getDb().contactTags.all();
@@ -30,7 +33,12 @@ export default async function CommsPage() {
   const workKeywords = [...DEFAULT_WORK_KEYWORDS, ...parseWorkKeywords(process.env.COMMS_WORK_KEYWORDS)];
   const calLegend = caldavAccounts().map((a) => ({ name: a.name, color: a.color }));
   const nowISO = new Date().toISOString();
-  const sources = [email, calendar];
+  // Allo (the (248) 717-1417 call/SMS line) sits alongside email and
+  // calendar here — it used to be invisible on this page even though calls
+  // land as real feed items below (see lib/comms-feed.ts), which meant Sean
+  // had to check /funnel separately to see whether the phone channel was
+  // even connected.
+  const sources = [email, calendar, allo];
   const connectedSources = sources.filter((s) => s.state === 'connected').length;
   // The real, unbounded mailbox unread count — straight from IMAP's STATUS
   // (UNSEEN) per configured inbox (lib/connectors/email.ts's unreadCounts),
@@ -54,7 +62,7 @@ export default async function CommsPage() {
       {/* Source status row */}
       <section className="mb-7">
         <SectionHead label="Sources" count={`${connectedSources}/${sources.length} connected`} />
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-3">
           {sources.map((source) => {
             const Icon = SOURCE_ICON[source.id] ?? Mail;
             const ok = source.state === 'connected';
@@ -91,16 +99,17 @@ export default async function CommsPage() {
         totalUnread={totalUnread}
       />
 
-      {/* Real configured-inbox count, not a hardcoded "4" — this used to say
-          "4 IMAP inboxes" unconditionally (the slot capacity, not what's
-          actually wired up) while the Sources card above it, a few hundred
-          pixels up, already computed the true number honestly. Production
-          today has exactly 1 of the 4 slots filled (INBOX_1 only — see
-          tests/connectors.test.ts), so the two would read "1 inbox" and
-          "4 IMAP inboxes" on the same page. */}
+      {/* Honest per-channel status. Real configured-inbox count, not a
+          hardcoded "4" (the slot capacity, not what's actually wired up) —
+          the Sources card above already computes the true number honestly,
+          so this line has to match it. Allo (calls + SMS) reads its own real
+          ConnectorStatus the same way, never a hardcoded claim either way —
+          it used to be entirely absent from this line even though it's
+          Sean's actual primary lead-intake channel. */}
       <p className="mt-4 rounded-md-t border border-dashed border-os-border-strong px-3 py-3 text-center font-mono text-[10.5px] text-os-dim">
-        {email.meta?.configured ?? 0} of {email.meta?.slots ?? 4} IMAP inbox slots configured · calendar via CalDAV —
-        one operator feed
+        {email.meta?.configured ?? 0} of {email.meta?.slots ?? 4} IMAP inbox slots configured · calendar via CalDAV ·
+        Allo calls + SMS {allo.state === 'connected' ? 'connected' : allo.state === 'error' ? 'error' : 'not configured'}{' '}
+        — one operator feed
       </p>
     </div>
   );

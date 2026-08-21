@@ -2,7 +2,6 @@ import { ArrowDownLeft, ArrowUpRight, Scale, FileText } from 'lucide-react';
 import {
   qboConfigured,
   monthToDateIncome as qboMonthToDateIncome,
-  monthToDateExpenses as qboMonthToDateExpenses,
   monthToDateExpensesByCategory as qboMonthToDateExpensesByCategory,
   openInvoices as qboOpenInvoices,
   companyName as qboCompanyName,
@@ -40,20 +39,32 @@ export default async function FinancesPage() {
   const qboAuthorized = qboKeyed && getDb().quickbooksAuth.get() !== null;
   let qboName: string | null = null;
   let qboIncome: number | null = null;
-  let qboExpenses: number | null = null;
   let qboAr: Awaited<ReturnType<typeof qboOpenInvoices>> = null;
   let qboExpenseCategories: Awaited<ReturnType<typeof qboMonthToDateExpensesByCategory>> = null;
   if (qboAuthorized) {
-    [qboName, qboIncome, qboExpenses, qboAr, qboExpenseCategories] = await Promise.all([
+    [qboName, qboIncome, qboAr, qboExpenseCategories] = await Promise.all([
       qboCompanyName().catch(() => null),
       qboMonthToDateIncome().catch(() => null),
-      qboMonthToDateExpenses().catch(() => null),
       qboOpenInvoices().catch(() => null),
       qboMonthToDateExpensesByCategory().catch(() => null),
     ]);
   }
   const qboConnected = qboAuthorized && qboName !== null;
-  const qboNet = qboIncome != null && qboExpenses != null ? qboIncome - qboExpenses : null;
+  // Single source of truth for "this month's QuickBooks expenses": the same
+  // categorized ProfitAndLoss total used by the category chart further down
+  // this page (see resolvedExpenses/`expenses` below and
+  // resolveExpenseCategories in lib/finances.ts). Previously this card had
+  // its own separate call — monthToDateExpenses, a raw sum of QBO Purchase
+  // transactions — which could (and in production did) disagree with the
+  // category chart's total for the exact same month: a Purchase transaction
+  // coded to a Cost of Goods Sold account counted toward that raw sum but
+  // was dropped by the category parser (fixed 2026-08-21, see CLAUDE.md).
+  // Rather than keep two independently-computed "expenses" numbers in sync
+  // forever, every "this month's expenses" figure on this page now derives
+  // from this one QuickBooks read. Null only when the report call itself
+  // failed/was unreachable — an honest pending state, not a guess.
+  const qboExpenseTotal = qboExpenseCategories != null ? qboExpenseCategories.reduce((s, c) => s + c.total, 0) : null;
+  const qboNet = qboIncome != null && qboExpenseTotal != null ? qboIncome - qboExpenseTotal : null;
 
   // Income = QuickBooks (the real books). Honest zero until the grant lands.
   const incomeMtd = qboIncome ?? 0;
@@ -146,9 +157,9 @@ export default async function FinancesPage() {
               </div>
               <div className="flex items-baseline gap-1.5">
                 <span className="font-mono text-[16px] font-semibold leading-none tracking-[-0.02em]">
-                  {qboExpenses != null ? usd(qboExpenses) : '—'}
+                  {qboExpenseTotal != null ? usd(qboExpenseTotal) : '—'}
                 </span>
-                <span className="font-mono text-[9.5px] text-os-dim">purchases</span>
+                <span className="font-mono text-[9.5px] text-os-dim">categorized P&amp;L</span>
               </div>
             </div>
             <div className="flex flex-col gap-1 rounded-lg-t border border-os-border bg-os-surface px-3 py-2">

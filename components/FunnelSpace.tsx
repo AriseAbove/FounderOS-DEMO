@@ -13,27 +13,29 @@
  * cold) · hue = current stage, fade-to-red = quiet decay, green = converted.
  * Hover a node for its name, click to pin the full journey card.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import { DECAY_DAYS, DECAY_FADE_START, FUNNEL_STAGES, type FunnelSpaceNode } from '@/lib/funnel';
 import { decayedColor, decayedOpacity, easeInOut, orbitSpread, rnd, smoothK, usd } from '@/lib/funnel-viz';
 import { FunnelNodeCard } from '@/components/FunnelNodeCard';
-import type { FunnelSummary } from '@/lib/schemas';
+import type { FunnelStage, FunnelSummary } from '@/lib/schemas';
+
+export type StageDef = { id: FunnelStage; label: string };
 
 const W = 1100;
 const H = 460;
 const CY = H / 2 - 14; // spine sits slightly above center; labels live below
 const HUB_X0 = 100;
-const HUB_GAP = (W - 200) / (FUNNEL_STAGES.length - 1);
-const hubX = (i: number) => HUB_X0 + i * HUB_GAP;
-const hubR = (i: number) => (i === FUNNEL_STAGES.length - 1 ? 34 : 24);
 
-/** One hue per stage cluster — derived from the stage list so the palette
- * tracks the pipeline length (tokens --funnel-s0..s7 in globals.css). */
-const SEGMENT_COLOR = FUNNEL_STAGES.map((_, i) => `var(--funnel-s${i})`);
-
-const nodeColor = (n: FunnelSpaceNode) => decayedColor(SEGMENT_COLOR[n.currentHub], n.decay, n.state === 'converted');
-const nodeOpacity = (n: FunnelSpaceNode) => decayedOpacity(n.decay);
+/** Hub geometry scoped to however many stages the active pipeline has — AAC's
+ * 8 or Apps' 6 — so the space is never AAC's layout wearing an Apps label. */
+function hubGeometry(stageCount: number) {
+  const gap = (W - 200) / Math.max(1, stageCount - 1);
+  return {
+    hubX: (i: number) => HUB_X0 + i * gap,
+    hubR: (i: number) => (i === stageCount - 1 ? 34 : 24),
+  };
+}
 
 const ENTER_DELAY = 500; // ms before the first node departs
 const HOP_MS = 950; // hub-to-hub travel time
@@ -54,7 +56,14 @@ const GOLDEN = 2.399963;
  * hottest closest. `spread` widens the band with cluster population, and the
  * ellipse flattens as it widens so wide orbits never wash over the hub labels.
  */
-function orbitTarget(n: FunnelSpaceNode, i: number, tMs: number, spread: number): Pos {
+function orbitTarget(
+  n: FunnelSpaceNode,
+  i: number,
+  tMs: number,
+  spread: number,
+  hubX: (i: number) => number,
+  hubR: (i: number) => number,
+): Pos {
   const speed = (0.0001 + rnd(i, 2) * 0.00012) * (rnd(i, 3) > 0.5 ? 1 : -1);
   const a = i * GOLDEN + rnd(i, 4) * 0.5 + tMs * speed;
   const r = hubR(n.currentHub) + 5 + ((1 - n.likelihood / 100) * 20 + rnd(i, 1) * 7) * spread;
@@ -66,7 +75,13 @@ function orbitTarget(n: FunnelSpaceNode, i: number, tMs: number, spread: number)
 }
 
 /** Position on the entry replay: hub-to-hub hops with dwells, arcing slightly. */
-function replayPos(n: FunnelSpaceNode, i: number, tMs: number, stagger: number): Pos | null {
+function replayPos(
+  n: FunnelSpaceNode,
+  i: number,
+  tMs: number,
+  stagger: number,
+  hubX: (i: number) => number,
+): Pos | null {
   let t = tMs - (ENTER_DELAY + i * stagger);
   if (t <= 0) return { x: hubX(n.hubs[0]) - 60 - rnd(i, 5) * 30, y: CY + (rnd(i, 6) - 0.5) * 80 };
   for (let leg = 0; leg < n.hubs.length - 1; leg++) {
@@ -92,13 +107,24 @@ function replayPos(n: FunnelSpaceNode, i: number, tMs: number, stagger: number):
 export function FunnelSpace({
   nodes,
   summary,
+  stages = FUNNEL_STAGES,
   initialLeadId,
 }: {
   nodes: FunnelSpaceNode[];
   summary: FunnelSummary;
+  /** The active pipeline's stages — AAC's 8 or Apps' 6. Defaults to AAC's for
+   * back-compat with any caller that hasn't been scoped to a business yet. */
+  stages?: StageDef[];
   /** Deep link (?lead=) — the attention rail pins this lead's dossier. */
   initialLeadId?: string | null;
 }) {
+  const { hubX, hubR } = useMemo(() => hubGeometry(stages.length), [stages.length]);
+  /** One hue per stage cluster — Apps' 6 stages reuse the first 6 of the
+   * --funnel-s0..s7 tokens (app/globals.css), same as AAC's first 6. */
+  const SEGMENT_COLOR = useMemo(() => stages.map((_, i) => `var(--funnel-s${i})`), [stages]);
+  const nodeColor = (n: FunnelSpaceNode) =>
+    decayedColor(SEGMENT_COLOR[n.currentHub], n.decay, n.state === 'converted');
+  const nodeOpacity = (n: FunnelSpaceNode) => decayedOpacity(n.decay);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -131,7 +157,7 @@ export function FunnelSpace({
     if (reduced) {
       // no motion: place every node exactly where it lives (pulses stay dark)
       nodes.forEach((n, i) => {
-        const { x, y } = orbitTarget(n, i, 0, spread(n));
+        const { x, y } = orbitTarget(n, i, 0, spread(n), hubX, hubR);
         nodeRefs.current.get(n.id)?.setAttribute('transform', `translate(${x.toFixed(1)}, ${y.toFixed(1)})`);
       });
       return;
@@ -150,16 +176,17 @@ export function FunnelSpace({
       nodes.forEach((n, i) => {
         const el = nodeRefs.current.get(n.id);
         if (!el) return;
-        const target = replayPos(n, i, t, stagger) ?? orbitTarget(n, i, t, spread(n));
+        const target = replayPos(n, i, t, stagger, hubX) ?? orbitTarget(n, i, t, spread(n), hubX, hubR);
         const prev = posRef.current.get(n.id) ?? target;
         const next = { x: prev.x + (target.x - prev.x) * k, y: prev.y + (target.y - prev.y) * k };
         posRef.current.set(n.id, next);
         el.setAttribute('transform', `translate(${next.x.toFixed(1)}, ${next.y.toFixed(1)})`);
       });
+      const legCount = Math.max(1, stages.length - 1);
       for (let p = 0; p < PULSES; p++) {
         const el = pulseRefs.current.get(p);
         if (!el) continue;
-        const leg = p % (FUNNEL_STAGES.length - 1);
+        const leg = p % legCount;
         const u = (t * (0.00008 + rnd(p, 9) * 0.00005) + rnd(p, 10)) % 1;
         el.setAttribute('cx', String(hubX(leg) + (hubX(leg + 1) - hubX(leg)) * u));
         el.setAttribute('cy', String(CY + Math.sin(u * Math.PI * 2 + p) * 2));
@@ -169,13 +196,10 @@ export function FunnelSpace({
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [nodes]);
-
-  if (nodes.length === 0) {
-    return <p className="py-6 text-center font-mono text-[11.5px] text-os-dim">No journeys for this filter yet.</p>;
-  }
+  }, [nodes, hubX, hubR, stages.length]);
 
   const selected = nodes.find((n) => n.id === selectedId) ?? null;
+  const empty = nodes.length === 0;
 
   return (
     <div ref={rootRef} className="funnel-space-root relative">
@@ -198,7 +222,7 @@ export function FunnelSpace({
         onClick={() => setSelectedId(null)}
       >
         {/* spine the data pulses travel */}
-        <line x1={hubX(0)} x2={hubX(FUNNEL_STAGES.length - 1)} y1={CY} y2={CY} stroke="var(--border)" />
+        <line x1={hubX(0)} x2={hubX(stages.length - 1)} y1={CY} y2={CY} stroke="var(--border)" />
         {Array.from({ length: PULSES }, (_, p) => (
           <circle
             key={`pulse-${p}`}
@@ -212,8 +236,11 @@ export function FunnelSpace({
           />
         ))}
 
-        {/* section hubs — the funnel's stations, each tinted its segment hue */}
-        {FUNNEL_STAGES.map((s, i) => {
+        {/* section hubs — the funnel's stations, each tinted its segment hue.
+            Real for whichever pipeline `stages` is (AAC's 8 or Apps' 6) — an
+            honestly-empty business still shows its own stage row, all zeros,
+            never AAC's layout mislabeled as another business's. */}
+        {stages.map((s, i) => {
           const r = hubR(i);
           const seg = SEGMENT_COLOR[i];
           const row = summary.stages[i];
@@ -281,6 +308,12 @@ export function FunnelSpace({
           );
         })}
       </svg>
+
+      {/* Honest zero: the real stage row renders above either way — this is
+          just the caption explaining why nobody's orbiting it yet. */}
+      {empty && (
+        <p className="py-2 text-center font-mono text-[11.5px] text-os-dim">No journeys for this filter yet.</p>
+      )}
 
       {/* pinned journey card — shared with the radial view */}
       {selected && <FunnelNodeCard node={selected} onClose={() => setSelectedId(null)} />}

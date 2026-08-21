@@ -9,7 +9,7 @@
  * and priority tagging reuse the same endpoints as the old feed.
  */
 import { useMemo, useState } from 'react';
-import { MessageSquare, Mail, Hash, Send, Copy, ExternalLink } from 'lucide-react';
+import { MessageSquare, Mail, Hash, Phone, MessageCircle, Send, Copy, PhoneCall, ExternalLink } from 'lucide-react';
 import { CONTACT_TIERS } from '@/lib/life-map';
 import { commsLane, laneBottomPct, COMMS_LANES, type CommsLane } from '@/lib/comms-gravity';
 import type { CommsItem, CommsSource } from '@/lib/comms';
@@ -19,6 +19,8 @@ const SOURCE_ICON: Record<CommsSource, typeof Mail> = {
   email: Mail,
   whatsapp: MessageSquare,
   slack: Hash,
+  call: Phone,
+  sms: MessageCircle,
 };
 
 const UNTAGGED_COLOR = '#c7d2cc';
@@ -135,6 +137,21 @@ export function CommsGravity({
       const subject = encodeURIComponent(`Re: ${item.preview}`);
       window.location.href = `mailto:${item.replyTo}?subject=${subject}&body=${encodeURIComponent(text)}`;
       setStatus(body.error ? 'SMTP unavailable — opened draft' : 'opened draft in Mail');
+      return;
+    }
+
+    if (item.source === 'call') {
+      // Calls don't get a text-draft reply path — SelectedMessage renders a
+      // callback link instead of a textarea for this source, so onReply is
+      // never wired up to fire for it. This branch only guards against a
+      // stray call.
+      return;
+    }
+
+    if (item.source === 'sms' && item.replyTo) {
+      await navigator.clipboard.writeText(text);
+      window.location.href = item.replyTo; // sms:<number> — opens the phone's real text composer
+      setStatus(`copied — paste into the text to "${item.sender}"`);
       return;
     }
 
@@ -313,32 +330,53 @@ function SelectedMessage({
         {item.preview || '—'}
       </p>
 
-      <div className="mt-2.5 flex gap-2">
-        <textarea
-          value={draft}
-          onChange={(e) => onDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) onReply();
-          }}
-          rows={2}
-          placeholder={
-            item.source === 'slack'
-              ? `Reply in #${item.replyTo} — sends via bot`
-              : item.source === 'email'
-                ? `Reply to ${item.replyTo ?? item.sender} — sends over SMTP`
-                : `Reply to ${item.sender} — copies & opens WhatsApp`
-          }
-          className="min-w-0 flex-1 resize-y rounded-lg border border-os-border bg-os-bg px-3 py-2 text-xs text-os-text placeholder:text-os-dim focus:border-os-border-bright focus:outline-none"
-        />
-        <button
-          onClick={onReply}
-          disabled={!draft.trim()}
-          className="flex shrink-0 items-center gap-1.5 self-end rounded-lg bg-os-text px-3 py-2 text-xs font-bold text-os-bg disabled:opacity-30"
-        >
-          {item.source === 'slack' ? <Send className="h-3 w-3" /> : item.source === 'email' ? <Send className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-          {item.source === 'slack' ? 'Send' : item.source === 'email' ? 'Send' : 'Copy & open'}
-        </button>
-      </div>
+      {item.source === 'call' ? (
+        // A phone call has no text reply path — the honest action here is a
+        // real callback, not a fake draft box no reply endpoint could ever
+        // send.
+        <div className="mt-2.5 flex items-center gap-2">
+          {item.replyTo ? (
+            <a
+              href={item.replyTo}
+              className="flex shrink-0 items-center gap-1.5 rounded-lg bg-os-text px-3 py-2 text-xs font-bold text-os-bg"
+            >
+              <PhoneCall className="h-3 w-3" />
+              Call back
+            </a>
+          ) : (
+            <span className="font-mono text-[10.5px] text-os-dim">no callback number on file for this call</span>
+          )}
+        </div>
+      ) : (
+        <div className="mt-2.5 flex gap-2">
+          <textarea
+            value={draft}
+            onChange={(e) => onDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) onReply();
+            }}
+            rows={2}
+            placeholder={
+              item.source === 'slack'
+                ? `Reply in #${item.replyTo} — sends via bot`
+                : item.source === 'email'
+                  ? `Reply to ${item.replyTo ?? item.sender} — sends over SMTP`
+                  : item.source === 'sms'
+                    ? `Reply to ${item.sender} — copies & opens Messages`
+                    : `Reply to ${item.sender} — copies & opens WhatsApp`
+            }
+            className="min-w-0 flex-1 resize-y rounded-lg border border-os-border bg-os-bg px-3 py-2 text-xs text-os-text placeholder:text-os-dim focus:border-os-border-bright focus:outline-none"
+          />
+          <button
+            onClick={onReply}
+            disabled={!draft.trim()}
+            className="flex shrink-0 items-center gap-1.5 self-end rounded-lg bg-os-text px-3 py-2 text-xs font-bold text-os-bg disabled:opacity-30"
+          >
+            {item.source === 'slack' || item.source === 'email' ? <Send className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+            {item.source === 'slack' || item.source === 'email' ? 'Send' : 'Copy & open'}
+          </button>
+        </div>
+      )}
       {status && <p className="mt-1.5 font-mono text-[10px] text-os-muted">{status}</p>}
     </div>
   );

@@ -4,8 +4,11 @@ import {
   alloConfigured,
   alloStatus,
   fetchAlloCalls,
+  fetchAlloMessages,
   normalizeAlloCall,
+  normalizeAlloMessage,
   type AlloCall,
+  type AlloMessage,
 } from '@/lib/connectors/allo';
 
 const KEYED = { ALLO_API_KEY: 'allo-test-key' };
@@ -142,5 +145,75 @@ describe('fetchAlloCalls — real v2 HTTP contract, injectable fetch', () => {
   test('throws on a non-200 with the status in the message', async () => {
     const fakeFetch: typeof fetch = async () => new Response('nope', { status: 429 });
     await expect(fetchAlloCalls(KEYED, fakeFetch)).rejects.toThrow(/429/);
+  });
+});
+
+describe('normalizeAlloMessage — the v2 SMS conversation-item shape', () => {
+  test('maps a v2 SMS payload (content, contact_number, allo_number, date)', () => {
+    const msg = normalizeAlloMessage({
+      id: 'sms-abc123',
+      type: 'SMS',
+      direction: 'INBOUND',
+      allo_number: '+12487171417',
+      contact_number: '+12485551234',
+      contacts: [{ id: 'cnt-1', name: 'Sarah Johnson' }],
+      date: '2026-08-12T14:03:00Z',
+      content: 'Can you call me back about the estimate?',
+    });
+    expect(msg).toEqual<AlloMessage>({
+      id: 'sms-abc123',
+      from: '+12485551234',
+      to: '+12487171417',
+      direction: 'inbound',
+      content: 'Can you call me back about the estimate?',
+      contactName: 'Sarah Johnson',
+      startedAt: '2026-08-12T14:03:00Z',
+    });
+  });
+
+  test('tolerates a body/text field alias for content', () => {
+    const msg = normalizeAlloMessage({
+      id: 'sms-2',
+      direction: 'OUTBOUND',
+      body: 'Sounds good, see you Tuesday.',
+      created_at: '2026-08-11T09:00:00Z',
+    })!;
+    expect(msg).not.toBeNull();
+    expect(msg.direction).toBe('outbound');
+    expect(msg.content).toBe('Sounds good, see you Tuesday.');
+    expect(msg.startedAt).toBe('2026-08-11T09:00:00Z');
+  });
+
+  test('returns null when there is no usable id', () => {
+    expect(normalizeAlloMessage({ content: 'hi' })).toBeNull();
+  });
+});
+
+describe('fetchAlloMessages — same v2 search endpoint, type SMS', () => {
+  test('POSTs type SMS instead of CALL', async () => {
+    let seenBody: any = null;
+    const fakeFetch: typeof fetch = async (_url, init) => {
+      seenBody = JSON.parse(String(init?.body));
+      return new Response(page([], false), { status: 200 });
+    };
+    await fetchAlloMessages(KEYED, fakeFetch);
+    expect(seenBody).toMatchObject({ type: 'SMS', sort: 'DATE_DESC', page: 1 });
+  });
+
+  test('normalizes and paginates SMS items the same way calls do', async () => {
+    let n = 0;
+    const fakeFetch: typeof fetch = async () => {
+      n += 1;
+      return new Response(
+        page([{ id: `sms-${n}`, direction: 'INBOUND', contact_number: '+12485551234', date: '2026-08-12T14:03:00Z', content: 'hi' }], n < 2),
+        { status: 200 },
+      );
+    };
+    const messages = await fetchAlloMessages(KEYED, fakeFetch);
+    expect(messages.map((m) => m.id)).toEqual(['sms-1', 'sms-2']);
+  });
+
+  test('throws an honest error without a key', async () => {
+    await expect(fetchAlloMessages(BARE, async () => new Response('[]'))).rejects.toThrow(/ALLO_API_KEY/);
   });
 });

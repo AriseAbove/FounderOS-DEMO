@@ -8,6 +8,7 @@ import {
   agingBucket,
   agingSummary,
   AGING_BUCKET_DEFS,
+  resolveExpenseCategories,
   type ExpenseItem,
 } from '@/lib/finances';
 
@@ -138,5 +139,46 @@ describe('agingSummary', () => {
     const summary = agingSummary([], TODAY);
     expect(summary).toHaveLength(5);
     expect(summary.every((g) => g.count === 0 && g.total === 0 && g.invoices.length === 0)).toBe(true);
+  });
+});
+
+describe('resolveExpenseCategories', () => {
+  const qboCategories = [
+    { category: 'Materials', total: 3400 },
+    { category: 'Fuel', total: 300 },
+  ];
+  const ledgerCategories = [{ category: 'Software', total: 120 }];
+
+  test('QuickBooks connected and the report call succeeded -> QuickBooks wins, even if the ledger has data too', () => {
+    expect(resolveExpenseCategories(true, qboCategories, ledgerCategories)).toEqual({
+      source: 'quickbooks',
+      categories: qboCategories,
+    });
+  });
+
+  test('QuickBooks connected but genuinely zero expenses this period -> honest empty QuickBooks result, NOT a fallback to old uploaded categories', () => {
+    expect(resolveExpenseCategories(true, [], ledgerCategories)).toEqual({
+      source: 'quickbooks',
+      categories: [],
+    });
+  });
+
+  test('QuickBooks connected but the report call failed (null) -> falls back to uploaded statements', () => {
+    expect(resolveExpenseCategories(true, null, ledgerCategories)).toEqual({
+      source: 'statements',
+      categories: ledgerCategories,
+    });
+  });
+
+  test('QuickBooks not connected -> uploaded statements, unchanged from the pre-QuickBooks behavior', () => {
+    expect(resolveExpenseCategories(false, null, ledgerCategories)).toEqual({
+      source: 'statements',
+      categories: ledgerCategories,
+    });
+  });
+
+  test('neither source has anything -> honest empty state', () => {
+    expect(resolveExpenseCategories(false, null, [])).toEqual({ source: 'none', categories: [] });
+    expect(resolveExpenseCategories(true, null, [])).toEqual({ source: 'none', categories: [] });
   });
 });

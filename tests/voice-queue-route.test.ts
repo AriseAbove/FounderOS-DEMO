@@ -5,7 +5,7 @@ import { POST, GET } from '@/app/api/voice/queue/route';
 // (cloud or on-device) POSTs a short reply here, and Sean's Mac polls it
 // with GET — no device-folder grant needed every new cloud session. Gated
 // by VOICE_RELAY_SECRET the same way the Chief of Staff cron route is
-// gated by CRON_SECRET (see app/api/cron/chief-of-staff/route.ts).
+// gated by CRON_SECRET (see app/api/cron/[agentId]/route.ts).
 describe('/api/voice/queue', () => {
   const prevSecret = process.env.VOICE_RELAY_SECRET;
   const prevDb = process.env.FOUNDER_OS_DB;

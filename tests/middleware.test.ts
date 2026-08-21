@@ -61,6 +61,13 @@ describe('middleware — the app-wide Basic Auth wall', () => {
     expect(res.status).not.toBe(401);
   });
 
+  test('never gates any other agent\'s cron route either — /api/cron/[agentId] is bearer-gated by CRON_SECRET for every real agent, not just Chief of Staff', () => {
+    process.env.APP_BASIC_AUTH_USER = 'sean';
+    process.env.APP_BASIC_AUTH_PASS = 'correct-horse';
+    const res = middleware(req('/api/cron/gmail-worker'));
+    expect(res.status).not.toBe(401);
+  });
+
   test('never gates the voice relay route — Sean\'s Mac daemon authenticates via VOICE_RELAY_SECRET, not Basic Auth', () => {
     process.env.APP_BASIC_AUTH_USER = 'sean';
     process.env.APP_BASIC_AUTH_PASS = 'correct-horse';

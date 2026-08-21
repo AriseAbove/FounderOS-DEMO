@@ -19,6 +19,11 @@ describe('commsLane — source + inbox, unknown -> misc', () => {
     expect(commsLane(item({ source: 'slack', title: '#team — bob' }))).toBe('work');
   });
 
+  it('routes Allo calls and SMS to work — Allo is AAC\'s lead-intake line, untagged or not', () => {
+    expect(commsLane(item({ source: 'call', title: 'Inbound call — answered', priority: undefined }))).toBe('work');
+    expect(commsLane(item({ source: 'sms', title: 'Inbound text', priority: undefined }))).toBe('work');
+  });
+
   it('routes a personal-named email inbox to personal', () => {
     expect(commsLane(item({ source: 'email', title: 'Personal — Jane', priority: 2 }))).toBe('personal');
     expect(commsLane(item({ source: 'email', title: 'gmail — Jane' }))).toBe('personal');

@@ -165,6 +165,30 @@ describe('seedDatabase', () => {
   });
 });
 
+describe('rm-apps-funnel roadmap claim stays accurate (2026-08-21 fix)', () => {
+  // The item claimed "done" with real Apps stages in code, honestly caveated
+  // that the canvases still rendered AAC hub geometry regardless. Once the
+  // flow canvas was fixed to render the real Apps stage set, that caveat
+  // became stale — a roadmap item that's still true has to say what's still
+  // true, not repeat a limitation that no longer exists (that's its own
+  // honesty bug per this repo's convention).
+  test('no longer claims the canvases ignore the business — that was fixed', () => {
+    db = openDb(':memory:');
+    seedDatabase(db);
+    const item = db.roadmap.all().find((r) => r.id === 'rm-apps-funnel');
+    expect(item).toBeDefined();
+    expect(item!.status).toBe('done');
+    expect(item!.description).not.toMatch(/still render AAC hub geometry/i);
+  });
+
+  test('honestly scopes what is still AAC-only (the radial acquisition wedges)', () => {
+    db = openDb(':memory:');
+    seedDatabase(db);
+    const item = db.roadmap.all().find((r) => r.id === 'rm-apps-funnel')!;
+    expect(item.description.toLowerCase()).toMatch(/radial/);
+  });
+});
+
 describe('roadmap grouping', () => {
   test('groups roadmap items by quarter in chronological order', async () => {
     const { groupRoadmapByQuarter } = await import('@/lib/roadmap');

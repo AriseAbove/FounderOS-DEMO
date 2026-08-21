@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { ACQUISITIONS, acquisitionFor, funnelRadialModel, originOf } from '@/lib/funnel-radial';
-import { FUNNEL_STAGES } from '@/lib/funnel';
+import { FUNNEL_STAGES, stagesFor } from '@/lib/funnel';
 import type { FunnelContact, FunnelJourney, FunnelTouch } from '@/lib/schemas';
 
 const touch = (over: Partial<FunnelTouch> = {}): FunnelTouch => ({
@@ -161,6 +161,23 @@ describe('funnelRadialModel — outside → in', () => {
     expect(model.nodes).toEqual([]);
     expect(model.segments).toHaveLength(6);
     expect(model.segments.every((s) => s.count === 0)).toBe(true);
+  });
+
+  test('accepts a stages param and hubs an Apps journey onto its own pipeline, not the AAC default', () => {
+    const j = journey(
+      { id: 'app1', business: 'apps', status: 'subscribed' },
+      [
+        touch({ id: 't1', stage: 'discovered', channel: 'organic', label: 'App Store: discovered', at: '2026-06-01' }),
+        touch({ id: 't2', seq: 2, stage: 'installed', channel: 'organic', label: 'Installed', at: '2026-06-05' }),
+        touch({ id: 't3', seq: 3, stage: 'subscribed', channel: 'organic', label: 'Subscribed', at: '2026-06-10' }),
+      ],
+    );
+    const [node] = funnelRadialModel([j], now, stagesFor('apps')).nodes;
+    // discovered=0, installed=1, subscribed=4 on the 6-stage Apps pipeline —
+    // NOT the 8-stage AAC pipeline's indices for the same stage ids (which
+    // don't even exist on that backbone).
+    expect(node.rings).toEqual([0, 1, 4]);
+    expect(node.currentRing).toBe(4);
   });
 });
 

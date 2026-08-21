@@ -10,6 +10,7 @@ import {
   sumQboAmounts,
   monthStartDate,
   parseOpenInvoices,
+  parseProfitAndLossExpenseCategories,
 } from '@/lib/connectors/quickbooks';
 
 describe('qboConfigured', () => {
@@ -166,5 +167,164 @@ describe('parseOpenInvoices', () => {
       },
     };
     for (const inv of parseOpenInvoices(raw)) expect(inv.billEmail).toBeNull();
+  });
+});
+
+describe('parseProfitAndLossExpenseCategories', () => {
+  // Real shape of a QBO Reports API ProfitAndLoss response
+  // (GET /v3/company/{realmId}/reports/ProfitAndLoss): a Rows.Row array of
+  // Section rows (Income, Expenses, …), each with its own nested Rows.Row of
+  // per-account Data rows and a Summary total. Only the "Expenses" section
+  // matters for the finances page's category chart — Income/COGS/NetIncome
+  // rows must be ignored, not folded in.
+  const fullReport = {
+    Header: {
+      ReportName: 'ProfitAndLoss',
+      StartPeriod: '2026-08-01',
+      EndPeriod: '2026-08-21',
+      Currency: 'USD',
+    },
+    Columns: {
+      Column: [
+        { ColTitle: '', ColType: 'Account' },
+        { ColTitle: 'Total', ColType: 'Money' },
+      ],
+    },
+    Rows: {
+      Row: [
+        {
+          type: 'Section',
+          group: 'Income',
+          Header: { ColData: [{ value: 'Income' }, { value: '' }] },
+          Rows: {
+            Row: [{ type: 'Data', ColData: [{ value: 'Design income', id: '79' }, { value: '3357.00' }] }],
+          },
+          Summary: { ColData: [{ value: 'Total Income' }, { value: '3357.00' }] },
+        },
+        {
+          type: 'Section',
+          group: 'Expenses',
+          Header: { ColData: [{ value: 'Expenses' }, { value: '' }] },
+          Rows: {
+            Row: [
+              { type: 'Data', ColData: [{ value: 'Advertising', id: '7' }, { value: '22.50' }] },
+              {
+                // sub-account rollup — a nested Section within Expenses
+                type: 'Section',
+                group: '',
+                Header: { ColData: [{ value: 'Job Expenses' }, { value: '' }] },
+                Rows: {
+                  Row: [
+                    { type: 'Data', ColData: [{ value: 'Materials', id: '82' }, { value: '380.00' }] },
+                    { type: 'Data', ColData: [{ value: 'Permits', id: '83' }, { value: '25.00' }] },
+                  ],
+                },
+                Summary: { ColData: [{ value: 'Total Job Expenses' }, { value: '405.00' }] },
+              },
+            ],
+          },
+          Summary: { ColData: [{ value: 'Total Expenses' }, { value: '427.50' }] },
+        },
+        {
+          type: 'Section',
+          group: 'NetIncome',
+          Header: { ColData: [{ value: 'Net Income' }, { value: '' }] },
+          Summary: { ColData: [{ value: 'Net Income' }, { value: '2929.50' }] },
+        },
+      ],
+    },
+  };
+
+  test('extracts leaf expense categories from the Expenses section only, recursing into sub-account sections, largest first', () => {
+    expect(parseProfitAndLossExpenseCategories(fullReport)).toEqual([
+      { category: 'Materials', total: 380 },
+      { category: 'Permits', total: 25 },
+      { category: 'Advertising', total: 22.5 },
+    ]);
+  });
+
+  test('ignores Income/COGS/NetIncome sections — never folds revenue into the expense chart', () => {
+    const categories = parseProfitAndLossExpenseCategories(fullReport).map((c) => c.category);
+    expect(categories).not.toContain('Design income');
+    expect(categories).not.toContain('Net Income');
+  });
+
+  test('empty report (no expenses recorded this period) returns [] — an honest real zero, not undefined', () => {
+    const emptyReport = {
+      Header: { ReportName: 'ProfitAndLoss', Option: [{ Name: 'NoReportData', Value: 'true' }] },
+      Rows: { Row: [] },
+    };
+    expect(parseProfitAndLossExpenseCategories(emptyReport)).toEqual([]);
+  });
+
+  test('report with no Expenses section at all returns [] rather than throwing', () => {
+    const noExpenses = {
+      Rows: {
+        Row: [
+          {
+            type: 'Section',
+            group: 'Income',
+            Header: { ColData: [{ value: 'Income' }] },
+            Rows: { Row: [{ type: 'Data', ColData: [{ value: 'Sales' }, { value: '100.00' }] }] },
+            Summary: { ColData: [{ value: 'Total Income' }, { value: '100.00' }] },
+          },
+        ],
+      },
+    };
+    expect(parseProfitAndLossExpenseCategories(noExpenses)).toEqual([]);
+  });
+
+  test('malformed/missing input never throws, always returns []', () => {
+    expect(parseProfitAndLossExpenseCategories(null)).toEqual([]);
+    expect(parseProfitAndLossExpenseCategories(undefined)).toEqual([]);
+    expect(parseProfitAndLossExpenseCategories({})).toEqual([]);
+    expect(parseProfitAndLossExpenseCategories({ Rows: {} })).toEqual([]);
+    expect(parseProfitAndLossExpenseCategories('not an object')).toEqual([]);
+  });
+
+  test('skips malformed leaf rows (missing amount, missing label) without inventing values', () => {
+    const raw = {
+      Rows: {
+        Row: [
+          {
+            type: 'Section',
+            group: 'Expenses',
+            Header: { ColData: [{ value: 'Expenses' }] },
+            Rows: {
+              Row: [
+                { type: 'Data', ColData: [{ value: 'Fuel' } /* no amount column */] },
+                { type: 'Data', ColData: [{ value: '' }, { value: '50.00' }] /* blank label */ },
+                { type: 'Data', ColData: [{ value: 'Tools' }, { value: 'not-a-number' }] },
+                { type: 'Data', ColData: [{ value: 'Vehicles' }, { value: '150.00' }] },
+              ],
+            },
+            Summary: { ColData: [{ value: 'Total Expenses' }, { value: '200.00' }] },
+          },
+        ],
+      },
+    };
+    expect(parseProfitAndLossExpenseCategories(raw)).toEqual([{ category: 'Vehicles', total: 150 }]);
+  });
+
+  test('duplicate category labels are summed, not overwritten', () => {
+    const raw = {
+      Rows: {
+        Row: [
+          {
+            type: 'Section',
+            group: 'Expenses',
+            Header: { ColData: [{ value: 'Expenses' }] },
+            Rows: {
+              Row: [
+                { type: 'Data', ColData: [{ value: 'Fuel' }, { value: '100.00' }] },
+                { type: 'Data', ColData: [{ value: 'Fuel' }, { value: '25.00' }] },
+              ],
+            },
+            Summary: { ColData: [{ value: 'Total Expenses' }, { value: '125.00' }] },
+          },
+        ],
+      },
+    };
+    expect(parseProfitAndLossExpenseCategories(raw)).toEqual([{ category: 'Fuel', total: 125 }]);
   });
 });

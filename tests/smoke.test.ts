@@ -74,3 +74,21 @@ describe('platform smoke — every page renders without throwing', () => {
     expect(covered).toEqual(discovered);
   });
 });
+
+describe('/funnel renders under the Apps business lens without throwing', () => {
+  // Not in PAGES above (that list must match app/**/page.tsx 1:1) — these
+  // exercise the 2026-08-21 business-lens fix: Apps forces the flow layout
+  // (and its own honestly-empty hub row) even when a stale ?layout=radial
+  // or ?stage= from AAC is still in the URL.
+  test('business=apps, default layout', async () => {
+    const { default: FunnelPage } = await import('@/app/funnel/page');
+    await expect(Promise.resolve(FunnelPage({ searchParams: { business: 'apps' } }))).resolves.toBeTruthy();
+  }, 20_000);
+
+  test('business=apps with ?layout=radial still renders (forced back to flow, not a crash)', async () => {
+    const { default: FunnelPage } = await import('@/app/funnel/page');
+    await expect(
+      Promise.resolve(FunnelPage({ searchParams: { business: 'apps', layout: 'radial' } })),
+    ).resolves.toBeTruthy();
+  }, 20_000);
+});

@@ -3,6 +3,7 @@ import { LIFE_AREAS } from '@/lib/life-map';
 import {
   BUSINESSES,
   businessAgentSet,
+  businessAreaAgents,
   businessesForAgent,
   getBusiness,
 } from '@/lib/businesses';
@@ -43,6 +44,49 @@ describe('BUSINESSES', () => {
         }
       }
     }
+  });
+});
+
+describe('AAC gets its own real crew, not just the shared infra (2026-08-21 fix)', () => {
+  // Before this fix, aac.areaAgents === apps.areaAgents (both shared-only) —
+  // an equally-sparse roster on both lenses, even though comms-agent,
+  // gmail-worker, calendar-worker, quickbooks-pulse, allo-pulse, and
+  // website-pulse are all demonstrably AAC-only in their own seed
+  // descriptions (real inbox, real QuickBooks books, "the AAC pipeline").
+  // None of that is invented — it was just never wired into the business
+  // lens. Apps genuinely has no equivalent yet, so its roster stays shared-only.
+  test('sales: the real AAC-pipeline lead-intake agents', () => {
+    const agents = businessAreaAgents('aac', 'sales');
+    expect(agents).toContain('allo-pulse');
+    expect(agents).toContain('website-pulse');
+  });
+
+  test('finances: the real QuickBooks monitor', () => {
+    expect(businessAreaAgents('aac', 'finances')).toContain('quickbooks-pulse');
+  });
+
+  test('communication: the real inbox + calendar crew', () => {
+    const agents = businessAreaAgents('aac', 'communication');
+    expect(agents).toContain('comms-agent');
+    expect(agents).toContain('gmail-worker');
+    expect(agents).toContain('calendar-worker');
+  });
+
+  test('none of AAC-only agents leak onto Apps — Apps stays honestly shared-only', () => {
+    const appsSet = businessAgentSet('apps');
+    for (const id of ['allo-pulse', 'website-pulse', 'quickbooks-pulse', 'comms-agent', 'gmail-worker', 'calendar-worker']) {
+      expect(appsSet.has(id), `${id} should not be assigned to apps — no real Apps data backs it`).toBe(false);
+    }
+  });
+
+  test('businessesForAgent: allo-pulse serves AAC only, not Apps', () => {
+    expect(businessesForAgent('allo-pulse').map((b) => b.id)).toEqual(['aac']);
+  });
+
+  test("Apps' executive focus is honest about why its roster is thin", () => {
+    const apps = getBusiness('apps')!;
+    const focusText = apps.focus.join(' ').toLowerCase();
+    expect(focusText).toMatch(/single.operator|solo|no dedicated/);
   });
 });
 

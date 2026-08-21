@@ -3,7 +3,7 @@ import { ArrowUpRight, Zap } from 'lucide-react';
 import { getDb } from '@/lib/data';
 import { allConnectorStatuses } from '@/lib/connectors';
 import { liveAgentStatus } from '@/lib/agents/live-status';
-import { getBrainProvider } from '@/lib/brain';
+import { getBrainProvider, summarizeDoctor } from '@/lib/brain';
 import { audienceSeries, PLATFORM_COLORS, PLATFORM_LABELS } from '@/lib/social';
 import { postSeriesFromDays, type PostDay } from '@/lib/posting-activity';
 import type { SocialPlatform } from '@/lib/schemas';
@@ -14,6 +14,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { HomeSocialGraph } from '@/components/HomeSocialGraph';
 import { Badge, Dot, Kbd, Label, SectionHead, Spark } from '@/components/terminal';
 import { runsPerDay, inboundPerDay, stateOfWorld, type Tone } from '@/lib/pulse-history';
+import { countRanWithin, DAY_MS } from '@/lib/analytics';
 import type { ConnectorStatus } from '@/lib/connectors/types';
 
 export const dynamic = 'force-dynamic';
@@ -204,8 +205,29 @@ export default async function HomePage() {
   // had tiles (connectorId wirings) for 4 of these 7 real connectors; see
   // lib/integrations-catalog.ts's brainstore/anthropic/allo entries.
   const connected = connections.filter((c) => c.state === 'connected').length;
-  const activeAgents = agents.filter((a) => a.status === 'active').length;
+  // "Configured" — a real dependency is wired up (connector, or for
+  // chief-of-staff, a completed run). Includes 'idle' (ran, but its push
+  // genuinely failed) since it IS configured and running, just degraded —
+  // only 'planned' (never actually ran / no creds) is excluded. This is
+  // deliberately NOT the same fact as "has actually run recently"; see
+  // ranRecently below and lib/analytics.ts's countRanWithin.
+  const activeAgents = agents.filter((a) => a.status === 'active' || a.status === 'idle').length;
+  // The honest counterpart: how many of the configured agents actually
+  // executed a run in the trailing 24h. A production review found the whole
+  // roster reading "10/10 agents live" from configuration alone while 8 of
+  // 10 had never once run — see CLAUDE.md's 2026-08-21 agent-cron entry.
+  const ranRecently = countRanWithin(
+    agents.map((a) => lastRunByAgent.get(a.id)),
+    DAY_MS,
+  );
   const health = overview.doctor.healthScore;
+  // 2026-08-21 fix: the Knowledge health tile used to show
+  // `overview.doctor.status` next to the score, which is 'ok' whenever the
+  // store has any files on disk — regardless of whether `health` is a real
+  // number. That produced the exact contradiction a live QA pass flagged:
+  // "KNOWLEDGE HEALTH —/100 · ok". summarizeDoctor is the one place that
+  // decides "ok" now, and it never says so without a real score.
+  const doctorSummary = summarizeDoctor(overview.doctor);
   const inbound = inboundLast24h(feed);
   const runCount = recentRuns.length;
   const failedRuns = recentRuns.filter((r) => !r.ok).length;
@@ -221,6 +243,7 @@ export default async function HomePage() {
     health: health ?? null,
     brainConnected: overview.doctor.connected,
     failedRuns,
+    ranRecently,
   });
   const { channels, all } = audienceSeries(db);
   // Real per-platform posting history (cross-posts counted per
@@ -288,10 +311,19 @@ export default async function HomePage() {
         />
         <StatTile
           href="/agents"
-          label="Agents live"
+          label="Agents configured"
           value={activeAgents}
           unit={`/ ${agents.length} roster`}
-          foot={<Spark data={agentsSpark} />}
+          foot={
+            <div className="flex flex-col gap-1">
+              {/* Configured ≠ actually running — see lib/pulse-history.ts's
+                  stateOfWorld and CLAUDE.md's 2026-08-21 agent-cron entry. */}
+              <span className={`font-mono text-[9.5px] ${ranRecently < activeAgents ? 'text-os-warn' : 'text-os-dim'}`}>
+                {ranRecently} ran in 24h
+              </span>
+              <Spark data={agentsSpark} />
+            </div>
+          }
         />
         <StatTile
           href="/comms"
@@ -304,7 +336,7 @@ export default async function HomePage() {
           href="/brain"
           label="Knowledge health"
           value={health ?? '—'}
-          unit={`/ 100${overview.doctor.connected ? ` · ${overview.doctor.status}` : ' · offline'}`}
+          unit={`/ 100 · ${doctorSummary.label}`}
           valueClass="text-os-accent"
           foot={<HealthMeter value={health ?? null} />}
         />
@@ -325,7 +357,9 @@ export default async function HomePage() {
             <div key={copy} className="flex shrink-0 gap-[26px] pr-[26px]">
               {ticker.map((r) => (
                 <span key={copy + r.id} className="inline-flex items-center gap-2 whitespace-nowrap font-mono text-[11px]">
-                  <b className={r.ok ? 'text-os-ok' : 'text-os-err'}>{r.ok ? 'OK' : 'FAIL'}</b>
+                  <b className={!r.ok ? 'text-os-err' : r.pushFailed ? 'text-os-warn' : 'text-os-ok'}>
+                    {!r.ok ? 'FAIL' : r.pushFailed ? 'PUSH FAILED' : 'OK'}
+                  </b>
                   <span className="text-os-muted">{r.agentId}</span>
                   <span className="text-os-dim">{r.summary}</span>
                   <span className="text-os-border-strong">·</span>
@@ -365,7 +399,12 @@ export default async function HomePage() {
       <div className="grid grid-cols-[1.05fr_0.95fr] items-start gap-6 max-[1100px]:grid-cols-1">
         {/* Agents */}
         <section className="min-w-0">
-          <SectionHead label="Agents" count={`${activeAgents} live`} link="Full roster" href="/agents" />
+          <SectionHead
+            label="Agents"
+            count={`${activeAgents} configured · ${ranRecently} ran in 24h`}
+            link="Full roster"
+            href="/agents"
+          />
           <div className="flex flex-col gap-2">
             {agents.map((a) => {
               const last = lastRunByAgent.get(a.id);
@@ -383,17 +422,23 @@ export default async function HomePage() {
                     </div>
                     <div className="mt-0.5 truncate font-mono text-[10.5px] text-os-dim">
                       {departments.get(a.departmentId) ?? '—'} ·{' '}
-                      {last ? `last run ${last.ok ? 'OK' : 'FAILED'} · ${relativeTime(last.finishedAt)} ago` : 'never run'}
+                      {last
+                        ? `last run ${
+                            !last.ok ? 'FAILED' : last.pushFailed ? 'push failed' : 'OK'
+                          } · ${relativeTime(last.finishedAt)} ago`
+                        : 'never run'}
                     </div>
                   </div>
                   <span
                     className={`shrink-0 rounded-sm-t border px-2.5 py-[3px] font-mono text-[11px] font-semibold ${
                       a.status === 'active'
                         ? 'border-[var(--accent-line)] bg-[var(--accent-soft)] text-os-accent'
-                        : 'border-os-border text-os-dim'
+                        : a.status === 'idle'
+                          ? 'border-[color-mix(in_oklab,var(--warn)_35%,transparent)] bg-[color-mix(in_oklab,var(--warn)_9%,transparent)] text-os-warn'
+                          : 'border-os-border text-os-dim'
                     }`}
                   >
-                    {a.status === 'active' ? 'Run' : 'no creds'}
+                    {a.status === 'active' ? 'Run' : a.status === 'idle' ? 'Degraded' : 'no creds'}
                   </span>
                 </Link>
               );
@@ -411,7 +456,9 @@ export default async function HomePage() {
                   key={r.id}
                   className="flex items-baseline gap-2.5 rounded-sm-t border border-os-border bg-os-surface px-3 py-2 font-mono text-[11px]"
                 >
-                  <span className={`shrink-0 font-bold ${r.ok ? 'text-os-ok' : 'text-os-err'}`}>{r.ok ? 'OK' : 'FAIL'}</span>
+                  <span className={`shrink-0 font-bold ${!r.ok ? 'text-os-err' : r.pushFailed ? 'text-os-warn' : 'text-os-ok'}`}>
+                    {!r.ok ? 'FAIL' : r.pushFailed ? 'PUSH FAILED' : 'OK'}
+                  </span>
                   <span className="shrink-0 text-os-muted">{r.agentId}</span>
                   <span className="min-w-0 flex-1 truncate text-os-dim">{r.summary}</span>
                   <span className="shrink-0 text-os-dim">{relativeTime(r.finishedAt)}</span>
@@ -478,8 +525,14 @@ export default async function HomePage() {
               <Label>Knowledge · core</Label>
               <div className="mt-2 text-[13px] font-semibold">One memory across every agent</div>
               <div className="mt-1 font-mono text-[10.5px] leading-relaxed text-os-dim">
-                {overview.store.totalFiles} pages · health {health ?? '—'}/100 · hybrid search{' '}
-                {overview.doctor.connected ? 'verified' : 'degraded'}
+                {/* 2026-08-21 fix: this used to say "hybrid search verified"
+                    whenever the local store was reachable — no hybrid/vector
+                    backend has ever been wired in this codebase, only plain
+                    grep (lib/brain.ts). Same summarizeDoctor the /brain page
+                    and its own pillar tile use, so "ok"/"verified" language
+                    can't drift out of sync between the two pages again. */}
+                {overview.store.totalFiles} pages · health {health ?? '—'}/100 · {doctorSummary.label} · search{' '}
+                {overview.doctor.connected ? 'grep verified' : 'degraded'}
               </div>
             </div>
             <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-os-dim" />

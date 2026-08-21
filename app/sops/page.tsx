@@ -85,8 +85,8 @@ export default function SopsPage() {
       <PageHeader eyebrow="standard operating procedure" title="SOPs" />
 
       <p className="-mt-3 mb-6 max-w-[62ch] text-[12.5px] leading-relaxed text-os-muted [text-wrap:pretty]">
-        Every agent and person on the roster runs from a written procedure, not guesswork. This is the checklist each
-        one actually follows — the same source data behind the nodes in{' '}
+        Every agent on the roster runs from a written procedure, not guesswork — no person has been seeded onto it
+        yet. This is the checklist each one actually follows — the same source data behind the nodes in{' '}
         <a href="/brain" className="text-os-accent hover:underline">
           Knowledge
         </a>

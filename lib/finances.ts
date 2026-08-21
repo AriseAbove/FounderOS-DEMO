@@ -1,7 +1,8 @@
 /**
  * Finances domain — pure, real-ready. Income reads from QuickBooks (the real
- * books) once its OAuth grant lands; expenses come from uploaded bank/CC
- * statements parsed into the ledger.
+ * books) once its OAuth grant lands; category-level expenses read from
+ * QuickBooks' ProfitAndLoss report when connected, falling back to uploaded
+ * bank/CC statements parsed into the ledger when it isn't.
  *
  * No faked money: an unwired source reports null income, never a zero that
  * reads as "earned nothing". The page renders pending honestly.
@@ -111,5 +112,48 @@ export function agingSummary<T extends { balance: number; dueDate: string | null
       .map(({ inv }) => inv);
     return { bucket: id, label, count: list.length, total: list.reduce((s, i) => s + i.balance, 0), invoices: list };
   });
+}
+
+// ── Expense categories: QuickBooks when connected, uploads as fallback ──────
+
+export type CategoryTotal = { category: string; total: number };
+export type ExpenseCategorySource = 'quickbooks' | 'statements' | 'none';
+
+/**
+ * Which expense-category source the "Monthly expenses by category" chart
+ * should render, and which one wins.
+ *
+ * Decision: QuickBooks' ProfitAndLoss report is real, accountant-categorized
+ * data straight from the books — a materially more complete and trustworthy
+ * picture than whatever subset of spend happened to get uploaded as a CSV/
+ * PDF statement. So once QuickBooks is connected and its report call
+ * succeeds, it takes priority outright rather than being merged with the
+ * uploaded-statement ledger: the two sources likely overlap (a QuickBooks
+ * Purchase transaction and an uploaded bank-statement line can both describe
+ * the same real charge), and summing them would double-count real spend —
+ * which fails the "no invented numbers" bar just as badly as making one up.
+ *
+ * `qboCategories === null` means the report call itself failed or
+ * QuickBooks isn't connected/authorized — that's the only case that falls
+ * back to the uploaded-statement ledger, so the upload flow keeps working
+ * as the honest path for anyone who hasn't set up QuickBooks OAuth (or
+ * whose token needs reconnecting). `qboCategories === []` while connected
+ * means the report call succeeded and QuickBooks genuinely has no
+ * categorized expenses this period — that's a real $0, not a failure, so it
+ * is NOT treated as "nothing" and does not fall back to stale uploaded
+ * numbers.
+ */
+export function resolveExpenseCategories(
+  qboConnected: boolean,
+  qboCategories: CategoryTotal[] | null,
+  ledgerCategories: CategoryTotal[],
+): { source: ExpenseCategorySource; categories: CategoryTotal[] } {
+  if (qboConnected && qboCategories !== null) {
+    return { source: 'quickbooks', categories: qboCategories };
+  }
+  if (ledgerCategories.length > 0) {
+    return { source: 'statements', categories: ledgerCategories };
+  }
+  return { source: 'none', categories: [] };
 }
 

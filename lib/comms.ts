@@ -1,6 +1,6 @@
 import type { ContactTag } from '@/lib/schemas';
 
-export type CommsSource = 'email' | 'whatsapp' | 'slack';
+export type CommsSource = 'email' | 'whatsapp' | 'slack' | 'call' | 'sms';
 
 export type CommsItem = {
   source: CommsSource;

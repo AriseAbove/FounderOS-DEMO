@@ -8,8 +8,8 @@
  * lead sources (the Allo call log, a CRM's source field) feed the same
  * labels, so attribution sharpens as they land — no schema change needed.
  */
-import { funnelSpaceModel, type FunnelSpaceNode } from '@/lib/funnel';
-import type { FunnelJourney, FunnelTouch } from '@/lib/schemas';
+import { funnelSpaceModel, AAC_FUNNEL_STAGES, type FunnelSpaceNode } from '@/lib/funnel';
+import type { FunnelJourney, FunnelStage, FunnelTouch } from '@/lib/schemas';
 
 /** Journeys and space nodes both qualify — classification reads touches only. */
 type HasTouches = { touches: FunnelTouch[] };
@@ -118,13 +118,24 @@ export type FunnelRadialModel = {
  * Model for the radial view: the same living nodes as the space (decay,
  * likelihood, contact channels all preserved), placed by acquisition wedge
  * and stage ring. Every segment is always present so the rim reads as a
- * fixed compass even when a wedge is empty.
+ * fixed compass even when a wedge is empty. `stages` scopes the ring
+ * indices to one business's pipeline (defaults to AAC's, same fallback as
+ * `funnelSpaceModel`) — pass `stagesFor(business)` so an Apps journey's
+ * `discovered`/`installed`/… stage ids resolve against Apps' own 6-ring
+ * pipeline instead of parking at ring 0 on the AAC backbone. NOTE: the rim
+ * wedges themselves (ACQUISITIONS) stay AAC's real lead-source taxonomy —
+ * see the module comment; Apps has no acquisition-channel data yet, so this
+ * model is not wired into the Apps view of /funnel (see app/funnel/page.tsx).
  */
-export function funnelRadialModel(journeys: FunnelJourney[], now: Date): FunnelRadialModel {
+export function funnelRadialModel(
+  journeys: FunnelJourney[],
+  now: Date,
+  stages: { id: FunnelStage; label: string }[] = AAC_FUNNEL_STAGES,
+): FunnelRadialModel {
   const segments: FunnelRadialSegment[] = ACQUISITIONS.map((a) => ({ ...a, count: 0, converted: 0 }));
   const acquisitionById = new Map(journeys.map((j) => [j.id, acquisitionFor(j)]));
 
-  const nodes: FunnelRadialNode[] = funnelSpaceModel(journeys, now).map((n) => {
+  const nodes: FunnelRadialNode[] = funnelSpaceModel(journeys, now, stages).map((n) => {
     const seg = SEGMENT_INDEX[acquisitionById.get(n.id) ?? 'word_of_mouth'];
     segments[seg].count++;
     if (n.state === 'converted') segments[seg].converted++;

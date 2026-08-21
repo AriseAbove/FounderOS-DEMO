@@ -60,13 +60,15 @@ function matchesWork(item: CommsItem, workKeywords: string[]): boolean {
 
 /**
  * Which lane a message belongs in. Channel identity wins — WhatsApp is personal,
- * Slack is work. For email: a work keyword forces work (even over a personal
- * inbox); otherwise a personal-named inbox is personal, a known (tagged) sender
- * is work, and an unknown sender is misc.
+ * Slack is work, and Allo calls/SMS are work (Allo is AAC's lead-intake line —
+ * every call to (248) 717-1417 is a business call, tagged or not). For email:
+ * a work keyword forces work (even over a personal inbox); otherwise a
+ * personal-named inbox is personal, a known (tagged) sender is work, and an
+ * unknown sender is misc.
  */
 export function commsLane(item: CommsItem, workKeywords: string[] = []): CommsLane {
   if (item.source === 'whatsapp') return 'personal';
-  if (item.source === 'slack') return 'work';
+  if (item.source === 'slack' || item.source === 'call' || item.source === 'sms') return 'work';
   if (matchesWork(item, workKeywords)) return 'work';
   if (PERSONAL_INBOX_RE.test(inboxName(item))) return 'personal';
   return item.priority === undefined ? 'misc' : 'work';

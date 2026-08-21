@@ -9,12 +9,15 @@
  * which crew lights up; the agents themselves keep full visibility of
  * everything.
  *
- * Placeholder data: `focus` and `areaAgents` below are seeded placeholders,
- * same disclosure as the rest of this demo's seeded content (see README).
- * The demo's original agent roster (arcads-creative, vantage-sales, …) is
- * still branded for the old Vantage / Launchpad Cohort ventures this lens
- * replaced — mapping it to real AAC / Apps staffing is Phase 2 work, not
- * invented here.
+ * `areaAgents` (2026-08-21): AAC's crew is real, not a placeholder — every
+ * agent below has a description in lib/seed.ts that already names AAC by
+ * name or is demonstrably AAC's own connected data (Sean's real inbox is
+ * ariseaboveconstruction.com; the confirmed QuickBooks books; the confirmed
+ * Allo call log and website-form leads, both explicitly "the AAC pipeline"
+ * in their own seed copy). Apps has no equivalent connected data yet — no
+ * app-specific inbox, books, or lead source — so it honestly stays on just
+ * the shared infra (Conductor, Data Agent) until one exists. Nothing here is
+ * invented: this only wires already-documented real facts into the lens.
  */
 import type { LifeArea } from '@/lib/life-map';
 import { LIFE_AREAS } from '@/lib/life-map';
@@ -53,6 +56,15 @@ export const BUSINESSES: Business[] = [
       'Reputation — 5.0★ rating protected, every completed job gets a review ask',
     ],
     areaAgents: {
+      // Allo (the phone receptionist) and Website Pulse both file leads
+      // straight into "the AAC pipeline" per their own seed descriptions —
+      // there's no Apps equivalent lead source connected yet.
+      sales: ['allo-pulse', 'website-pulse'],
+      // The connected QuickBooks company is AAC's real books (confirmed
+      // $178,262 across 67 unpaid invoices — see the roadmap).
+      finances: ['quickbooks-pulse'],
+      // The connected inbox/calendar are Sean's real AAC business channels.
+      communication: ['comms-agent', 'gmail-worker', 'calendar-worker'],
       knowledge: SHARED_KNOWLEDGE,
       operations: SHARED_OPS,
     },
@@ -69,8 +81,13 @@ export const BUSINESSES: Business[] = [
       'Ship velocity — active builds shipped on schedule',
       'Portfolio health — each app status honestly tracked',
       'Delivery quality — every handoff documented in G-Brain',
+      'Staffing, honestly — no dedicated crew yet: Sean builds and ships single-operator, ' +
+        'covered for now by the shared Conductor + Data Agent until Apps has its own connected tools',
     ],
     areaAgents: {
+      // Genuinely nothing Apps-specific yet — no app inbox, no app books, no
+      // app store connector. This stays shared-only until one of those is
+      // real, not padded to look busier than it is.
       knowledge: SHARED_KNOWLEDGE,
       operations: SHARED_OPS,
     },

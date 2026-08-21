@@ -53,3 +53,42 @@ describe('/finances passes runtimeEnv() (not process.env) into every QuickBooks 
     expect(page).toMatch(/qboMonthToDateExpensesByCategory\(env\)/);
   });
 });
+
+/**
+ * 2026-08-21 fix: /finances never read the Topbar's shared business cookie
+ * at all — QuickBooks numbers, invoices, and the ledger fallback rendered
+ * identically no matter which of AAC / Apps / Combined was selected, even
+ * though every one of those sources is genuinely AAC-only (no Apps books
+ * connector exists). Fixed by threading lib/business-filter(-server)'s
+ * cookie the same way /org already does, and gating the AAC-only sources
+ * behind it so Apps gets an honest "nothing connected" state instead of
+ * quietly showing AAC's real numbers.
+ */
+describe('/finances scopes QuickBooks/invoices/ledger to the shared business filter', () => {
+  const page = read('app/finances/page.tsx');
+
+  test('reads the shared business filter the same way /org does', () => {
+    expect(page).toMatch(/import\s*\{\s*isBusinessFilter,\s*resolveBusinessFilter\s*\}\s*from\s*'@\/lib\/business-filter'/);
+    expect(page).toMatch(/import\s*\{\s*readBusinessFilterCookie\s*\}\s*from\s*'@\/lib\/business-filter-server'/);
+  });
+
+  test('derives showAacBooks from the filter — false only when Apps is explicitly selected', () => {
+    expect(page).toMatch(/const\s+showAacBooks\s*=\s*businessFilter\s*!==\s*'apps'/);
+  });
+
+  test('the QuickBooks fetch itself is gated on showAacBooks, not just on being authorized', () => {
+    // Regression guard: gating only the render (not the fetch/qboAuthorized
+    // flag) would still make the live QBO calls under the Apps filter and
+    // could still read qboConnected as true.
+    expect(page).toMatch(/const\s+qboAuthorized\s*=\s*qboAuthorizedGrant\s*&&\s*showAacBooks/);
+  });
+
+  test('the ledger fallback is skipped under the Apps filter (no per-business column to scope it by)', () => {
+    expect(page).toMatch(/if\s*\(showAacBooks\)\s*\{\s*try\s*\{\s*const\s+ledger\s*=\s*openLedger/);
+  });
+
+  test('renders an honest not-applicable state instead of AAC numbers when Apps is selected', () => {
+    expect(page).toMatch(/!showAacBooks/);
+    expect(page).toMatch(/no connected books yet/);
+  });
+});

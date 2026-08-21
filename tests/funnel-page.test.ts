@@ -33,3 +33,27 @@ describe('/funnel wires the selected business into every stage model', () => {
     expect(page).toMatch(/business === 'apps'[^;]*\?\s*'flow'/);
   });
 });
+
+/**
+ * /funnel's own ?business= toggle used to be a completely disconnected
+ * mechanism from the Topbar's shared cookie (lib/business-filter.ts) — with
+ * no ?business= param the page always defaulted to the "All clients" tab,
+ * so switching the Topbar's AAC/Apps/Combined selector while already on
+ * /funnel did nothing (2026-08-21 fix). Fixed by falling back to the
+ * cookie's current value only when the query param is genuinely absent —
+ * an explicit ?business= (even an invalid one) still wins, so bookmarking
+ * or deep-linking a specific view keeps working exactly as before.
+ */
+describe('/funnel defaults to the shared Topbar cookie when no ?business= param is present', () => {
+  const page = read('app/funnel/page.tsx');
+
+  test('reads the shared cookie via lib/business-filter(-server)', () => {
+    expect(page).toMatch(/import\s*\{\s*resolveBusinessFilter\s*\}\s*from\s*'@\/lib\/business-filter'/);
+    expect(page).toMatch(/import\s*\{\s*readBusinessFilterCookie\s*\}\s*from\s*'@\/lib\/business-filter-server'/);
+    expect(page).toMatch(/resolveBusinessFilter\(readBusinessFilterCookie\(\)\)/);
+  });
+
+  test('falls back to the cookie only when ?business= is absent, never overriding an explicit param', () => {
+    expect(page).toMatch(/businessParam\s*===\s*undefined\s*&&\s*cookieFilter\s*!==\s*'all'\s*\?\s*cookieFilter/);
+  });
+});

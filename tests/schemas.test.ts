@@ -7,6 +7,8 @@ import {
   PhaseSchema,
   RoadmapItemSchema,
   ToolSchema,
+  WorkflowBusinessSchema,
+  WorkflowSchema,
 } from '@/lib/schemas';
 
 describe('AgentSchema', () => {
@@ -148,5 +150,45 @@ describe('PhaseSchema', () => {
       items: ['Agent org chart', 'Seeded data layer'],
     };
     expect(PhaseSchema.parse(phase)).toEqual(phase);
+  });
+});
+
+// 2026-08-21 fix: /workflows had no business dimension at all — a workflow
+// couldn't be tagged AAC vs Apps vs shared, so the page had nothing to scope
+// against the Topbar's business switcher. WorkflowBusinessSchema adds that
+// dimension (with 'shared' for a cross-cutting process, unlike the funnel's
+// per-journey business tag which only ever needs aac/apps).
+describe('WorkflowBusinessSchema', () => {
+  test('accepts aac, apps, and shared', () => {
+    expect(WorkflowBusinessSchema.parse('aac')).toBe('aac');
+    expect(WorkflowBusinessSchema.parse('apps')).toBe('apps');
+    expect(WorkflowBusinessSchema.parse('shared')).toBe('shared');
+  });
+
+  test('rejects anything else', () => {
+    expect(() => WorkflowBusinessSchema.parse('all')).toThrow();
+    expect(() => WorkflowBusinessSchema.parse('vantage')).toThrow();
+  });
+});
+
+describe('WorkflowSchema', () => {
+  const base = {
+    id: 'w-1',
+    name: 'Test workflow',
+    subtitle: '',
+    revenueUsd: 0,
+    order: 0,
+    steps: [],
+  };
+
+  test('requires a business tag — aac, apps, or shared', () => {
+    expect(WorkflowSchema.parse({ ...base, business: 'aac' })).toMatchObject({ business: 'aac' });
+    expect(WorkflowSchema.parse({ ...base, business: 'apps' })).toMatchObject({ business: 'apps' });
+    expect(WorkflowSchema.parse({ ...base, business: 'shared' })).toMatchObject({ business: 'shared' });
+  });
+
+  test('rejects a missing or invalid business tag', () => {
+    expect(() => WorkflowSchema.parse(base)).toThrow();
+    expect(() => WorkflowSchema.parse({ ...base, business: 'bogus' })).toThrow();
   });
 });

@@ -1,4 +1,7 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { openLedger, type Ledger } from '@/lib/ledger';
 import type { LedgerRow } from '@/lib/statements';
 
@@ -47,5 +50,35 @@ describe('ledger store', () => {
       { category: 'Advertising', total: 50 },
       { category: 'Infrastructure', total: 20 }, // May's 10 excluded
     ]);
+  });
+});
+
+describe('LEDGER_DB env var (Railway persistent-volume fix)', () => {
+  // The ledger's default path used to resolve unconditionally under
+  // process.cwd()/data — invisible on Railway's ephemeral container
+  // filesystem, so every uploaded bank/CC statement vanished on the next
+  // redeploy. It already reads process.env.LEDGER_DB the same way
+  // lib/data.ts's getDb() reads FOUNDER_OS_DB; this pins that down so it
+  // can't silently regress. DEFAULT_PATH is computed once at module load,
+  // so the env var must be set BEFORE the fresh import below.
+  it('openLedger() with no argument honors LEDGER_DB when set', async () => {
+    const prev = process.env.LEDGER_DB;
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ledger-env-'));
+    const file = path.join(dir, 'custom-ledger.db');
+    process.env.LEDGER_DB = file;
+    vi.resetModules();
+    let led2: Ledger | undefined;
+    try {
+      const fresh = await import('@/lib/ledger');
+      led2 = fresh.openLedger();
+      led2.insertRows([ROWS[0]]);
+      expect(fs.existsSync(file)).toBe(true);
+    } finally {
+      led2?.close();
+      if (prev === undefined) delete process.env.LEDGER_DB;
+      else process.env.LEDGER_DB = prev;
+      vi.resetModules();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

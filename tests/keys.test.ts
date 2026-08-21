@@ -39,6 +39,17 @@ describe('KEY_SLOTS', () => {
     expect(vars).not.toContain('CAL_1_PASS');
     expect(KEY_SLOTS.some((s) => s.group === 'Calendar')).toBe(false);
   });
+
+  // Bug: .env.example documented NTFY_TOPIC/NTFY_URL as real, working
+  // Chief-of-Staff push config (lib/chief-of-staff.ts's sendNtfyPush reads
+  // both), but neither var had a KEY_SLOTS entry — so /integrations gave
+  // Sean no way to see or edit them himself; only someone SSHed into
+  // Railway could set them.
+  test('lists NTFY_TOPIC and NTFY_URL so Sean can see/edit them on /integrations', () => {
+    const vars = KEY_SLOTS.map((s) => s.envVar);
+    expect(vars).toContain('NTFY_TOPIC');
+    expect(vars).toContain('NTFY_URL');
+  });
 });
 
 describe('listKeyStatuses', () => {

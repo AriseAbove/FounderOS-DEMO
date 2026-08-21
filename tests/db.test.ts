@@ -1,4 +1,8 @@
 import { afterEach, describe, expect, test } from 'vitest';
+import Database from 'better-sqlite3';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { openDb, BUSY_TIMEOUT_MS, type FounderDb } from '@/lib/db';
 
 let db: FounderDb;
@@ -124,5 +128,53 @@ describe('openDb', () => {
     };
     db.domains.insert(domain);
     expect(db.domains.all()).toEqual([domain]);
+  });
+
+  // 2026-08-21 fix: /workflows had no business dimension at all — every
+  // workflow now carries an aac/apps/shared tag so the page can scope its
+  // display to the Topbar's business switcher the same way /org and /funnel
+  // already do.
+  test('round-trips a workflow including its new business tag', () => {
+    db = openDb(':memory:');
+    const workflow = {
+      id: 'w-aac-1',
+      name: 'AAC lead intake',
+      subtitle: '',
+      revenueUsd: 0,
+      order: 0,
+      steps: [],
+      business: 'aac' as const,
+    };
+    db.workflows.insert(workflow);
+    expect(db.workflows.all()).toEqual([workflow]);
+  });
+
+  test('a workflows table created before the business column exists migrates rows to the honest "shared" default', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'founder-os-workflows-migration-'));
+    const file = join(dir, 'test.db');
+    try {
+      // Simulate a pre-fix on-disk DB: the old workflows table, no `business`
+      // column, one real row already in it.
+      const raw = new Database(file);
+      raw.exec(`CREATE TABLE workflows (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        subtitle TEXT NOT NULL DEFAULT '',
+        revenue_usd INTEGER NOT NULL DEFAULT 0,
+        ord INTEGER NOT NULL DEFAULT 0,
+        steps TEXT NOT NULL DEFAULT '[]'
+      )`);
+      raw
+        .prepare('INSERT INTO workflows (id, name, subtitle, revenue_usd, ord, steps) VALUES (?, ?, ?, ?, ?, ?)')
+        .run('w-old', 'Pre-migration workflow', '', 0, 0, '[]');
+      raw.close();
+
+      db = openDb(file);
+      expect(db.workflows.all()).toEqual([
+        { id: 'w-old', name: 'Pre-migration workflow', subtitle: '', revenueUsd: 0, order: 0, steps: [], business: 'shared' },
+      ]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

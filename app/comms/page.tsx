@@ -32,14 +32,23 @@ export default async function CommsPage() {
   const nowISO = new Date().toISOString();
   const sources = [email, calendar];
   const connectedSources = sources.filter((s) => s.state === 'connected').length;
-  const totalUnread = feed.reduce((sum, item) => sum + (item.unread ?? 0), 0);
+  // The real, unbounded mailbox unread count — straight from IMAP's STATUS
+  // (UNSEEN) per configured inbox (lib/connectors/email.ts's unreadCounts),
+  // same number /integrations shows on the Gmail tile. NOT the same as
+  // "unread among the feed" below: gatherCommsFeed() only fetches the 15
+  // most-recent envelopes per inbox for the live feed UI, so summing that
+  // list's unread flags silently under-counts by orders of magnitude
+  // whenever the real backlog is bigger than the feed's fetch cap. Every
+  // "unread" figure on this page reads from this one real number so they
+  // can never disagree with each other or with /integrations again.
+  const totalUnread = typeof email.meta?.unread === 'number' ? email.meta.unread : 0;
 
   return (
     <div>
       <PageHeader
         eyebrow="unified inbox"
         title="Comms"
-        right={<Badge tone="accent">{totalUnread} unread</Badge>}
+        right={<Badge tone="accent">{totalUnread.toLocaleString()} unread</Badge>}
       />
 
       {/* Source status row */}
@@ -72,10 +81,26 @@ export default async function CommsPage() {
       </section>
 
       {/* Swappable front: messaging feed (default) ↔ 7-day meetings calendar */}
-      <CommsTabs feed={feed} tags={tags} events={weekEvents} accounts={calLegend} nowISO={nowISO} workKeywords={workKeywords} />
+      <CommsTabs
+        feed={feed}
+        tags={tags}
+        events={weekEvents}
+        accounts={calLegend}
+        nowISO={nowISO}
+        workKeywords={workKeywords}
+        totalUnread={totalUnread}
+      />
 
+      {/* Real configured-inbox count, not a hardcoded "4" — this used to say
+          "4 IMAP inboxes" unconditionally (the slot capacity, not what's
+          actually wired up) while the Sources card above it, a few hundred
+          pixels up, already computed the true number honestly. Production
+          today has exactly 1 of the 4 slots filled (INBOX_1 only — see
+          tests/connectors.test.ts), so the two would read "1 inbox" and
+          "4 IMAP inboxes" on the same page. */}
       <p className="mt-4 rounded-md-t border border-dashed border-os-border-strong px-3 py-3 text-center font-mono text-[10.5px] text-os-dim">
-        4 IMAP inboxes · calendar via CalDAV — one operator feed
+        {email.meta?.configured ?? 0} of {email.meta?.slots ?? 4} IMAP inbox slots configured · calendar via CalDAV —
+        one operator feed
       </p>
     </div>
   );
